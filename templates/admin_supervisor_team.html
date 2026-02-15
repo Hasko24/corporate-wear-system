@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+.team-wrapper {
+    max-width: 900px;
+    margin: 40px auto;
+}
+
+.card {
+    background: white;
+    padding: 30px;
+    border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    border-top: 6px solid #D40511;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 14px;
+    border-bottom: 1px solid #eee;
+}
+
+th {
+    background: #f7f7f7;
+    text-align: left;
+}
+</style>
+
+<div class="team-wrapper">
+
+    <h2 style="color:#D40511;">
+        Team of {{ supervisor.full_name }}
+    </h2>
+
+    <div class="card">
+
+        {% if workers %}
+        <table>
+            <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Job Role</th>
+            </tr>
+
+            {% for worker in workers %}
+            <tr>
+                <td>{{ worker.full_name }}</td>
+                <td>{{ worker.email }}</td>
+                <td>{{ worker.job_role or '-' }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+            <p>No workers assigned to this supervisor.</p>
+        {% endif %}
+
+    </div>
+
+    <div style="margin-top:20px;">
+        <a href="{{ url_for('admin_users') }}"
+           style="color:#D40511; text-decoration:none; font-weight:600;">
+            ← Back to Users
+        </a>
+    </div>
+
+</div>
+
+{% endblock %}

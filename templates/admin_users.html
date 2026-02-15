@@ -1,0 +1,423 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+.admin-wrapper {
+    max-width: 1100px;
+    margin: 40px auto;
+    padding: 0 20px;
+}
+
+.supervisor-link {
+    color: #D40511;
+    text-decoration: none;
+    font-weight: 600;
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.supervisor-link:hover {
+    text-decoration: underline;
+    color: #a0030c;
+}
+
+.safe-btn {
+    background: #2e7d32;   /* DHL-friendly green */
+    color: white;
+}
+
+.admin-wrapper {
+    max-width: 1100px;
+    margin: 40px auto;
+    padding: 0 20px;
+    background: #f6f7f9;
+    border-radius: 20px;
+}
+
+.safe-btn:hover {
+    background: #256428;
+}
+
+.section-title {
+    color: #D40511;
+    margin-bottom: 15px;
+}
+
+.card {
+    background: #ffffff;
+    padding: 40px;
+    border-radius: 16px;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.06);
+    animation: cardFade 0.4s ease forwards;
+}
+
+@keyframes cardFade {
+    from {
+        opacity: 0;
+        transform: translateY(15px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.form-group {
+    opacity: 0;
+    transform: translateY(10px);
+    animation: fieldFade 0.4s ease forwards;
+}
+
+.form-group:nth-child(1) { animation-delay: 0.05s; }
+.form-group:nth-child(2) { animation-delay: 0.1s; }
+.form-group:nth-child(3) { animation-delay: 0.15s; }
+.form-group:nth-child(4) { animation-delay: 0.2s; }
+.form-group:nth-child(5) { animation-delay: 0.25s; }
+.form-group:nth-child(6) { animation-delay: 0.3s; }
+
+@keyframes fieldFade {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+
+.form-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group label {
+    font-weight: 600;
+    margin-bottom: 8px;
+    font-size: 13px;
+    color: #444;
+}
+
+.form-group input,
+.form-group select {
+    padding: 12px 14px;
+    border-radius: 8px;
+    border: 1px solid #e1e4e8;
+    background: #ffffff;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: #D40511;
+    box-shadow: 0 0 0 3px rgba(212,5,17,0.08);
+}
+
+.submit-btn {
+    margin-top: 30px;
+    padding: 12px 24px;
+    background: #D40511;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    width: 180px;
+}
+
+.delete-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 3000;
+}
+
+.delete-box {
+    background: white;
+    padding: 30px;
+    border-radius: 14px;
+    width: 380px;
+    text-align: center;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.3);
+}
+
+.submit-btn:hover {
+    opacity: 0.9;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 14px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+}
+
+.page {
+    display: flex;
+    justify-content: center;
+    margin-top: 40px;
+}
+
+.card h2 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: #D40511;
+    text-align: center;
+}
+
+label {
+    display: block;
+    margin-top: 15px;
+    font-size: 14px;
+    font-weight: bold;
+    color: #333;
+}
+
+input, select {
+    width: 100%;
+    padding: 10px;
+    margin-top: 6px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    font-size: 14px;
+}
+
+button {
+    width: 100%;
+    margin-top: 25px;
+    padding: 12px;
+    background-color: #D40511;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 15px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #b4040f;
+}
+
+th {
+    background: #f7f7f7;
+    font-weight: bold;
+}
+
+.user-delete-modal {
+    position: fixed;
+    top: 100px;
+    right: 100px;
+    display: none;
+    z-index: 3000;
+}
+
+.user-delete-modal .delete-box {
+    background: white;
+    padding: 25px;
+    border-radius: 14px;
+    width: 320px;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.2);
+}
+
+</style>
+
+<div class="admin-wrapper">
+
+    <!-- CREATE USER SECTION -->
+    <h2 class="section-title">Create User</h2>
+
+    <div class="card">
+        <form method="POST" action="{{ url_for('create_user') }}">
+
+        <div class="form-grid">
+
+            <div class="form-group">
+                <label>Full Name</label>
+                <input type="text" name="full_name" required>
+            </div>
+
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" name="email" required>
+            </div>
+
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" name="password" required>
+            </div>
+
+            <div class="form-group">
+                <label>System Role</label>
+                <select name="system_role" id="systemRoleSelect" required>
+                    <option value="worker">Worker</option>
+                    <option value="supervisor">Supervisor</option>
+                    <option value="packer">Packer</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Job Role</label>
+                <select name="job_role_id" required>
+                    {% for role in job_roles %}
+                        {% if role.name != 'Everyone' %}
+                            <option value="{{ role.id }}">{{ role.name }}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group" id="supervisorGroup">
+                <label>Supervisor</label>
+                <select name="supervisor_id">
+                    <option value="">None</option>
+                    {% for supervisor in supervisors %}
+                        <option value="{{ supervisor.id }}">{{ supervisor.full_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+        </div>
+
+
+            <div style="margin-top: 20px;">
+                <button type="submit" class="submit-btn">Create User</button>
+            </div>
+
+        </form>
+    </div>
+
+
+    <!-- EXISTING USERS -->
+    <h2 class="section-title">Existing Users</h2>
+
+    <div class="card">
+        <table>
+            <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>System Role</th>
+                <th>Job Role</th>
+                <th>Supervisor</th>
+
+                <th></th>
+            </tr>
+
+            {% for user in users %}
+            <tr>
+                <td>{{ user.full_name }}</td>
+                <td>{{ user.email }}</td>
+                <td>{{ user.system_role }}</td>
+                <td>{{ user.job_role or '-' }}</td>
+               <td>
+                    {% if user.system_role == 'worker' and user.supervisor_name %}
+                        <a href="{{ url_for('admin_view_supervisor_team', supervisor_id=user.supervisor_id) }}"
+                        class="supervisor-link">
+                            {{ user.supervisor_name }}
+                        </a>
+                    {% elif user.system_role == 'worker' %}
+                        <span style="color:#999;">Unassigned</span>
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+
+                <td>
+                    {% if user.id != session.user_id %}
+                    <form method="POST"
+                          action="{{ url_for('delete_user', user_id=user.id) }}">
+                        <button type="button"
+                                onclick="openUserDeleteModal(this.form)"
+                                class="remove-btn">
+                            Delete
+                        </button>
+                    </form>
+                    {% else %}
+                        <em>Your account</em>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+
+<div id="userDeleteModal" class="user-delete-modal">
+    <div class="delete-box">
+        <h3>Confirm Deletion</h3>
+        <p>Are you sure you want to delete this user?</p>
+        <div class="modal-actions">
+            <button onclick="closeUserDeleteModal()" class="safe-btn">Cancel</button>
+            <button id="confirmUserDeleteBtn" class="danger-btn">Delete</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let userFormToSubmit = null;
+
+function openUserDeleteModal(form) {
+    userFormToSubmit = form;
+    document.getElementById("userDeleteModal").style.display = "flex";
+}
+
+function closeUserDeleteModal() {
+    document.getElementById("userDeleteModal").style.display = "none";
+}
+
+document.getElementById("confirmUserDeleteBtn").addEventListener("click", function() {
+    if (userFormToSubmit) {
+        userFormToSubmit.submit();
+    }
+});
+</script>
+
+<script>
+const roleSelect = document.getElementById("systemRoleSelect");
+const supervisorGroup = document.getElementById("supervisorGroup");
+
+const jobRoleGroup = document.querySelector("select[name='job_role_id']").closest(".form-group");
+
+function toggleFields() {
+
+    const supervisorSelect = supervisorGroup.querySelector("select");
+    const jobRoleSelect = jobRoleGroup.querySelector("select");
+
+    if (roleSelect.value === "worker") {
+        supervisorGroup.style.display = "flex";
+        supervisorSelect.setAttribute("required", "required");
+    } else {
+        supervisorGroup.style.display = "none";
+        supervisorSelect.removeAttribute("required");
+    }
+
+    if (roleSelect.value === "packer") {
+        jobRoleGroup.style.display = "none";
+        jobRoleSelect.removeAttribute("required");
+    } else {
+        jobRoleGroup.style.display = "flex";
+        jobRoleSelect.setAttribute("required", "required");
+    }
+}
+
+roleSelect.addEventListener("change", toggleFields);
+toggleFields();
+
+roleSelect.addEventListener("change", toggleSupervisor);
+
+// Run on page load
+toggleSupervisor();
+</script>
+
+{% endblock %}

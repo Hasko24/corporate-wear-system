@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card">
+    <h2>Orders</h2>
+
+    <table>
+        <tr>
+            <th>Product</th>
+            <th>Size</th>
+            <th>User</th>
+            <th>Status</th>
+            <th>Packed By</th>
+            <th>Actions</th>
+        </tr>
+
+        {% for order in orders %}
+        <tr>
+            <td>{{ order.product_name }}</td>
+            <td>{{ order.size_name }}</td>
+            <td>{{ order.user_name }}</td>
+
+            <td>
+                {% if order.status == "approved" %}
+                    <span style="color:#2e7d32; font-weight:bold;">Approved</span>
+                {% elif order.status == "rejected" %}
+                    <span style="color:#D40511; font-weight:bold;">Rejected</span>
+                {% elif order.status == "packed" %}
+                    <span style="color:#1565c0; font-weight:bold;">Packed</span>
+                {% elif order.status == "sent" %}
+                    <span style="color:#555;">Sent</span>
+                {% else %}
+                    <span style="color:#999;">{{ order.status }}</span>
+                {% endif %}
+            </td>
+
+            <td>{{ order.packed_by_name or '-' }}</td>
+
+            <td>
+
+                {% if session.system_role == "admin" and order.status == "pending_admin" %}
+                <div style="display:flex; gap:8px;">
+                    <form method="POST" action="{{ url_for('approve_order', order_id=order.id) }}">
+                        <button style="background:#2e7d32;">Approve</button>
+                    </form>
+
+                    <form method="POST" action="{{ url_for('reject_order', order_id=order.id) }}">
+                        <button style="background:#D40511;">Reject</button>
+                    </form>
+                </div>
+                {% endif %}
+
+                {% if session.system_role == 'supervisor' and order.status == 'pending_approval' %}
+                <div style="display:flex; gap:8px;">
+                    <form method="POST" action="/approve-order/{{ order.id }}">
+                        <button style="background:#2e7d32;">Approve</button>
+                    </form>
+
+                    <form method="POST" action="/reject-order/{{ order.id }}">
+                        <button style="background:#D40511;">Reject</button>
+                    </form>
+                </div>
+                {% endif %}
+
+                {% if session.system_role == 'packer' and order.status == 'approved' %}
+                <form method="POST" action="/pack-order/{{ order.id }}">
+                    <button style="background:#1565c0;">Mark as Packed</button>
+                </form>
+                {% endif %}
+
+                {% if session.system_role == 'packer' and order.status == 'packed' %}
+                <div style="display:flex; gap:8px;">
+                    <form method="POST" action="/send-order/{{ order.id }}">
+                        <button style="background:#2e7d32;">Mark as Sent</button>
+                    </form>
+
+                    <form method="POST" action="/undo-pack/{{ order.id }}">
+                        <button style="background:#999;">Undo</button>
+                    </form>
+                </div>
+                {% endif %}
+
+            </td>
+
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+
+{% endblock %}

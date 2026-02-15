@@ -1,0 +1,776 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+
+.container {
+    width: 100%;
+    padding: 40px 80px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 40px;
+    box-sizing: border-box;
+}
+
+    .product {
+    background: white;
+    padding: 18px;
+    border-radius: 14px;
+
+    border: 1px solid #e4e6ea;      /* clean subtle border */
+    box-shadow: 0 4px 14px rgba(0,0,0,0.05);
+
+    transition: 
+        transform 0.15s ease,
+        box-shadow 0.15s ease,
+        border-color 0.15s ease;
+    }
+
+    .product:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+    border-color: #d0d3d8;
+    }
+
+body {
+    background: #f5f6f8;
+}
+
+#stockModal input[type="number"] {
+    width: 80px;
+    height: 38px;
+    padding: 0;
+    text-align: center;
+    font-size: 15px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.image-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.modal-box {
+    display: flex;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 40px 100px rgba(0,0,0,0.4);
+    max-width: 90vw;
+    max-height: 85vh;
+    overflow: hidden;
+}
+
+.modal-left {
+    background: #f5f6f8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 30px;
+}
+
+.modal-left img {
+    max-width: 500px;
+    max-height: 70vh;
+    object-fit: contain;
+}
+
+.modal-right {
+    padding: 35px;
+    max-width: 400px;
+    overflow-y: auto;
+}
+
+.modal-box {
+    animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from { transform: scale(0.95); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 28px;
+    cursor: pointer;
+    color: #666;
+}
+
+.modal-close:hover {
+    color: #D40511;
+}
+
+#modalArticle {
+    font-weight: bold;
+    margin-top: 10px;
+    color: #555;
+}
+
+#modalDescription {
+    margin-top: 20px;
+    line-height: 1.5;
+}
+
+#modalStock {
+    margin-top: 30px;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.image-wrapper {
+    height: 220px;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.product-image {
+    max-height: 100%;
+    max-width: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+#product-grid {
+    transition: opacity 0.15s ease;
+}
+
+/* Remove number input arrows (Chrome, Edge) */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+#stockModal input[type="number"] {
+    width: 80px;
+    padding: 8px;
+    text-align: center;
+    font-size: 15px;
+}
+
+.image-wrapper img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    border-radius: 12px;
+    transition: transform 0.3s ease;
+}
+
+.image-wrapper:hover img {
+    transform: scale(1.05);
+}
+
+.product-preview {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 40px 100px rgba(0,0,0,0.4);
+    padding: 35px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 5000;
+}
+
+.image-wrapper:hover .product-preview {
+    opacity: 1;
+}
+
+.image-wrapper:hover {
+    transform: scale(1.02);
+    transition: transform 0.2s ease;
+}
+
+body.preview-active::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    backdrop-filter: blur(4px);
+    z-index: 1500;
+}
+
+.stock-editor {
+    display: none;
+    margin-top: 15px;
+    background: #f4f4f4;
+    padding: 20px;
+    border-radius: 10px;
+    border: 1px solid #e0e0e0;
+}
+
+.stock-editor input {
+    width: 70px;
+    padding: 6px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+}
+
+.preview-image {
+    width: 100%;
+    max-height: 320px;
+    object-fit: contain;
+    margin-bottom: 15px;
+}
+
+.preview-content h4 {
+    color: #D40511;
+    margin-bottom: 10px;
+}
+
+.order-box {
+    margin-top: 12px;
+}
+
+.size-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.size-select {
+    flex: 1;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    font-size: 14px;
+    background: #fff;
+}
+
+.order-btn {
+    padding: 8px 16px;
+    background: #D40511;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.preview-content p {
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+/* STOCK SECTION */
+.admin-stock {
+    margin-top: 10px;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+.add-stock-trigger {
+    margin-top: 12px;
+    width: 100%;
+    padding: 8px;
+    background: #2e7d32;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.add-stock-trigger:hover {
+    opacity: 0.9;
+}
+
+/* STOCK EDITOR */
+.stock-editor {
+    display: none;
+    margin-top: 15px;
+    background: #f8f8f8;
+    padding: 15px;
+    border-radius: 8px;
+}
+
+.stock-editor table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 12px;
+}
+
+.stock-editor th,
+.stock-editor td {
+    padding: 6px;
+    font-size: 13px;
+    border-bottom: 1px solid #ddd;
+    text-align: center;
+}
+
+.stock-editor input {
+    width: 60px;
+    padding: 4px;
+    text-align: center;
+}
+
+.save-stock-btn {
+    width: 100%;
+    padding: 8px;
+    background: #D40511;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.delete-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 3000;
+}
+
+.delete-box {
+    background: white;
+    padding: 30px;
+    border-radius: 14px;
+    width: 380px;
+    text-align: center;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.3);
+}
+
+.modal-actions {
+    margin-top: 20px;
+    display: flex;
+    gap: 10px;
+}
+
+.modal-actions button {
+    flex: 1;
+    padding: 10px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.danger-btn {
+    background: #D40511;
+    color: white;
+}
+
+.safe-btn {
+    background: #2e7d32;   /* DHL-friendly green */
+    color: white;
+}
+
+.safe-btn:hover {
+    background: #256428;
+}
+
+.remove-btn {
+    margin-top: 8px;
+    width: 100%;
+    padding: 8px;
+    background: #999;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.card {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.05);
+}
+
+
+.role-filter select {
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    background: white;
+    font-size: 14px;
+    font-weight: 600;
+    min-width: 220px;
+    cursor: pointer;
+}
+
+.role-filter select:focus {
+    border-color: #D40511;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(212,5,17,0.1);
+}
+
+</style>
+
+<!-- ADMIN FILTER -->
+{% if session.system_role == "admin" %}
+<div class="card">
+    <form method="GET" class="role-filter">
+        <label><strong>Filter by Job Role:</strong></label>
+        <select name="role" id="roleFilter">
+            <option value="">All</option>
+            {% for role in job_roles %}
+                <option value="{{ role.id }}"
+                    {% if selected_role == role.id|string %}selected{% endif %}>
+                    {{ role.name }}
+                </option>
+            {% endfor %}
+        </select>
+    </form>
+</div>
+{% endif %}
+
+<!-- FLASH MESSAGES -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+      <div class="flash {{ category }}">
+        {{ message }}
+      </div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
+<!-- PRODUCT GRID -->
+<div class="container" id="productContainer">
+{% for product in products %}
+    <div class="product">
+
+        <div class="image-wrapper">
+            <img
+                src="{{ url_for('static', filename='uploads/' ~ (product.image or 'placeholder.png')) }}"
+                class="product-image"
+                alt="{{ product.name or 'No image available' }}"
+                data-name="{{ product.name }}"
+                data-description="{{ product.description or '' }}"
+                data-article="{{ product.article_number }}"
+                data-sizes='{{ product.sizes | tojson | safe }}'>
+        </div>
+
+        <strong>{{ product.name }}</strong><br>
+        Article #: {{ product.article_number }}<br>
+        Type: {{ product.type }}
+
+        {% if session.system_role in ['worker', 'supervisor'] %}
+        <div class="order-box">
+            <form method="POST" action="{{ url_for('order_product') }}">
+                <div class="size-row">
+
+                    {% if product.sizes|length > 1 %}
+                        <select name="product_size_id" required class="size-select">
+                            <option value="">Select size</option>
+                            {% for size in product.sizes %}
+                                {% if size.stock > 0 %}
+                                    <option value="{{ size.id }}">
+                                        {{ size.size }}
+                                    </option>
+                                {% else %}
+                                    <option disabled>
+                                        {{ size.size }} (Out of stock)
+                                    </option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    {% else %}
+                        <input type="hidden"
+                            name="product_size_id"
+                            value="{{ product.sizes[0].id }}">
+                    {% endif %}
+
+                    <button type="submit" class="order-btn">
+                        Order
+                    </button>
+
+                </div>
+
+            </form>
+        </div>
+        {% endif %}
+
+        {% if session.system_role == 'admin' %}
+            <button
+                class="add-stock-trigger"
+                data-product-id="{{ product.id }}"
+                data-product-name="{{ product.name }}"
+                data-sizes='{{ product.sizes | tojson | safe }}'
+                onclick="handleStockClick(this)">
+                Add Stock
+            </button>
+
+            <form method="POST"
+                action="/delete-product/{{ product.id }}"
+                class="delete-form">
+                <button type="button"
+                        onclick="openModal(this.form)"
+                        class="remove-btn">
+                    Remove
+                </button>
+            </form>
+
+        {% endif %}
+
+    </div>
+{% endfor %}
+</div>
+
+<div id="deleteModal" class="delete-modal">
+    <div class="delete-box">
+        <h3>Confirm Deletion</h3>
+        <p>Are you sure you want to delete this item?</p>
+        <div class="modal-actions">
+            <button onclick="closeModal()" class="safe-btn">Cancel</button>
+            <button id="confirmDeleteBtn" class="danger-btn">Delete</button>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleStock(button) {
+    const productId = button.dataset.productId;
+    const editor = document.getElementById("stock-" + productId);
+
+    document.querySelectorAll(".stock-editor").forEach(panel => {
+        if (panel !== editor) {
+            panel.style.display = "none";
+        }
+    });
+
+    editor.style.display =
+        editor.style.display === "block" ? "none" : "block";
+}
+
+</script>
+
+<script>
+let formToSubmit = null;
+
+function openModal(form) {
+    formToSubmit = form;
+    document.getElementById("deleteModal").style.display = "flex";
+}
+
+function closeModal() {
+    document.getElementById("deleteModal").style.display = "none";
+}
+
+document.getElementById("confirmDeleteBtn").addEventListener("click", function() {
+    if (formToSubmit) {
+        formToSubmit.submit();
+    }
+});
+</script>
+
+
+<div id="imageModal" class="image-modal">
+    <div class="modal-box">
+        <div class="modal-left">
+            <img id="modalImage">
+        </div>
+
+        <div class="modal-right">
+            <div class="modal-header">
+                <h2 id="modalTitle"></h2>
+                <button class="modal-close" onclick="closeImage()">×</button>
+            </div>
+
+            <p id="modalArticle"></p>
+            <p id="modalDescription"></p>
+
+            <div id="modalStock"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+function openImage(src) {
+    const modal = document.getElementById("imageModal");
+    const img = document.getElementById("modalImage");
+    img.src = src;
+    modal.style.display = "flex";
+}
+
+function closeImage() {
+    document.getElementById("imageModal").style.display = "none";
+}
+
+// Close when clicking outside the image
+document.getElementById("imageModal").addEventListener("click", function(e) {
+    if (e.target === this) {
+        closeImage();
+    }
+});
+
+// Close with ESC
+document.addEventListener("keydown", function(e) {
+    if (e.key === "Escape") {
+        closeImage();
+    }
+});
+</script>
+
+<script>
+document.querySelectorAll(".image-wrapper").forEach(wrapper => {
+    wrapper.addEventListener("click", function() {
+
+        const img = wrapper.querySelector(".product-image");
+
+        const src = img.src;
+        const name = img.dataset.name;
+        const description = img.dataset.description || "No description available.";
+        const article = img.dataset.article;
+        const sizes = JSON.parse(img.dataset.sizes);
+
+        document.getElementById("modalImage").src = src;
+        document.getElementById("modalTitle").innerText = name;
+        document.getElementById("modalArticle").innerText = "Article #: " + article;
+        document.getElementById("modalDescription").innerText = description;
+
+        let stockHTML = "";
+
+        if ("{{ session.system_role }}" === "admin") {
+            stockHTML = "<strong>Current Stock:</strong><br>";
+            sizes.forEach(size => {
+                stockHTML += size.size + ": " + size.stock + "<br>";
+            });
+        }
+
+        document.getElementById("modalStock").innerHTML = stockHTML;
+        document.getElementById("imageModal").style.display = "flex";
+    });
+});
+
+function closeImage() {
+    document.getElementById("imageModal").style.display = "none";
+}
+
+document.getElementById("imageModal").addEventListener("click", function(e) {
+    if (e.target === this) {
+        closeImage();
+    }
+});
+
+document.addEventListener("keydown", function(e) {
+    if (e.key === "Escape") {
+        closeImage();
+    }
+});
+</script>
+
+<script>
+function handleStockClick(button) {
+
+    const productId = button.dataset.productId;
+    const name = button.dataset.productName;
+    const sizes = JSON.parse(button.dataset.sizes);
+
+    openStockModal(productId, sizes, name);
+}
+
+function openStockModal(productId, sizes, name) {
+
+    const modal = document.getElementById("stockModal");
+    const table = document.getElementById("stockTable");
+    const form = document.getElementById("stockForm");
+
+    document.getElementById("stockModalTitle").innerText =
+        "Edit Stock — " + name;
+
+    form.action = "/update-stock/" + productId;
+
+    table.innerHTML = `
+        <tr>
+            <th>Size</th>
+            <th>Current</th>
+            <th>Add</th>
+        </tr>
+    `;
+
+    sizes.forEach(size => {
+        table.innerHTML += `
+        <tr>
+            <td>${size.size}</td>
+            <td>${size.stock}</td>
+            <td>
+                    <div style="display:flex; justify-content:center;">
+                    <button type="button"
+                            onclick="this.nextElementSibling.stepDown()">−</button>
+
+                    <input type="number"
+                        name="size_${size.id}"
+                        min="0"
+                        value="0"
+                        style="width:80px; text-align:center; display:block; margin:0 auto;">
+
+                    <button type="button"
+                            onclick="this.previousElementSibling.stepUp()">+</button>
+                </div>
+            </td>
+        </tr>
+        `;
+    });
+
+    modal.style.display = "flex";
+}
+
+function closeStockModal() {
+    document.getElementById("stockModal").style.display = "none";
+}
+
+</script>
+
+<div id="stockModal" class="delete-modal">
+    <div class="delete-box" style="width:500px; max-height:80vh; overflow-y:auto;">
+        <h3 id="stockModalTitle">Edit Stock</h3>
+
+        <form id="stockForm" method="POST">
+            <table id="stockTable">
+                <tr>
+                    <th>Size</th>
+                    <th>Current</th>
+                    <th>Add</th>
+                </tr>
+            </table>
+
+            <div class="modal-actions">
+                <button type="button" onclick="closeStockModal()" class="safe-btn">
+                    Cancel
+                </button>
+                <button type="submit" class="danger-btn">
+                    Save
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.getElementById("roleFilter").addEventListener("change", function() {
+    this.form.submit();
+});
+</script>
+
+{% endblock %}

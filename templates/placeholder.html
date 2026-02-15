@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+.placeholder-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 60vh;
+}
+
+.placeholder-card {
+    background: white;
+    padding: 50px;
+    border-radius: 16px;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.08);
+    text-align: center;
+    max-width: 500px;
+}
+
+.placeholder-card h2 {
+    color: #D40511;
+    margin-bottom: 15px;
+}
+
+.placeholder-card p {
+    color: #555;
+    font-size: 16px;
+    margin-bottom: 25px;
+}
+
+.placeholder-card a {
+    display: inline-block;
+    padding: 10px 20px;
+    background: #D40511;
+    color: white;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: bold;
+}
+
+.placeholder-card a:hover {
+    opacity: 0.9;
+}
+</style>
+
+<div class="placeholder-container">
+    <div class="placeholder-card">
+        <h2>{{ title }}</h2>
+        <p>{{ message }}</p>
+        <a href="{{ url_for('shop') }}">Back to Shop</a>
+    </div>
+</div>
+
+{% endblock %}

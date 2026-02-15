@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1>Order placed successfully</h1>
+
+<p><strong>Product:</strong> {{ product.name }}</p>
+<p><strong>Remaining stock:</strong> {{ product.stock }}</p>
+
+<a href="{{ url_for('shop') }}">Back to catalog</a>
+
+{% endblock %}
