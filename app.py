@@ -2,6 +2,7 @@ import os
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 import mysql.connector
 from flask import session
+from flask import send_from_directory
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev_secret")
@@ -16,6 +17,10 @@ db = mysql.connector.connect(
     database=os.environ.get("DB_NAME"),
     port=int(os.environ.get("DB_PORT", 3306))
 )
+
+@app.route('/static/<path:filename>')
+def custom_static(filename):
+    return send_from_directory('static', filename)
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
