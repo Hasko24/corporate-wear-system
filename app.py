@@ -55,7 +55,7 @@ def logout():
 
 @app.route("/")
 def home():
-    return "Corporate Wear System is running"
+    return redirect(url_for("login"))
 
 @app.route("/products")
 def get_products():
