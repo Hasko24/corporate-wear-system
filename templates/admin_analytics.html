@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header-band">
+    <div class="header-row">
+        <div>
+            <span class="page-breadcrumb" style="color:rgba(0,0,0,.5);"><a href="{{ url_for('admin_dashboard') }}" style="color:rgba(0,0,0,.5);">Admin</a> › Analytics</span>
+            <h1>Analytics</h1>
+        </div>
+    </div>
+</div>
+
+<div class="stat-grid">
+    <div class="stat-card">
+        <div class="stat-value">{{ total_users }}</div>
+        <div class="stat-label">Total Users</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ total_orders }}</div>
+        <div class="stat-label">Completed Orders</div>
+    </div>
+    <div class="stat-card stat-card-green">
+        <div class="stat-value">{{ "%.0f"|format(revenue) }}</div>
+        <div class="stat-label">Monthly Revenue (SEK)</div>
+    </div>
+    <div class="stat-card {% if low_stock > 0 %}stat-card-red{% endif %}">
+        <div class="stat-value {% if low_stock > 0 %}text-red{% endif %}">{{ low_stock }}</div>
+        <div class="stat-label">Low Stock Items</div>
+    </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:start;">
+    <div>
+        <div class="section-label">Supervisor Spending Ranking</div>
+        <div class="data-table-wrap">
+            <table>
+                <thead><tr><th>#</th><th>Supervisor</th><th>Total (SEK)</th></tr></thead>
+                <tbody>
+                    {% for s in supervisor_ranking %}
+                    <tr>
+                        <td class="text-muted">{{ loop.index }}</td>
+                        <td class="text-bold">{{ s.full_name }}</td>
+                        <td>{{ "%.2f"|format(s.total_spent) }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="3" class="empty-state">No data yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div>
+        <div class="section-label">Top 5 Ordered Products</div>
+        <div class="data-table-wrap">
+            <table>
+                <thead><tr><th>Rank</th><th>Product</th><th>Units</th></tr></thead>
+                <tbody>
+                    {% for p in top_products %}
+                    <tr>
+                        <td class="text-muted">{{ loop.index }}</td>
+                        <td class="text-bold">{{ p.name }}</td>
+                        <td>{{ p.total_quantity }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="3" class="empty-state">No data yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

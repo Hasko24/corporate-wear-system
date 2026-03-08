@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header-band">
+    <div class="header-row">
+        <div>
+            <h1>Dashboard</h1>
+            <div class="header-sub">Welcome back</div>
+        </div>
+        <a href="{{ url_for('shop') }}" class="btn-primary">Browse Shop →</a>
+    </div>
+</div>
+
+<div class="stat-grid">
+    <div class="stat-card">
+        <div class="stat-value">{{ active_orders }}</div>
+        <div class="stat-label">Active Orders</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ team_size }}</div>
+        <div class="stat-label">Team Members</div>
+    </div>
+    {% if budget %}
+    <div class="stat-card">
+        <div class="stat-value">{{ "%.0f"|format(used) }} <span style="font-size:0.45em;font-weight:500;color:var(--text-2)">SEK</span></div>
+        <div class="stat-label">Budget Used This Month</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ "%.0f"|format(budget - used) }} <span style="font-size:0.45em;font-weight:500;color:var(--text-2)">SEK</span></div>
+        <div class="stat-label">Budget Remaining</div>
+    </div>
+    {% endif %}
+</div>
+
+{% if budget %}
+<div class="surface" style="padding:20px 24px;margin-bottom:28px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <span style="font-weight:600;font-size:0.9em;">Monthly Budget</span>
+        <span style="font-size:0.85em;color:var(--text-2);">{{ "%.0f"|format(used) }} / {{ "%.0f"|format(budget) }} SEK</span>
+    </div>
+    <div style="background:var(--border);border-radius:8px;height:10px;overflow:hidden;">
+        {% set pct = [(used / budget * 100), 100]|min %}
+        <div style="width:{{ pct }}%;height:100%;background:{% if pct > 90 %}var(--red){% elif pct > 70 %}#f59e0b{% else %}#22c55e{% endif %};border-radius:8px;transition:width .3s;"></div>
+    </div>
+</div>
+{% endif %}
+
+<div style="display:flex;gap:12px;flex-wrap:wrap;">
+    <a href="{{ url_for('view_orders') }}" class="btn-ghost">View Orders</a>
+    <a href="{{ url_for('view_team') }}" class="btn-ghost">My Team</a>
+    <a href="{{ url_for('supervisor_delegation') }}" class="btn-ghost">Delegation</a>
+</div>
+
+{% endblock %}

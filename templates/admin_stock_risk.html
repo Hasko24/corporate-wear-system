@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header-band">
+    <div class="header-row">
+        <div>
+            <span class="page-breadcrumb" style="color:rgba(0,0,0,.5);"><a href="{{ url_for('admin_dashboard') }}" style="color:rgba(0,0,0,.5);">Admin</a> › Stock Risk</span>
+            <h1>Stock Risk Monitor</h1>
+            <div class="header-sub">Items with critically low inventory levels</div>
+        </div>
+    </div>
+</div>
+
+<div class="data-table-wrap">
+    <table>
+        <thead><tr><th>Product</th><th>Size</th><th>Stock</th><th></th></tr></thead>
+        <tbody>
+            {% for item in risk_items %}
+            <tr>
+                <td class="text-bold">{{ item.name }}</td>
+                <td>{{ item.size }}</td>
+                <td><span class="stock-critical">{{ item.stock }}</span></td>
+                <td><a href="{{ url_for('admin_products') }}" class="btn btn-ghost btn-sm">Manage Stock →</a></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="empty-state">✓ All stock levels are healthy.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

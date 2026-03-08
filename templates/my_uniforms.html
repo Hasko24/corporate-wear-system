@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header-band">
+    <h1>My Uniforms</h1>
+</div>
+
+{% if uniforms|length == 0 %}
+<div class="surface" style="text-align:center;padding:60px 40px;color:var(--text-3);">
+    <p style="font-size:1.1em;font-weight:600;color:var(--text-2);margin:0 0 6px;">No uniforms recorded yet.</p>
+    <p style="margin:0;">Uniforms appear here once orders are completed.</p>
+</div>
+{% else %}
+<div class="data-table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Product</th>
+                <th>Size</th>
+                {% if session.get('system_role') == 'supervisor' %}
+                <th>Worker</th>
+                {% endif %}
+                <th>Status</th>
+                <th>Issued</th>
+                <th>Returned</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for u in uniforms %}
+            <tr>
+                <td style="font-weight:600;">{{ u.product_name }}</td>
+                <td>{{ u.size }}</td>
+                {% if session.get('system_role') == 'supervisor' %}
+                <td>{{ u.worker_name }}</td>
+                {% endif %}
+                <td><span class="status-pill status-{{ u.status|replace(' ','_') }}">{{ u.status|replace('_',' ')|title }}</span></td>
+                <td>{{ u.issued_at.strftime('%d %b %Y') if u.issued_at else '—' }}</td>
+                <td>{{ u.returned_at.strftime('%d %b %Y') if u.returned_at else '—' }}</td>
+                <td style="text-align:right;">
+                    {% if u.status == 'active' %}
+                    <button onclick="openReturnModal({{ u.id }})" class="btn-ghost" style="font-size:0.82em;padding:5px 12px;">Return / Report</button>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<div id="returnModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;">
+    <div class="surface" style="border-radius:var(--r-lg);padding:32px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+        <h3 style="margin:0 0 20px;font-size:1.15em;">Return Uniform</h3>
+        <form id="returnForm" method="POST">
+            <div class="form-group" style="margin-bottom:16px;">
+                <label>Reason for return</label>
+                <select name="reason" id="returnReason">
+                    <option value="worn_out">Worn out / End of life</option>
+                    <option value="damaged">Damaged / Broken</option>
+                    <option value="lost">Lost (requires police report)</option>
+                    <option value="size_exchange">Size exchange</option>
+                </select>
+            </div>
+            <div id="lostWarning" style="display:none;background:#fff8e1;border:1px solid var(--yellow-dark);border-radius:var(--r);padding:12px;margin-bottom:16px;font-size:0.88em;">
+                ⚠️ <strong>Police report required</strong> before a replacement can be issued.
+            </div>
+            <div style="display:flex;gap:10px;justify-content:flex-end;">
+                <button type="button" onclick="closeReturnModal()" class="btn-ghost">Cancel</button>
+                <button type="submit" class="btn-primary">Confirm Return</button>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+function openReturnModal(id) { document.getElementById('returnForm').action=`/return-uniform/${id}`; document.getElementById('returnModal').style.display='flex'; }
+function closeReturnModal() { document.getElementById('returnModal').style.display='none'; }
+document.getElementById('returnReason')?.addEventListener('change',function(){ document.getElementById('lostWarning').style.display=this.value==='lost'?'block':'none'; });
+</script>
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header-band">
+    <div class="header-row">
+        <div>
+            <span class="page-breadcrumb" style="color:rgba(0,0,0,.5);"><a href="{{ url_for('admin_dashboard') }}" style="color:rgba(0,0,0,.5);">Admin</a> › Reorder Engine</span>
+            <h1>Reorder Engine</h1>
+            <div class="header-sub">Items projected to run out within 30 days based on usage</div>
+        </div>
+    </div>
+</div>
+
+{% if suggestions %}
+<div class="data-table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Product</th><th>Size</th><th>Current Stock</th>
+                <th>Monthly Usage</th><th>Days Remaining</th><th>Suggested Reorder</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in suggestions %}
+            {% set days = ((item.stock / item.monthly_usage) * 30)|int %}
+            <tr>
+                <td class="text-bold">{{ item.name }}</td>
+                <td>{{ item.size }}</td>
+                <td>
+                    <span class="{% if item.stock <= 5 %}stock-critical{% elif item.stock <= 15 %}stock-warning{% else %}stock-ok{% endif %}">
+                        {{ item.stock }}
+                    </span>
+                </td>
+                <td>{{ item.monthly_usage }}</td>
+                <td>
+                    <span class="{% if days < 14 %}stock-critical{% else %}stock-warning{% endif %}">
+                        ~{{ days }} days
+                    </span>
+                </td>
+                <td class="text-bold text-green">{{ item.suggested_reorder }} units</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="surface empty-state">✓ No reorder suggestions — all items have sufficient stock.</div>
+{% endif %}
+
+{% endblock %}

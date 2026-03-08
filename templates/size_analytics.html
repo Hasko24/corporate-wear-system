@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header-band">
+    <div class="header-row">
+        <div>
+            <span class="page-breadcrumb"><a href="{{ url_for('admin_dashboard') }}">Admin</a> › Size Analytics</span>
+            <h1>Size Analytics</h1>
+        </div>
+    </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+    <div class="data-table-wrap">
+        <div style="padding:16px 20px;font-weight:700;border-bottom:1px solid var(--border);">Size Distribution by Type</div>
+        <table>
+            <thead><tr><th>Type</th><th>Size</th><th>Count</th></tr></thead>
+            <tbody>
+                {% for row in distribution %}
+                <tr>
+                    <td>{{ row.product_type }}</td>
+                    <td style="font-weight:600;">{{ row.size }}</td>
+                    <td>{{ row.frequency }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="3" class="empty-state">No worker size data yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="data-table-wrap">
+        <div style="padding:16px 20px;font-weight:700;border-bottom:1px solid var(--border);">Distribution by Facility</div>
+        <table>
+            <thead><tr><th>Facility</th><th>Type</th><th>Size</th><th>Count</th></tr></thead>
+            <tbody>
+                {% for row in facility_distribution %}
+                <tr>
+                    <td>{{ row.facility_id or '—' }}</td>
+                    <td>{{ row.product_type }}</td>
+                    <td style="font-weight:600;">{{ row.size }}</td>
+                    <td>{{ row.frequency }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" class="empty-state">No facility data yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

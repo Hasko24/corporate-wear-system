@@ -1,11 +1,27 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h1>Order placed successfully</h1>
+<div class="page-header-band">
+    <div class="header-row">
+        <h1>Order Placed!</h1>
+    </div>
+</div>
 
-<p><strong>Product:</strong> {{ product.name }}</p>
-<p><strong>Remaining stock:</strong> {{ product.stock }}</p>
-
-<a href="{{ url_for('shop') }}">Back to catalog</a>
+<div class="surface" style="max-width:560px;border-top:5px solid #2e7d32;">
+    <h2 style="color:#2e7d32;font-size:1.3em;margin-bottom:16px;">✓ Order submitted successfully</h2>
+    {% if product %}
+    <div class="order-meta-grid" style="grid-template-columns:1fr 1fr;margin-bottom:24px;">
+        <div class="order-meta-item">
+            <div class="meta-label">Product</div>
+            <div class="meta-value">{{ product.name }}</div>
+        </div>
+        <div class="order-meta-item">
+            <div class="meta-label">Remaining Stock</div>
+            <div class="meta-value">{{ product.stock }}</div>
+        </div>
+    </div>
+    {% endif %}
+    <a href="{{ url_for('shop') }}" class="btn btn-primary">← Continue Shopping</a>
+</div>
 
 {% endblock %}

@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header-band">
+    <h1>Size Guides</h1>
+    <p class="header-sub">Reference charts by brand to help choose the right size.</p>
+</div>
+
+    {% if session.get('system_role') == 'admin' %}
+    <div class="card" style="max-width:500px;margin-bottom:32px;">
+        <h3 style="margin:0 0 16px;">Upload Size Guide</h3>
+        <form method="POST" action="{{ url_for('admin_size_guides') }}" enctype="multipart/form-data">
+            <div style="display:flex;flex-direction:column;gap:12px;">
+                <div>
+                    <label style="font-weight:600;display:block;margin-bottom:4px;">Brand / Company</label>
+                    <input type="text" name="brand" placeholder="e.g. Helly Hansen" required
+                           style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;box-sizing:border-box;">
+                </div>
+                <div>
+                    <label style="font-weight:600;display:block;margin-bottom:4px;">Size Chart Image</label>
+                    <input type="file" name="image" accept="image/*" required
+                           style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;box-sizing:border-box;">
+                </div>
+                <button type="submit" class="submit-btn">Upload</button>
+            </div>
+        </form>
+    </div>
+    {% endif %}
+
+    {% if guides|length == 0 %}
+    <div class="card" style="text-align:center;padding:40px;color:#888;">
+        No size guides uploaded yet.
+    </div>
+    {% else %}
+    <div class="guides-grid">
+        {% for guide in guides %}
+        <div class="guide-card">
+            <div class="guide-brand">{{ guide.brand_name }}</div>
+            <div class="guide-img-wrap" onclick="openGuideModal('{{ url_for('static', filename=guide.image_path) }}', '{{ guide.brand_name }}')"
+                 title="Click to enlarge">
+                <img src="{{ url_for('static', filename=guide.image_path) }}"
+                     alt="{{ guide.brand_name }} size guide" class="guide-img">
+                <div class="guide-overlay">Click to enlarge</div>
+            </div>
+            <div class="guide-footer">
+                <span class="guide-date">
+                    {{ guide.created_at.strftime('%d %b %Y') if guide.created_at else '' }}
+                </span>
+                {% if session.get('system_role') == 'admin' %}
+                <form method="POST" action="{{ url_for('delete_size_guide', guide_id=guide.id) }}"
+                      onsubmit="return confirm('Delete this size guide?');" style="margin:0;">
+                    <button type="submit" class="btn-delete-sm">Delete</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+<!-- Lightbox modal -->
+<div id="guideModal" onclick="closeGuideModal()" class="guide-modal">
+    <div class="guide-modal-inner" onclick="event.stopPropagation()">
+        <div class="guide-modal-header">
+            <span id="guideModalTitle"></span>
+            <button onclick="closeGuideModal()" class="guide-modal-close">Close</button>
+        </div>
+        <img id="guideModalImg" src="" alt="" class="guide-modal-img">
+    </div>
+</div>
+
+<script>
+function openGuideModal(src, title) {
+    document.getElementById('guideModalImg').src = src;
+    document.getElementById('guideModalTitle').textContent = title;
+    document.getElementById('guideModal').style.display = 'flex';
+}
+function closeGuideModal() {
+    document.getElementById('guideModal').style.display = 'none';
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeGuideModal(); });
+</script>
+
+<style>
+.guides-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 20px;
+}
+.guide-card {
+    background: white; border-radius: 12px; border: 1px solid #eee;
+    overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    transition: box-shadow .2s;
+}
+.guide-card:hover { box-shadow: 0 6px 20px rgba(0,0,0,.1); }
+.guide-brand {
+    padding: 14px 16px 8px;
+    font-weight: 700; font-size: 1em; border-bottom: 1px solid #f0f0f0;
+}
+.guide-img-wrap {
+    position: relative; cursor: zoom-in; overflow: hidden;
+    background: #f9f9f9; height: 200px;
+    display: flex; align-items: center; justify-content: center;
+}
+.guide-img {
+    max-width: 100%; max-height: 200px; object-fit: contain; display: block;
+    transition: transform .2s;
+}
+.guide-card:hover .guide-img { transform: scale(1.03); }
+.guide-overlay {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: rgba(0,0,0,.45); color: white;
+    text-align: center; padding: 6px; font-size: 0.8em;
+    opacity: 0; transition: opacity .2s;
+}
+.guide-img-wrap:hover .guide-overlay { opacity: 1; }
+.guide-footer {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 16px; border-top: 1px solid #f0f0f0;
+}
+.guide-date { font-size: 0.8em; color: #aaa; }
+.btn-delete-sm {
+    padding: 4px 10px; background: #fff0f0; border: 1px solid #f5c6cb;
+    color: #dc3545; border-radius: 4px; font-size: 0.8em; cursor: pointer;
+}
+
+/* Modal */
+.guide-modal {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.75); z-index: 9999;
+    align-items: center; justify-content: center; padding: 20px;
+}
+.guide-modal-inner {
+    background: white; border-radius: 12px; overflow: hidden;
+    max-width: 90vw; max-height: 90vh;
+    display: flex; flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0,0,0,.4);
+}
+.guide-modal-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 20px; border-bottom: 1px solid #eee; font-weight: 700;
+}
+.guide-modal-close {
+    padding: 6px 14px; background: #f0f0f0; border: none;
+    border-radius: 6px; cursor: pointer; font-size: 0.9em;
+}
+.guide-modal-img {
+    max-width: 80vw; max-height: 75vh; object-fit: contain; display: block;
+    margin: 0 auto; padding: 16px;
+}
+</style>
+{% endblock %}

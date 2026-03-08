@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header-band">
+    <div class="header-row">
+        <div>
+            <span class="page-breadcrumb"><a href="{{ url_for('admin_dashboard') }}">Admin</a> › Sites</span>
+            <h1>Sites</h1>
+        </div>
+    </div>
+</div>
+
+<div style="display:grid;grid-template-columns:360px 1fr;gap:28px;align-items:start;">
+    <div class="surface" style="padding:24px;">
+        <div class="section-label">Add Site</div>
+        <form method="POST" style="display:flex;gap:10px;margin-top:12px;">
+            <input type="hidden" name="action" value="add">
+            <input type="text" name="name" placeholder="e.g. PUD, GTW" required style="flex:1;">
+            <button type="submit" class="btn-primary">Add</button>
+        </form>
+    </div>
+
+    <div class="data-table-wrap">
+        <table>
+            <thead>
+                <tr><th>Site Name</th><th></th></tr>
+            </thead>
+            <tbody>
+                {% for site in sites %}
+                <tr>
+                    <td style="font-weight:600;">{{ site.name }}</td>
+                    <td style="text-align:right;">
+                        <form method="POST" onsubmit="return confirm('Delete site?');" style="margin:0;display:inline;">
+                            <input type="hidden" name="action" value="delete">
+                            <input type="hidden" name="site_id" value="{{ site.id }}">
+                            <button type="submit" class="btn-danger" style="padding:4px 12px;font-size:0.82em;">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="2" class="empty-state">No sites added yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

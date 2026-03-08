@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header-band">
+    <div class="header-row">
+        <div>
+            <span class="page-breadcrumb" style="color:rgba(0,0,0,.5);"><a href="{{ url_for('view_team') }}" style="color:rgba(0,0,0,.5);">My Team</a> › Add Member</span>
+            <h1>Add Team Member</h1>
+        </div>
+        <a href="{{ url_for('view_team') }}" class="btn btn-ghost">← Back to Team</a>
+    </div>
+</div>
+
+<div class="surface" style="max-width:600px;">
+    <form method="POST">
+        <div class="form-row">
+            <div class="form-group">
+                <label>Full Name <span style="color:var(--red);">*</span></label>
+                <input type="text" name="full_name" required placeholder="First and last name">
+            </div>
+            <div class="form-group">
+                <label>Employee Number</label>
+                <input type="text" name="employee_number" placeholder="e.g. EMP-1042">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Job Role <span style="color:var(--red);">*</span></label>
+                <select name="job_role_id" required>
+                    <option value="">Select a role…</option>
+                    {% for role in roles %}
+                    {% if role.name != 'Everyone' and role.name != 'Packer' %}
+                    <option value="{{ role.id }}">{{ role.name }}</option>
+                    {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Cost Centre</label>
+                <input type="text" name="cost_centre" placeholder="e.g. Warehouse A">
+            </div>
+        </div>
+
+        <hr>
+
+        <div class="section-label" style="margin-bottom:18px;">Clothing Sizes</div>
+        <div class="form-row-3">
+            <div class="form-group">
+                <label>Shirt / Jacket</label>
+                <select name="shirt_size">
+                    <option value="">Not set</option>
+                    {% for s in ['XS','S','M','L','XL','XXL','XXXL'] %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Pants / Trouser</label>
+                <select name="pants_size">
+                    <option value="">Not set</option>
+                    {% for s in ['28','30','32','34','36','38','40','42','44','46'] %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Shoe Size</label>
+                <select name="shoe_size">
+                    <option value="">Not set</option>
+                    {% for s in ['36','37','38','39','40','41','42','43','44','45','46','47','48'] %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-lg" style="margin-top:8px;">Add Team Member</button>
+    </form>
+</div>
+
+{% endblock %}

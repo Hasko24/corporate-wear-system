@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header-band">
+    <div class="header-row">
+        <div>
+            <span class="page-breadcrumb" style="color:rgba(0,0,0,.5);"><a href="{{ url_for('view_orders') }}" style="color:rgba(0,0,0,.5);">Orders</a> › #{{ cart.id }}</span>
+            <h1>Order #{{ cart.id }}</h1>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+            <span class="status-pill status-{{ cart.status }}" style="font-size:0.85em;padding:7px 16px;">{{ cart.status }}</span>
+            <a href="{{ url_for('view_orders') }}" class="btn btn-ghost">← Back</a>
+        </div>
+    </div>
+</div>
+
+<div class="order-meta-grid">
+    <div class="order-meta-item">
+        <div class="meta-label">Order For</div>
+        <div class="meta-value">{{ cart.worker_name or '—' }}</div>
+        {% if cart.employee_number %}<div class="text-muted text-sm">{{ cart.employee_number }}</div>{% endif %}
+    </div>
+    <div class="order-meta-item">
+        <div class="meta-label">Created By</div>
+        <div class="meta-value">{{ cart.supervisor_name or '—' }}</div>
+    </div>
+    <div class="order-meta-item">
+        <div class="meta-label">Date</div>
+        <div class="meta-value">{{ cart.created_at.strftime('%d %b %Y') if cart.created_at else '—' }}</div>
+    </div>
+    <div class="order-meta-item">
+        <div class="meta-label">Total</div>
+        <div class="meta-value">{{ "%.2f"|format(total) ~ " SEK" if total else '—' }}</div>
+    </div>
+    {% if cart.comment %}
+    <div class="order-meta-item" style="grid-column:1/-1;">
+        <div class="meta-label">Comment</div>
+        <div class="meta-value" style="font-weight:400;">{{ cart.comment }}</div>
+    </div>
+    {% endif %}
+</div>
+
+<div class="data-table-wrap" style="margin-bottom:24px;">
+    <table>
+        <thead>
+            <tr><th>Product</th><th>Size</th><th>Qty</th><th>Unit Price</th><th>Line Total</th></tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td class="text-bold">{{ item.product_name }}</td>
+                <td>{{ item.size }}</td>
+                <td>{{ item.quantity }}</td>
+                <td>{{ "%.2f"|format(item.price_at_time) }} SEK</td>
+                <td class="text-bold">{{ "%.2f"|format(item.price_at_time * item.quantity) }} SEK</td>
+            </tr>
+            {% endfor %}
+            {% if total %}
+            <tr style="background:var(--yellow-pale);">
+                <td colspan="4" style="text-align:right;font-weight:800;font-size:0.9em;text-transform:uppercase;letter-spacing:.06em;border-bottom:none;">Total</td>
+                <td style="font-weight:900;font-size:1.05em;border-bottom:none;">{{ "%.2f"|format(total) }} SEK</td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+{% if session.system_role in ['admin', 'packer'] %}
+<div style="display:flex;gap:12px;flex-wrap:wrap;">
+    {% if cart.status == 'submitted' %}
+    <form method="POST" action="{{ url_for('pack_order', cart_id=cart.id) }}" style="margin:0;">
+        <button type="submit" class="btn btn-primary">Mark as Packed</button>
+    </form>
+    {% endif %}
+    {% if cart.status == 'packed' %}
+    <form method="POST" action="{{ url_for('complete_order', cart_id=cart.id) }}" style="margin:0;">
+        <button type="submit" class="btn btn-primary">Mark as Completed</button>
+    </form>
+    {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}

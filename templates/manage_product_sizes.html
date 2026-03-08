@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header-band">
+    <div class="header-row">
+        <div>
+            <span class="page-breadcrumb"><a href="{{ url_for('admin_products') }}">Products</a> › {{ product.name }} › Sizes</span>
+            <h1>Manage Sizes</h1>
+            <div class="header-sub">{{ product.name }}</div>
+        </div>
+        <a href="{{ url_for('admin_products') }}" class="btn btn-ghost">← Back to Products</a>
+    </div>
+</div>
+
+<div style="display:grid;grid-template-columns:320px 1fr;gap:24px;align-items:start;">
+
+    <!-- Add size form -->
+    <div class="surface" style="border-top:3px solid var(--yellow);">
+        <div class="section-label">Add Size</div>
+        <form method="POST">
+            <input type="hidden" name="action" value="add">
+            <div class="form-group">
+                <label>Size</label>
+                <input type="text" name="size" required placeholder="e.g. M, 42, OneSize">
+            </div>
+            <div class="form-group">
+                <label>Initial Stock</label>
+                <input type="number" name="stock" required min="0" value="0">
+            </div>
+            <button type="submit" class="btn btn-primary btn-full">Add Size</button>
+        </form>
+    </div>
+
+    <!-- Sizes table -->
+    <div class="data-table-wrap">
+        <table>
+            <thead>
+                <tr><th>Size</th><th>Stock</th><th></th></tr>
+            </thead>
+            <tbody>
+                {% for size in sizes %}
+                <tr>
+                    <td class="text-bold">{{ size.size }}</td>
+                    <td>
+                        <span class="{% if size.stock <= 5 %}stock-critical{% elif size.stock <= 15 %}stock-warning{% else %}stock-ok{% endif %}">
+                            {{ size.stock }}
+                        </span>
+                    </td>
+                    <td style="text-align:right;">
+                        <form method="POST" onsubmit="return confirm('Delete size {{ size.size }}?');" style="margin:0;display:inline;">
+                            <input type="hidden" name="action" value="delete">
+                            <input type="hidden" name="size_id" value="{{ size.id }}">
+                            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--red);">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="3" class="empty-state">No sizes added yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header-band">
+    <div class="header-row">
+        <h1>Stock Levels</h1>
+    </div>
+</div>
+
+<div class="data-table-wrap">
+    <table>
+        <thead>
+            <tr><th>Article #</th><th>Product</th><th>Type</th><th>Size</th><th>Stock</th></tr>
+        </thead>
+        <tbody>
+            {% for row in products %}
+            <tr>
+                <td class="text-muted text-mono">{{ row.article_number }}</td>
+                <td class="text-bold">{{ row.name }}</td>
+                <td>{{ row.type }}</td>
+                <td>{{ row.size }}</td>
+                <td>
+                    <span class="{% if row.stock <= 5 %}stock-critical{% elif row.stock <= 15 %}stock-warning{% else %}stock-ok{% endif %}">
+                        {{ row.stock }}
+                    </span>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header-band">
+    <div class="header-row">
+        <h1>My Team</h1>
+        <a href="{{ url_for('add_team_member') }}" class="btn-primary">+ Add Member</a>
+    </div>
+</div>
+
+<div class="data-table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Employee #</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for worker in workers %}
+            <tr>
+                <td style="font-weight:600;">{{ worker.full_name }}</td>
+                <td style="color:var(--text-2);">{{ worker.employee_number or '—' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="2" class="empty-state">No team members yet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

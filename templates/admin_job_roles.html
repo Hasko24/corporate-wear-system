@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header-band">
+    <div class="header-row">
+        <div>
+            <span class="page-breadcrumb" style="color:rgba(0,0,0,.5);"><a href="{{ url_for('admin_dashboard') }}" style="color:rgba(0,0,0,.5);">Admin</a> › Job Roles</span>
+            <h1>Job Roles</h1>
+        </div>
+    </div>
+</div>
+
+<div style="display:grid;grid-template-columns:380px 1fr;gap:28px;align-items:start;">
+
+    <div class="surface">
+        <div class="section-label">Add Role</div>
+        <form method="POST" style="display:flex;flex-direction:column;gap:14px;">
+            <div class="form-group" style="margin:0;">
+                <label>Role Name</label>
+                <input type="text" name="name" placeholder="e.g. Warehouse Operative" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Add Role</button>
+        </form>
+    </div>
+
+    <div class="data-table-wrap">
+        <table>
+            <thead><tr><th>Role Name</th><th></th></tr></thead>
+            <tbody>
+                {% for role in roles %}
+                <tr>
+                    <td class="text-bold">
+                        {{ role.name }}
+                        {% if role.name in ('Everyone', 'Packer') %}
+                        <span class="tag" style="margin-left:8px;">System</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align:right;">
+                        {% if role.name not in ('Everyone', 'Packer') %}
+                        <form method="POST" action="{{ url_for('delete_job_role', role_id=role.id) }}"
+                              onsubmit="return confirm('Delete this role?');" style="margin:0;display:inline;">
+                            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--red);">Delete</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

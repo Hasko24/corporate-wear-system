@@ -1,287 +1,214 @@
 {% extends "base.html" %}
 {% block content %}
 
-<style>
-.page {
-    display: flex;
-    justify-content: center;
-    margin-top: 40px;
-}
-
-.card {
-    background: white;
-    width: 420px;
-    padding: 30px;
-    border-radius: 6px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-    border-top: 6px solid #D40511;
-    display: block;   /* force single layout */
-}
-
-.card h2 {
-    margin-top: 0;
-    margin-bottom: 20px;
-    color: #D40511;
-    text-align: center;
-}
-
-label {
-    display: block;
-    margin-top: 15px;
-    font-size: 14px;
-    font-weight: bold;
-    color: #333;
-}
-
-input, select {
-    width: 100%;
-    padding: 10px;
-    margin-top: 6px;
-    border-radius: 4px;
-    border: 1px solid #ccc;
-    font-size: 14px;
-}
-
-
-button {
-    width: 100%;
-    margin-top: 25px;
-    padding: 12px;
-    background-color: #D40511;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    font-size: 15px;
-    font-weight: bold;
-    cursor: pointer;
-}
-
-textarea {
-    width: 100%;
-    padding: 10px;
-    border-radius: 6px;
-    border: 1px solid #ddd;
-}
-
-button:hover {
-    background-color: #b4040f;
-}
-
-.toggle-label {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-top: 15px;
-    font-weight: bold;
-    font-size: 14px;
-}
-
-.toggle-label input {
-    display: none;
-}
-
-.toggle-slider {
-    width: 46px;
-    height: 24px;
-    background: #ccc;
-    border-radius: 20px;
-    position: relative;
-    cursor: pointer;
-    transition: background 0.3s ease;
-}
-
-.toggle-slider::before {
-    content: "";
-    width: 18px;
-    height: 18px;
-    background: white;
-    border-radius: 50%;
-    position: absolute;
-    top: 3px;
-    left: 4px;
-    transition: transform 0.3s ease;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-}
-
-.toggle-label input:checked + .toggle-slider {
-    background: #D40511;
-}
-
-.toggle-label input:checked + .toggle-slider::before {
-    transform: translateX(20px);
-}
-
-</style>
-
-<div class="page">
-    <div class="card">
-        <h2>Add Product</h2>
-
-        <form method="POST" enctype="multipart/form-data">
-
-            <label>Article Number</label>
-            <input type="text" name="article_number" required>
-
-            <label>Product Name</label>
-            <input type="text" name="name" required>
-
-            <label>Description (optional)</label>
-            <textarea name="description" rows="3"></textarea>
-
-            <label>Assign to Job Roles</label>
-
-            <select id="role_select">
-                <option value="">Select role</option>
-                {% for role in job_roles %}
-                    <option value="{{ role.id }}">{{ role.name }}</option>
-                {% endfor %}
-            </select>
-
-            <button type="button" id="add_role_btn">Add another role</button>
-
-            <div id="selected_roles" style="margin-top:15px;"></div>
-
-            <label>Type</label>
-            <select name="type" id="product_type" required onchange="updateSizes()">
-
-                <option value="">Select type</option>
-
-                <option value="SHIRT">Shirt</option>
-                <option value="PANTS">Pants</option>
-                <option value="JACKET">Jacket</option>
-                <option value="SHOES">Shoes</option>
-                <option value="ACCESSORIES">Accessories</option>
-                <option value="SWEATSHIRT">Sweatshirt</option>
-                <option value="TROUSER">Trouser</option>
-                <option value="VEST">Vest</option>
-                <option value="HAT">Hat</option>
-                <option value="BELT">Belt</option>
-                <option value="SCARF">Scarf</option>
-                <option value="SHORTS">Shorts</option>
-                <option value="BALACLAVA">Balaclava</option>
-                <option value="GLOVES">Gloves</option>
-
-            </select>
-
-            <label class="toggle-label">
-                <span>One Size Only</span>
-                <input type="checkbox" id="one_size_toggle" onchange="updateSizes()">
-                <span class="toggle-slider"></span>
-            </label>
-
-            <div id="size_container"></div>
-
-            <label>Product Image</label>
-            <input type="file" name="image">
-
-            <button type="submit">Add Product</button>
-        </form>
+<div class="page-header-band">
+    <div class="header-row">
+        <div>
+            <span class="page-breadcrumb"><a href="{{ url_for('admin_dashboard') }}">Admin</a> › <a href="{{ url_for('admin_products') }}">Products</a> › Add</span>
+            <h1>Add Product</h1>
+        </div>
+        <a href="{{ url_for('admin_products') }}" class="btn btn-ghost">← Back</a>
     </div>
 </div>
 
+<form method="POST" enctype="multipart/form-data">
+<div style="display:grid;grid-template-columns:1fr 320px;gap:24px;align-items:start;">
+
+    <!-- LEFT -->
+    <div style="display:flex;flex-direction:column;gap:20px;">
+
+        <div class="surface">
+            <div class="section-label">Product Info</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                <div class="form-group">
+                    <label>Article Number</label>
+                    <input type="text" name="article_number" required placeholder="e.g. 10CW-001-200">
+                </div>
+                <div class="form-group">
+                    <label>Product Name</label>
+                    <input type="text" name="name" required placeholder="e.g. Polo Shirt CIS">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Description <span style="color:var(--text-3);font-weight:400;">(optional)</span></label>
+                <textarea name="description" rows="3" placeholder="Material, features, colour…"></textarea>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
+                <div class="form-group">
+                    <label>Price (SEK)</label>
+                    <input type="number" name="price" min="0" step="0.01" value="0" required>
+                </div>
+                <div class="form-group">
+                    <label>Max Qty per Order</label>
+                    <input type="number" name="max_quantity" min="1" value="10" required>
+                </div>
+                <div class="form-group">
+                    <label>Gender</label>
+                    <select name="gender">
+                        <option value="">Not specified</option>
+                        <option value="male">Herr</option>
+                        <option value="female">Dam</option>
+                        <option value="unisex">Unisex</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="surface">
+            <div class="section-label">Type &amp; Sizes</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+                <div class="form-group">
+                    <label>Clothing Type</label>
+                    <select id="product_type" required onchange="onTypeChange()">
+                        <option value="">— Select type —</option>
+                        <option value="SHIRT">Shirt</option>
+                        <option value="PANTS">Pants</option>
+                        <option value="JACKET">Jacket</option>
+                        <option value="SWEATSHIRT">Sweatshirt</option>
+                        <option value="VEST">Vest</option>
+                        <option value="TROUSER">Trouser</option>
+                        <option value="SHORTS">Shorts</option>
+                        <option value="SHOES">Shoes</option>
+                        <option value="HAT">Hat</option>
+                        <option value="GLOVES">Gloves</option>
+                        <option value="BELT">Belt</option>
+                        <option value="SCARF">Scarf</option>
+                        <option value="BALACLAVA">Balaclava</option>
+                        <option value="ACCESSORIES">Accessories</option>
+                        <option value="CUSTOM">Custom type…</option>
+                    </select>
+                    <input type="hidden" name="type" id="type_hidden">
+                </div>
+                <div class="form-group" id="custom_type_wrap" style="display:none;">
+                    <label>Custom Type Name</label>
+                    <input type="text" id="custom_type_input" placeholder="e.g. RAINCOAT" oninput="syncCustomType()">
+                </div>
+            </div>
+            <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:16px;">
+                <input type="checkbox" id="one_size_toggle" onchange="updateSizes()" style="width:auto;margin:0;">
+                <span style="font-weight:600;font-size:0.9em;">One Size Only</span>
+            </label>
+            <div id="size_container" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:10px;"></div>
+            <p id="size_hint" style="color:var(--text-3);font-size:0.85em;margin-top:8px;">Select a type above to see size options.</p>
+        </div>
+
+        <div class="surface">
+            <div class="section-label">Job Roles</div>
+            <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;">
+                <select id="role_select" style="flex:1;">
+                    <option value="">— Select role to add —</option>
+                    {% for role in job_roles %}
+                    <option value="{{ role.id }}">{{ role.name }}</option>
+                    {% endfor %}
+                </select>
+                <button type="button" id="add_role_btn" class="btn btn-ghost">Add</button>
+            </div>
+            <div id="selected_roles" style="display:flex;flex-direction:column;gap:6px;"></div>
+            <p style="color:var(--text-3);font-size:0.82em;margin-top:8px;">Leave empty to show to all roles.</p>
+        </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div style="display:flex;flex-direction:column;gap:20px;">
+        <div class="surface">
+            <div class="section-label">Product Image</div>
+            <div id="img_preview" style="width:100%;height:180px;background:#f5f5f5;border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;margin-bottom:12px;overflow:hidden;border:1px solid var(--border);">
+                <span style="color:var(--text-3);font-size:0.85em;">No image</span>
+            </div>
+            <input type="file" name="image" accept="image/*" onchange="previewImg(this)">
+        </div>
+        <div class="surface">
+            <button type="submit" class="btn btn-primary btn-full" style="padding:13px;">Add Product</button>
+            <a href="{{ url_for('admin_products') }}" class="btn btn-ghost btn-full" style="margin-top:8px;">Cancel</a>
+        </div>
+    </div>
+
+</div>
+</form>
+
 <script>
-function updateSizes() {
-
-    const type = document.getElementById("product_type").value;
-    const toggle = document.getElementById("one_size_toggle");
-    const container = document.getElementById("size_container");
-
-    container.innerHTML = "";
-
-    // ALWAYS reset toggle first
-    toggle.disabled = false;
-
-    // Force one size types
-    const forcedOneSizeTypes = ["BALACLAVA", "ACCESSORIES", "SCARF"];
-
-    if (forcedOneSizeTypes.includes(type)) {
-        toggle.checked = true;
-        toggle.disabled = true;
+function onTypeChange() {
+    const sel = document.getElementById('product_type');
+    const wrap = document.getElementById('custom_type_wrap');
+    if (sel.value === 'CUSTOM') {
+        wrap.style.display = 'block';
+        document.getElementById('type_hidden').value = '';
+    } else {
+        wrap.style.display = 'none';
+        document.getElementById('type_hidden').value = sel.value;
     }
+    updateSizes();
+}
+
+function syncCustomType() {
+    const val = document.getElementById('custom_type_input').value.toUpperCase().trim();
+    document.getElementById('type_hidden').value = val;
+}
+
+function updateSizes() {
+    const sel = document.getElementById('product_type');
+    const type = sel.value;
+    const toggle = document.getElementById('one_size_toggle');
+    const container = document.getElementById('size_container');
+    const hint = document.getElementById('size_hint');
+    container.innerHTML = '';
+
+    const forcedOneSize = ['BALACLAVA','ACCESSORIES','SCARF','CUSTOM'];
+    toggle.disabled = forcedOneSize.includes(type);
+    if (forcedOneSize.includes(type)) toggle.checked = true;
 
     let sizes = [];
-
     if (toggle.checked) {
-        sizes = ["OneSize"];
-    } else {
-
-        if (["SHIRT","JACKET","SWEATSHIRT","VEST"].includes(type)) {
-            sizes = ["XS","S","M","L","XL","XXL","XXXL"];
-        }
-
-        if (["PANTS","TROUSER"].includes(type)) {
-            sizes = ["28","30","32","34","36","38","40","42","44","46"];
-        }
-
-        if (type === "SHORTS") {
-            sizes = ["XS","S","M","L","XL","XXL"];
-        }
-
-        if (type === "SHOES") {
-            sizes = ["40","41","42","43","44","45","46"];
-        }
-
-        if (type === "GLOVES") {
-            sizes = ["S","M","L","XL"];
-        }
-
-        if (type === "HAT") {
-            sizes = ["S","M","L"];
-        }
-
-        if (type === "BELT") {
-            sizes = ["80","85","90","95","100","105","110","115"];
-        }
+        sizes = ['OneSize'];
+    } else if (['SHIRT','JACKET','SWEATSHIRT','VEST'].includes(type)) {
+        sizes = ['XS','S','M','L','XL','XXL','XXXL'];
+    } else if (['PANTS','TROUSER'].includes(type)) {
+        sizes = ['28','30','32','34','36','38','40','42','44','46'];
+    } else if (type === 'SHORTS') {
+        sizes = ['XS','S','M','L','XL','XXL'];
+    } else if (type === 'SHOES') {
+        sizes = ['38','39','40','41','42','43','44','45','46','47'];
+    } else if (type === 'GLOVES') {
+        sizes = ['S','M','L','XL'];
+    } else if (type === 'HAT') {
+        sizes = ['S','M','L','XL'];
+    } else if (type === 'BELT') {
+        sizes = ['80','85','90','95','100','105','110','115'];
+    } else if (type === 'CUSTOM') {
+        sizes = ['OneSize'];
     }
 
+    hint.style.display = sizes.length ? 'none' : 'block';
     sizes.forEach(size => {
         container.innerHTML += `
-            <label>${size}</label>
-            <input type="number" name="size_${size}" min="0" value="0">
-        `;
+        <div style="background:#f8f8f8;border-radius:var(--r-md);padding:10px 12px;border:1px solid var(--border);">
+            <div style="font-weight:700;font-size:0.8em;color:var(--text-2);margin-bottom:6px;">${size}</div>
+            <input type="number" name="size_${size}" min="0" value="0" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:0.9em;">
+        </div>`;
     });
 }
 
-const roleSelect = document.getElementById("role_select");
-const selectedRolesContainer = document.getElementById("selected_roles");
-
-document.getElementById("add_role_btn").addEventListener("click", function () {
-
-    const roleId = roleSelect.value;
-    const roleName = roleSelect.options[roleSelect.selectedIndex].text;
-
-    if (!roleId) return;
-
-    // Prevent duplicates
-    if (selectedRolesContainer.querySelector(`input[value="${roleId}"]`)) return;
-
-    const wrapper = document.createElement("div");
-    wrapper.style.display = "flex";
-    wrapper.style.justifyContent = "space-between";
-    wrapper.style.alignItems = "center";
-    wrapper.style.marginBottom = "6px";
-
-    wrapper.innerHTML = `
-        <span>${roleName}</span>
-        <div>
-            <input type="hidden" name="job_role_ids" value="${roleId}">
-            <button type="button" class="remove-role-btn">Remove</button>
-        </div>
-    `;
-
-    selectedRolesContainer.appendChild(wrapper);
-
-    // Reset dropdown
-    roleSelect.value = "";
-});
-
-selectedRolesContainer.addEventListener("click", function (e) {
-    if (e.target.classList.contains("remove-role-btn")) {
-        e.target.closest("div").parentElement.remove();
+function previewImg(input) {
+    const preview = document.getElementById('img_preview');
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = e => { preview.innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;">`; };
+        reader.readAsDataURL(input.files[0]);
     }
+}
+
+document.getElementById('add_role_btn').addEventListener('click', () => {
+    const sel = document.getElementById('role_select');
+    const id = sel.value, name = sel.options[sel.selectedIndex].text;
+    if (!id || document.getElementById('selected_roles').querySelector(`input[value="${id}"]`)) return;
+    const div = document.createElement('div');
+    div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#f8f8f8;border-radius:var(--r-md);border:1px solid var(--border);';
+    div.innerHTML = `<span style="font-size:0.88em;font-weight:600;">${name}</span>
+        <input type="hidden" name="job_role_ids" value="${id}">
+        <button type="button" onclick="this.closest('div').remove()" style="background:none;border:none;color:var(--red);cursor:pointer;font-weight:700;padding:0 4px;">✕</button>`;
+    document.getElementById('selected_roles').appendChild(div);
+    sel.value = '';
 });
-
-
 </script>
 
 {% endblock %}

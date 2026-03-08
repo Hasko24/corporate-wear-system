@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header-band">
+    <div class="header-row">
+        <h1>Shopping Cart</h1>
+        <a href="{{ url_for('shop') }}" class="btn btn-ghost">← Continue Shopping</a>
+    </div>
+</div>
+
+{% if cart and items %}
+<div class="cart-layout">
+
+    <!-- Items table -->
+    <div class="data-table-wrap" style="align-self:start;">
+        <table>
+            <thead>
+                <tr><th>Product</th><th>Size</th><th>Qty</th><th>Unit Price</th><th>Subtotal</th><th></th></tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td class="text-bold">{{ item.name }}</td>
+                    <td>{{ item.size }}</td>
+                    <td>{{ item.quantity }}</td>
+                    <td class="text-muted">{{ "%.2f"|format(item.price_at_time) }} SEK</td>
+                    <td class="text-bold">{{ "%.2f"|format(item.subtotal) }} SEK</td>
+                    <td>
+                        <form method="POST" action="{{ url_for('remove_cart_item', item_id=item.item_id) }}" style="margin:0;">
+                            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--red);" title="Remove">✕</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Summary & checkout -->
+    <div class="cart-summary-box">
+        <div class="section-label">Order Summary</div>
+
+        {% for item in items %}
+        <div style="display:flex;justify-content:space-between;font-size:0.88em;padding:5px 0;border-bottom:1px solid var(--border);">
+            <span class="text-muted">{{ item.name }} × {{ item.quantity }}</span>
+            <span>{{ "%.2f"|format(item.subtotal) }}</span>
+        </div>
+        {% endfor %}
+
+        <div class="cart-total-row">
+            <span style="font-weight:800;text-transform:uppercase;letter-spacing:.06em;font-size:0.85em;">Total</span>
+            <span class="cart-total-amount">{{ "%.2f"|format(total) }} SEK</span>
+        </div>
+
+        <form method="POST" action="{{ url_for('checkout') }}" style="margin-top:20px;">
+            {% if team %}
+            <div class="form-group">
+                <label>Order For</label>
+                <select name="team_member_id" required>
+                    <option value="">Select team member…</option>
+                    {% for member in team %}
+                    <option value="{{ member.id }}" {% if cart.team_member_id == member.id %}selected{% endif %}>
+                        {{ member.full_name }}{% if member.employee_number %} ({{ member.employee_number }}){% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+
+            <div class="form-group">
+                <label>Comment (optional)</label>
+                <textarea name="comment" rows="3" placeholder="Any notes for the packer…">{{ cart.comment or '' }}</textarea>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-full btn-lg">Submit Order</button>
+        </form>
+    </div>
+</div>
+
+{% else %}
+<div class="surface empty-state">
+    <p>Your cart is empty.</p>
+    <a href="{{ url_for('shop') }}" class="btn btn-primary" style="margin-top:12px;">Browse the Shop</a>
+</div>
+{% endif %}
+
+{% endblock %}

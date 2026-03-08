@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header-band">
+    <div class="header-row">
+        <div>
+            <span class="page-breadcrumb" style="color:rgba(0,0,0,.5);"><a href="{{ url_for('admin_dashboard') }}" style="color:rgba(0,0,0,.5);">Admin</a> › Facilities</span>
+            <h1>Facilities</h1>
+        </div>
+    </div>
+</div>
+
+<div style="display:grid;grid-template-columns:380px 1fr;gap:28px;align-items:start;">
+
+    <div class="surface">
+        <div class="section-label">Add Facility</div>
+        <form method="POST" style="display:flex;flex-direction:column;gap:14px;">
+            <input type="hidden" name="action" value="add">
+            <div class="form-group" style="margin:0;">
+                <label>Facility Name</label>
+                <input type="text" name="name" placeholder="e.g. Örebro Hub" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Add Facility</button>
+        </form>
+    </div>
+
+    <div class="data-table-wrap">
+        <table>
+            <thead><tr><th>Facility Name</th><th></th></tr></thead>
+            <tbody>
+                {% for f in facilities %}
+                <tr>
+                    <td class="text-bold">{{ f.name }}</td>
+                    <td style="text-align:right;">
+                        <form method="POST" onsubmit="return confirm('Delete facility?');" style="margin:0;display:inline;">
+                            <input type="hidden" name="action" value="delete">
+                            <input type="hidden" name="facility_id" value="{{ f.id }}">
+                            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--red);">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="2" class="empty-state">No facilities added yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

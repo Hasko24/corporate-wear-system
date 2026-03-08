@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header-band">
+    <div class="header-row">
+        <h1>My Team</h1>
+        <a href="{{ url_for('add_team_member') }}" class="btn btn-dark btn-lg">+ Add Member</a>
+    </div>
+</div>
+
+<div class="team-layout">
+
+    <!-- Quick-add form -->
+    <div class="surface" style="border-top:4px solid var(--yellow);">
+        <div class="section-label">Quick Add</div>
+        <form method="POST" action="{{ url_for('add_team_member') }}">
+            <div class="form-group">
+                <label>Full Name <span style="color:var(--red);">*</span></label>
+                <input type="text" name="full_name" required placeholder="First and last name">
+            </div>
+            <div class="form-group">
+                <label>Employee Number</label>
+                <input type="text" name="employee_number" placeholder="e.g. EMP-1042">
+            </div>
+            <div class="form-group">
+                <label>Job Role <span style="color:var(--red);">*</span></label>
+                <select name="job_role_id" required>
+                    <option value="">Select a role…</option>
+                    {% for role in roles %}
+                    {% if role.name not in ('Everyone', 'Packer') %}
+                    <option value="{{ role.id }}">{{ role.name }}</option>
+                    {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Cost Centre</label>
+                <input type="text" name="cost_centre" placeholder="e.g. Warehouse A">
+            </div>
+            <button type="submit" class="btn btn-primary btn-full">Add Member</button>
+        </form>
+    </div>
+
+    <!-- Team table -->
+    <div class="data-table-wrap">
+        <table>
+            <thead>
+                <tr><th>Member</th><th>Employee #</th><th>Role</th><th>Sizes</th><th></th></tr>
+            </thead>
+            <tbody>
+                {% for member in team %}
+                <tr>
+                    <td>
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <div class="team-avatar">{{ member.full_name[0] }}</div>
+                            <span class="text-bold">{{ member.full_name }}</span>
+                        </div>
+                    </td>
+                    <td class="text-muted text-mono">{{ member.employee_number or '—' }}</td>
+                    <td>{{ member.job_role or '—' }}</td>
+                    <td>
+                        <div style="display:flex;flex-wrap:wrap;gap:4px;font-size:0.8em;">
+                            {% if member.shirt_size %}<span class="tag">👕 {{ member.shirt_size }}</span>{% endif %}
+                            {% if member.pants_size %}<span class="tag">👖 {{ member.pants_size }}</span>{% endif %}
+                            {% if member.shoe_size %}<span class="tag">👟 {{ member.shoe_size }}</span>{% endif %}
+                            {% if not member.shirt_size and not member.pants_size and not member.shoe_size %}
+                            <span class="text-muted">Not set</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td>
+                        <form method="POST" action="{{ url_for('delete_team_member', member_id=member.id) }}"
+                              onsubmit="return confirm('Remove {{ member.full_name }} from your team?');" style="margin:0;">
+                            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--red);">Remove</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="empty-state">No team members yet. Add your first one!</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

@@ -1,89 +1,82 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="card">
-    <h2>Orders</h2>
+<div class="page-header-band">
+    <div class="header-row">
+        <h1>Orders</h1>
+    </div>
+</div>
 
+<form method="GET" class="filter-bar">
+    <div class="filter-group">
+        <label>From</label>
+        <input type="date" name="start" value="{{ current_filters.get('start','') }}">
+    </div>
+    <div class="filter-group">
+        <label>To</label>
+        <input type="date" name="end" value="{{ current_filters.get('end','') }}">
+    </div>
+    <div class="filter-group">
+        <label>Status</label>
+        <select name="status">
+            <option value="">All statuses</option>
+            <option value="created"   {% if current_filters.get('status')=='created'   %}selected{% endif %}>Created</option>
+            <option value="submitted" {% if current_filters.get('status')=='submitted' %}selected{% endif %}>Submitted</option>
+            <option value="packed"    {% if current_filters.get('status')=='packed'    %}selected{% endif %}>Packed</option>
+            <option value="completed" {% if current_filters.get('status')=='completed' %}selected{% endif %}>Completed</option>
+            <option value="rejected"  {% if current_filters.get('status')=='rejected'  %}selected{% endif %}>Rejected</option>
+        </select>
+    </div>
+    {% if session.system_role == 'admin' %}
+    <div class="filter-group">
+        <label>Supervisor</label>
+        <select name="supervisor">
+            <option value="">All supervisors</option>
+            {% for sup in supervisors %}
+            <option value="{{ sup.id }}" {% if current_filters.get('supervisor')|string == sup.id|string %}selected{% endif %}>{{ sup.full_name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+    <button type="submit" class="btn btn-primary">Filter</button>
+    <a href="{{ url_for('view_orders') }}" class="btn btn-ghost">Clear</a>
+</form>
+
+<div class="data-table-wrap">
     <table>
-        <tr>
-            <th>Product</th>
-            <th>Size</th>
-            <th>User</th>
-            <th>Status</th>
-            <th>Packed By</th>
-            <th>Actions</th>
-        </tr>
-
-        {% for order in orders %}
-        <tr>
-            <td>{{ order.product_name }}</td>
-            <td>{{ order.size_name }}</td>
-            <td>{{ order.user_name }}</td>
-
-            <td>
-                {% if order.status == "approved" %}
-                    <span style="color:#2e7d32; font-weight:bold;">Approved</span>
-                {% elif order.status == "rejected" %}
-                    <span style="color:#D40511; font-weight:bold;">Rejected</span>
-                {% elif order.status == "packed" %}
-                    <span style="color:#1565c0; font-weight:bold;">Packed</span>
-                {% elif order.status == "sent" %}
-                    <span style="color:#555;">Sent</span>
-                {% else %}
-                    <span style="color:#999;">{{ order.status }}</span>
-                {% endif %}
-            </td>
-
-            <td>{{ order.packed_by_name or '-' }}</td>
-
-            <td>
-
-                {% if session.system_role == "admin" and order.status == "pending_admin" %}
-                <div style="display:flex; gap:8px;">
-                    <form method="POST" action="{{ url_for('approve_order', order_id=order.id) }}">
-                        <button style="background:#2e7d32;">Approve</button>
-                    </form>
-
-                    <form method="POST" action="{{ url_for('reject_order', order_id=order.id) }}">
-                        <button style="background:#D40511;">Reject</button>
-                    </form>
-                </div>
-                {% endif %}
-
-                {% if session.system_role == 'supervisor' and order.status == 'pending_approval' %}
-                <div style="display:flex; gap:8px;">
-                    <form method="POST" action="/approve-order/{{ order.id }}">
-                        <button style="background:#2e7d32;">Approve</button>
-                    </form>
-
-                    <form method="POST" action="/reject-order/{{ order.id }}">
-                        <button style="background:#D40511;">Reject</button>
-                    </form>
-                </div>
-                {% endif %}
-
-                {% if session.system_role == 'packer' and order.status == 'approved' %}
-                <form method="POST" action="/pack-order/{{ order.id }}">
-                    <button style="background:#1565c0;">Mark as Packed</button>
-                </form>
-                {% endif %}
-
-                {% if session.system_role == 'packer' and order.status == 'packed' %}
-                <div style="display:flex; gap:8px;">
-                    <form method="POST" action="/send-order/{{ order.id }}">
-                        <button style="background:#2e7d32;">Mark as Sent</button>
-                    </form>
-
-                    <form method="POST" action="/undo-pack/{{ order.id }}">
-                        <button style="background:#999;">Undo</button>
-                    </form>
-                </div>
-                {% endif %}
-
-            </td>
-
-        </tr>
-        {% endfor %}
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Order For</th>
+                <th>Created By</th>
+                <th>Items</th>
+                <th>Total</th>
+                <th>Date</th>
+                <th>Status</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for order in carts %}
+            <tr>
+                <td class="text-muted">#{{ order.id }}</td>
+                <td>
+                    <div class="text-bold">{{ order.worker_name or '—' }}</div>
+                    {% if order.employee_number %}
+                    <div class="text-muted text-sm">{{ order.employee_number }}</div>
+                    {% endif %}
+                </td>
+                <td>{{ order.supervisor_name or '—' }}</td>
+                <td>{{ order.item_count }}</td>
+                <td class="text-bold">{{ "%.2f"|format(order.total_price) if order.total_price else '—' }} SEK</td>
+                <td class="text-muted">{{ order.created_at.strftime('%d %b %Y') if order.created_at else '—' }}</td>
+                <td><span class="status-pill status-{{ order.status }}">{{ order.status }}</span></td>
+                <td><a href="{{ url_for('order_detail', cart_id=order.id) }}" class="btn btn-ghost btn-sm">View →</a></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="empty-state">No orders found.</td></tr>
+            {% endfor %}
+        </tbody>
     </table>
 </div>
 

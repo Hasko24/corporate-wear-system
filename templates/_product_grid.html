@@ -1,7 +1,97 @@
-<div class="container">
-{% for product in products %}
-    <div class="product">
-        
+<link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+
+<div class="product-grid">
+  {% for product in products %}
+  <div class="product-card {% if product.sizes and product.sizes|selectattr('stock','gt',0)|list|length == 0 %}out-of-stock{% endif %}">
+
+    <!-- Image -->
+    <div class="product-image-wrap" onclick="openProductModal(this)" style="cursor:zoom-in;" title="Click to enlarge">
+      {% if product.image %}
+        <img src="{{ url_for('static', filename=product.image) }}"
+             alt="{{ product.name }}" class="product-image"
+             data-fullsrc="{{ url_for('static', filename=product.image) }}">
+        <span class="zoom-hint">🔍 Click to enlarge</span>
+      {% else %}
+        <div class="product-no-image">No image</div>
+      {% endif %}
     </div>
-{% endfor %}
+
+    <!-- Info -->
+    <div class="product-body">
+      <div class="product-article">{{ product.article_number }}</div>
+      <div class="product-name">{{ product.name }}</div>
+
+      {% if product.price %}
+      <div class="product-price">{{ "%.2f"|format(product.price) }} SEK</div>
+      {% endif %}
+
+      {% if product.description %}
+      <div class="product-desc">{{ product.description }}</div>
+      {% endif %}
+
+      <!-- Add to cart form -->
+      <form method="POST" action="{{ url_for('add_to_cart') }}" class="add-to-cart-form">
+        <input type="hidden" name="team_member_id" value="{{ selected_member }}">
+
+        <div class="size-row">
+          <select name="product_size_id" required class="size-select">
+            <option value="">Select size…</option>
+            {% for s in product.sizes %}
+              <option value="{{ s.id }}"
+                      {% if s.stock == 0 %}disabled{% endif %}
+                      {% if product.recommended_size and product.recommended_size == s.size %}
+                        data-recommended="true"
+                      {% endif %}>
+                {{ s.size }}
+                {% if product.recommended_size == s.size %}⭐{% endif %}
+                ({{ s.stock }} left)
+                {% if s.stock == 0 %}— Out of stock{% endif %}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="qty-row" style="display:flex;gap:8px;align-items:center;margin-top:8px;">
+          <input type="number" name="quantity" value="1" min="1"
+                 max="{{ product.max_quantity }}" class="qty-input"
+                 style="width:70px;padding:8px;border:1px solid #ddd;border-radius:6px;">
+          <button type="submit" class="add-btn">Add to Cart</button>
+        </div>
+
+        {% if product.max_quantity %}
+        <div style="font-size:0.75em;color:#aaa;margin-top:4px;">
+          Max {{ product.max_quantity }} per order
+        </div>
+        {% endif %}
+      </form>
+    </div>
+  </div>
+  {% endfor %}
 </div>
+
+<!-- Image zoom modal -->
+<div id="productImageModal" onclick="closeProductModal()"
+     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:9999;
+            align-items:center;justify-content:center;cursor:zoom-out;">
+  <img id="productModalImg" src="" alt=""
+       style="max-width:90vw;max-height:90vh;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,.5);">
+</div>
+
+<script>
+function openProductModal(wrapper) {
+  const img = wrapper.querySelector('img');
+  if (!img) return;
+  document.getElementById('productModalImg').src = img.dataset.fullsrc || img.src;
+  document.getElementById('productImageModal').style.display = 'flex';
+}
+function closeProductModal() {
+  document.getElementById('productImageModal').style.display = 'none';
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeProductModal(); });
+
+// Auto-select recommended size
+document.querySelectorAll('.size-select').forEach(sel => {
+  const rec = sel.querySelector('[data-recommended="true"]');
+  if (rec && !rec.disabled) sel.value = rec.value;
+});
+</script>

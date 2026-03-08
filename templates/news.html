@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header-band">
+    <div class="header-row">
+        <h1>Company News</h1>
+        {% if session.system_role == 'admin' %}
+        <a href="{{ url_for('admin_news') }}" class="btn btn-dark btn-lg">+ New Post</a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="news-list">
+    {% if posts|length == 0 %}
+    <div class="surface empty-state">No news posts yet.</div>
+    {% endif %}
+
+    {% for post in posts %}
+    <div class="news-card {% if not post.is_read %}unread{% endif %}">
+        <div class="news-header">
+            <div>
+                <h3>{{ post.title }}</h3>
+                <div class="news-date">{{ post.created_at.strftime('%d %b %Y') if post.created_at else '' }}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+                {% if post.is_read %}
+                <span class="tag tag-green">✓ Read</span>
+                {% else %}
+                <span class="tag tag-yellow">New</span>
+                {% endif %}
+                {% if session.system_role == 'admin' %}
+                <form method="POST" action="{{ url_for('delete_news', post_id=post.id) }}"
+                      onsubmit="return confirm('Delete this post?');" style="margin:0;">
+                    <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--red);">Delete</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+
+        <p style="color:var(--text-2);line-height:1.65;">{{ post.content }}</p>
+
+        {% if post.image_path %}
+        <img src="{{ url_for('static', filename=post.image_path) }}" alt="" class="news-image">
+        {% endif %}
+
+        {% if not post.is_read %}
+        <a href="{{ url_for('mark_news_read', post_id=post.id) }}" class="btn-read">Mark as Read</a>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+
+{% endblock %}

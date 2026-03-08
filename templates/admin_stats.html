@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header-band">
+    <div class="header-row">
+        <div>
+            <span class="page-breadcrumb"><a href="{{ url_for('admin_dashboard') }}">Admin</a> › Stats</span>
+            <h1>Order Statistics</h1>
+        </div>
+    </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+    <div class="data-table-wrap">
+        <div style="padding:16px 20px;font-weight:700;border-bottom:1px solid var(--border);">Orders by Status</div>
+        <table>
+            <thead><tr><th>Status</th><th>Count</th></tr></thead>
+            <tbody>
+                {% for row in status_stats %}
+                <tr>
+                    <td><span class="status-pill status-{{ row.status }}">{{ row.status }}</span></td>
+                    <td style="font-weight:700;">{{ row.count }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="2" class="empty-state">No data.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="data-table-wrap">
+        <div style="padding:16px 20px;font-weight:700;border-bottom:1px solid var(--border);">Orders by Supervisor</div>
+        <table>
+            <thead><tr><th>Supervisor</th><th>Total Orders</th></tr></thead>
+            <tbody>
+                {% for row in supervisor_stats %}
+                <tr>
+                    <td>{{ row.full_name }}</td>
+                    <td style="font-weight:700;">{{ row.total }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="2" class="empty-state">No data.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

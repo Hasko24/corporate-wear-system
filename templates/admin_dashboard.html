@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header-band">
+    <div class="header-row">
+        <div>
+            <h1>Admin Panel</h1>
+            <div class="header-sub">DHL Corporate Wear — Control Centre</div>
+        </div>
+    </div>
+</div>
+
+<div class="stat-grid">
+    <div class="stat-card">
+        <div class="stat-value">{{ users_count }}</div>
+        <div class="stat-label">Users</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ product_count }}</div>
+        <div class="stat-label">Products</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ orders_count }}</div>
+        <div class="stat-label">Total Orders</div>
+    </div>
+    <div class="stat-card stat-card-red">
+        <div class="stat-value">{{ low_stock|length }}</div>
+        <div class="stat-label">Low Stock Items</div>
+    </div>
+</div>
+
+<div class="section-label">Quick Access</div>
+<div class="admin-grid">
+    <a href="{{ url_for('admin_users') }}" class="admin-card">
+        <h3>Users</h3><p>Manage accounts &amp; roles</p>
+    </a>
+    <a href="{{ url_for('admin_products') }}" class="admin-card">
+        <h3>Products</h3><p>Catalogue &amp; stock</p>
+    </a>
+    <a href="{{ url_for('view_orders') }}" class="admin-card">
+        <h3>Orders</h3><p>View &amp; process orders</p>
+    </a>
+    <a href="{{ url_for('admin_analytics') }}" class="admin-card">
+        <h3>Analytics</h3><p>Spending &amp; metrics</p>
+    </a>
+    <a href="{{ url_for('admin_news') }}" class="admin-card">
+        <h3>News</h3><p>Announcements</p>
+    </a>
+    <a href="{{ url_for('admin_job_roles') }}" class="admin-card">
+        <h3>Job Roles</h3><p>Role management</p>
+    </a>
+    <a href="{{ url_for('admin_sites') }}" class="admin-card">
+        <h3>Sites</h3><p>PUD, GTW, CCP…</p>
+    </a>
+    <a href="{{ url_for('admin_facilities') }}" class="admin-card">
+        <h3>Facilities</h3><p>Buildings &amp; hubs</p>
+    </a>
+    <a href="{{ url_for('admin_size_guides') }}" class="admin-card">
+        <h3>Size Guides</h3><p>Brand charts</p>
+    </a>
+    </a>
+    <a href="{{ url_for('admin_stock_risk') }}" class="admin-card {% if low_stock %}admin-card-danger{% endif %}">
+        <h3>Stock Risk</h3>
+        <p>{{ low_stock|length }} low-stock item{{ 's' if low_stock|length != 1 }}</p>
+    </a>
+    <a href="{{ url_for('size_analytics') }}" class="admin-card">
+        <h3>Size Analytics</h3><p>Distribution data</p>
+    </a>
+</div>
+
+{% endblock %}

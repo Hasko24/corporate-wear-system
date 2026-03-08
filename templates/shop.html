@@ -2,545 +2,628 @@
 {% block content %}
 
 <style>
+/* ══════════════════════════════════════════════
+   NUCLEAR RESET — override main.css globals
+   These rules MUST come first and use !important
+   ══════════════════════════════════════════════ */
 
-.container {
-    width: 100%;
-    padding: 40px 80px;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 40px;
+/* main.css: button { width:100%; margin-top:25px; background:#D40511 } */
+.sw button {
+    width: auto !important;
+    margin-top: 0 !important;
+    background: none !important;
+    color: inherit !important;
+    font-size: inherit !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+}
+/* main.css: input, select { width:100%; padding:10px; margin-top:6px } */
+.sw input, .sw select {
+    width: auto !important;
+    padding: 9px 12px !important;
+    margin-top: 0 !important;
+    border-radius: 7px !important;
+    border: 1px solid #ddd !important;
+    font-size: 0.9em !important;
+    background: white !important;
+}
+/* main.css: label { display:block; margin-top:15px } */
+.sw label { display: inline !important; margin-top: 0 !important; }
+
+/* Now re-apply shop-specific button styles */
+.sw .add-cart-btn {
+    width: 100% !important; padding: 12px !important;
+    background: #FFCC00 !important; color: #000 !important;
+    border-radius: 8px !important; font-weight: 800 !important;
+    font-size: 0.92em !important; cursor: pointer !important;
+    margin-top: 2px !important; border: none !important;
+}
+.sw .add-cart-btn:hover { background: #f0c000 !important; }
+
+.sw .abtn {
+    display: inline-flex !important; align-items: center !important;
+    justify-content: center !important; height: 32px !important;
+    padding: 0 14px !important; border-radius: 6px !important;
+    font-size: 0.8em !important; font-weight: 700 !important;
+    cursor: pointer !important; white-space: nowrap !important;
+    margin-top: 0 !important;
+}
+.sw .abtn-stock  { background: #e8f5e9 !important; color: #2e7d32 !important; border: 1px solid #a5d6a7 !important; }
+.sw .abtn-edit   { background: #e3f2fd !important; color: #1565c0 !important; border: 1px solid #90caf9 !important; }
+.sw .abtn-remove { background: #fce4ec !important; color: #c62828 !important; border: 1px solid #f48fb1 !important; }
+.sw .abtn:hover  { filter: brightness(0.92) !important; }
+
+.sw .safe-btn {
+    background: white !important; color: #333 !important;
+    border: 1px solid #ddd !important; padding: 9px 22px !important;
+    border-radius: 7px !important; font-weight: 600 !important;
+    cursor: pointer !important; font-size: 0.9em !important;
+    height: auto !important;
+}
+.sw .safe-btn:hover { background: #f5f5f5 !important; }
+.sw .danger-btn {
+    background: #e53935 !important; color: white !important;
+    border: none !important; padding: 9px 22px !important;
+    border-radius: 7px !important; font-weight: 700 !important;
+    cursor: pointer !important; font-size: 0.9em !important;
+    height: auto !important;
+}
+.sw .danger-btn:hover { background: #c62828 !important; }
+
+.sw .sw-cart-btn {
+    display: block !important; width: 100% !important;
+    padding: 9px !important; background: #FFCC00 !important;
+    border-radius: 7px !important; font-weight: 700 !important;
+    font-size: 0.88em !important; text-decoration: none !important;
+    color: #000 !important; text-align: center !important;
+    margin-top: 0 !important;
+}
+.sw .sw-cart-btn:hover { background: #f0c000 !important; }
+
+/* Inputs that should be full width inside order panel */
+.sw .p-order select { width: 100% !important; }
+.sw .p-order input[type=number] { width: 76px !important; }
+
+/* sidebar member select full width */
+.sw .sw-member-select { width: 100% !important; padding: 8px 10px !important; }
+
+/* Image fixes */
+.sw .image-wrapper { height: unset !important; transform: none !important; }
+.sw .image-wrapper:hover { transform: none !important; }
+.sw .p-image img, .sw .image-wrapper img {
+    width: 100% !important; height: 100% !important;
+    object-fit: contain !important; border-radius: 0 !important;
+    padding: 12px !important; max-height: unset !important;
+    transform: none !important; transition: transform .3s ease;
+}
+.sw .p-image:hover img { transform: scale(1.05) !important; }
+.img-modal-left img {
+    object-fit: contain !important; padding: 20px !important;
+    border-radius: 0 !important; transform: none !important;
+    max-height: unset !important; width: 100% !important;
+}
+
+/* ── Break out of page-container (base.html max-width:1200px padding:0 20px) ── */
+.sw {
     box-sizing: border-box;
+    width: 100%;
+    margin-top: 0;
+    padding-top: 12px;
 }
+*, .sw * { box-sizing: border-box; }
 
-    .product {
-    background: white;
-    padding: 18px;
-    border-radius: 14px;
-
-    border: 1px solid #e4e6ea;      /* clean subtle border */
-    box-shadow: 0 4px 14px rgba(0,0,0,0.05);
-
-    transition: 
-        transform 0.15s ease,
-        box-shadow 0.15s ease,
-        border-color 0.15s ease;
-    }
-
-    .product:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
-    border-color: #d0d3d8;
-    }
-
-body {
-    background: #f5f6f8;
-}
-
-#stockModal input[type="number"] {
-    width: 80px;
-    height: 38px;
-    padding: 0;
-    text-align: center;
-    font-size: 15px;
-    border-radius: 8px;
-    border: 1px solid #ddd;
+.sw-body {
     display: flex;
-    align-items: center;
-    justify-content: center;
+    gap: 0;
+    align-items: flex-start;
+    width: 100%;
 }
 
-.image-modal {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.6);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: 9999;
-}
-
-.modal-box {
-    display: flex;
-    background: white;
-    border-radius: 16px;
-    box-shadow: 0 40px 100px rgba(0,0,0,0.4);
-    max-width: 90vw;
-    max-height: 85vh;
-    overflow: hidden;
-}
-
-.modal-left {
-    background: #f5f6f8;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 30px;
-}
-
-.modal-left img {
-    max-width: 500px;
-    max-height: 70vh;
-    object-fit: contain;
-}
-
-.modal-right {
-    padding: 35px;
-    max-width: 400px;
+/* ── Sidebar ── */
+.sw-sidebar {
+    width: 210px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 72px;
+    height: calc(100vh - 88px);
     overflow-y: auto;
-}
-
-.modal-box {
-    animation: fadeIn 0.2s ease;
-}
-
-@keyframes fadeIn {
-    from { transform: scale(0.95); opacity: 0; }
-    to { transform: scale(1); opacity: 1; }
-}
-
-.modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.modal-close {
-    background: none;
-    border: none;
-    font-size: 28px;
-    cursor: pointer;
-    color: #666;
-}
-
-.modal-close:hover {
-    color: #D40511;
-}
-
-#modalArticle {
-    font-weight: bold;
-    margin-top: 10px;
-    color: #555;
-}
-
-#modalDescription {
-    margin-top: 20px;
-    line-height: 1.5;
-}
-
-#modalStock {
-    margin-top: 30px;
-    font-size: 14px;
-    font-weight: bold;
-}
-
-.image-wrapper {
-    height: 220px;
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: transparent;
-    overflow: hidden;
-    cursor: pointer;
-}
-
-.product-image {
-    max-height: 100%;
-    max-width: 100%;
-    object-fit: contain;
-    display: block;
-}
-
-#product-grid {
-    transition: opacity 0.15s ease;
-}
-
-/* Remove number input arrows (Chrome, Edge) */
-input[type=number]::-webkit-inner-spin-button,
-input[type=number]::-webkit-outer-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-}
-
-#stockModal input[type="number"] {
-    width: 80px;
-    padding: 8px;
-    text-align: center;
-    font-size: 15px;
-}
-
-.image-wrapper img {
-    width: 100%;
-    height: 200px;
-    object-fit: cover;
+    background: white;
+    border: 1px solid #e8e8e8;
     border-radius: 12px;
-    transition: transform 0.3s ease;
+    margin-right: 20px;
+    scrollbar-width: thin;
+    scrollbar-color: #e0e0e0 transparent;
+}
+.sw-sidebar-section { padding: 14px 16px; border-bottom: 1px solid #f0f0f0; }
+.sw-sidebar-section:last-child { border-bottom: none; }
+.sw-sidebar-title {
+    font-size: 0.7em; font-weight: 800; text-transform: uppercase;
+    letter-spacing: .08em; color: #aaa; margin-bottom: 10px;
+}
+.sw-member-select {
+    width: 100% !important;
+    padding: 8px 10px !important;
+    border: 1px solid #ddd !important;
+    border-radius: 7px !important;
+    font-size: 0.88em !important;
+    background: white !important;
+    cursor: pointer;
+}
+.sw-member-select:focus { outline: none; border-color: #FFCC00 !important; }
+
+.role-links { display: flex; flex-direction: column; gap: 2px; }
+.role-link {
+    display: block; padding: 7px 10px; border-radius: 7px;
+    text-decoration: none; color: #444; font-size: 0.88em;
+    transition: background .12s;
+}
+.role-link:hover { background: #f5f5f5; }
+.role-link.active { background: #FFCC00; color: #000; font-weight: 700; }
+
+.sw-cart-box { text-align: center; padding: 16px; }
+.sw-cart-count { font-size: 2.4em; font-weight: 900; color: #FFCC00; line-height: 1; }
+.sw-cart-label { font-size: 0.78em; color: #aaa; margin: 4px 0 12px; }
+.sw-cart-btn {
+    display: block; width: 100%; padding: 9px;
+    background: #FFCC00; border-radius: 7px; font-weight: 700;
+    font-size: 0.88em; text-decoration: none; color: #000;
+    text-align: center;
+}
+.sw-cart-btn:hover { background: #f0c000; }
+
+/* ── Main content ── */
+.sw-main { flex: 1; min-width: 0; }
+
+/* ── Ordering banner ── */
+.ordering-banner {
+    background: #fffde7; border: 1px solid #FFCC00; border-radius: 8px;
+    padding: 10px 16px; margin-bottom: 14px; font-size: 0.9em;
+}
+.ordering-banner strong { color: #b8860b; }
+
+/* ── Product list ── */
+.product-list {
+    display: flex; flex-direction: column; gap: 0;
+    border: 1px solid #e5e5e5; border-radius: 12px;
+    overflow: hidden; background: white;
 }
 
-.image-wrapper:hover img {
-    transform: scale(1.05);
+/* ── Product row ── */
+.product-row {
+    display: grid;
+    grid-template-columns: 220px 1fr 290px;
+    min-height: 210px;
+    border-bottom: 1px solid #efefef;
+    transition: background .15s;
 }
+.product-row:last-child { border-bottom: none; }
+.product-row:hover { background: #fafafa; }
 
-.product-preview {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 600px;
-    max-height: 80vh;
-    overflow-y: auto;
-    background: white;
-    border-radius: 16px;
-    box-shadow: 0 40px 100px rgba(0,0,0,0.4);
-    padding: 35px;
-    opacity: 0;
+/* ── Image cell ── */
+.p-image {
+    position: relative; overflow: hidden; background: #f7f7f7;
+    cursor: zoom-in; display: flex; align-items: center;
+    justify-content: center; border-right: 1px solid #efefef;
+}
+.p-image-overlay {
+    position: absolute; inset: 0; display: flex; align-items: center;
+    justify-content: center; background: rgba(0,0,0,0); color: white;
+    font-size: 0.85em; font-weight: 600; opacity: 0; transition: all .2s;
     pointer-events: none;
-    transition: opacity 0.2s ease;
-    z-index: 5000;
+}
+.p-image:hover .p-image-overlay { opacity: 1; background: rgba(0,0,0,.32); }
+.no-img { color: #ccc; font-size: 0.82em; }
+
+/* ── Info cell ── */
+.p-info {
+    padding: 20px 24px; display: flex; flex-direction: column;
+    justify-content: center; border-right: 1px solid #efefef;
+}
+.p-code { font-size: 0.72em; color: #bbb; margin-bottom: 4px; letter-spacing: .03em; }
+.p-name { font-size: 1.1em; font-weight: 800; color: #111; margin-bottom: 8px; }
+.p-desc { font-size: 0.84em; color: #666; line-height: 1.55; margin-bottom: 10px; }
+.p-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+.p-tag { font-size: 0.72em; padding: 3px 9px; background: #f2f2f2; border-radius: 20px; color: #555; font-weight: 500; }
+.p-rec { font-size: 0.8em; color: #888; margin-bottom: 6px; }
+.p-rec span { background: #fffde7; border: 1px solid #FFCC00; border-radius: 4px; padding: 1px 6px; color: #b8860b; font-weight: 700; }
+.p-price { font-size: 1.1em; font-weight: 900; color: #111; margin-top: 6px; }
+
+/* ── Admin buttons ── */
+.admin-btns { display: flex; gap: 7px; margin-top: 12px; flex-wrap: wrap; align-items: center; }
+.abtn {
+    display: inline-flex; align-items: center; justify-content: center;
+    height: 32px; padding: 0 14px; border-radius: 6px; font-size: 0.8em;
+    font-weight: 700; cursor: pointer; border: 1px solid transparent;
+    text-decoration: none; white-space: nowrap; transition: filter .15s;
 }
 
-.image-wrapper:hover .product-preview {
-    opacity: 1;
+/* ── Order cell ── */
+.p-order {
+    padding: 18px 20px; display: flex; flex-direction: column;
+    justify-content: center; gap: 10px; background: #fcfcfc;
+}
+.p-order-label {
+    font-size: 0.7em; font-weight: 800; text-transform: uppercase;
+    letter-spacing: .07em; color: #aaa; margin-bottom: 3px; display: block;
+}
+.p-order select { width: 100% !important; padding: 9px 10px !important; }
+.single-size { font-size: 0.88em; color: #555; padding: 6px 0; }
+.qty-row { display: flex; gap: 8px; align-items: center; }
+.qty-row input { width: 76px !important; padding: 9px !important; }
+.qty-price { font-weight: 900; font-size: 1em; color: #111; white-space: nowrap; }
+.add-cart-btn {
+    width: 100%; padding: 12px; background: #FFCC00; border: none;
+    border-radius: 8px; font-weight: 800; font-size: 0.92em;
+    cursor: pointer; transition: background .15s; margin-top: 2px;
 }
 
-.image-wrapper:hover {
-    transform: scale(1.02);
-    transition: transform 0.2s ease;
+/* ── Empty / flash ── */
+.empty-state { text-align: center; padding: 60px 20px; color: #aaa; }
+
+/* ── Modals ── */
+.overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.65);
+    z-index: 9999; align-items: center; justify-content: center;
 }
-
-body.preview-active::after {
-    content: "";
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.4);
-    backdrop-filter: blur(4px);
-    z-index: 1500;
+.img-overlay { background: rgba(0,0,0,.82); }
+.img-modal-box {
+    display: flex; background: white; border-radius: 16px; overflow: hidden;
+    max-width: 920px; width: 93vw; max-height: 88vh;
+    box-shadow: 0 24px 64px rgba(0,0,0,.5);
+    animation: popIn .22s ease;
 }
-
-.stock-editor {
-    display: none;
-    margin-top: 15px;
-    background: #f4f4f4;
-    padding: 20px;
-    border-radius: 10px;
-    border: 1px solid #e0e0e0;
+@keyframes popIn { from { transform: scale(.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.img-modal-left {
+    flex: 0 0 440px; background: #f5f5f5;
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
 }
-
-.stock-editor input {
-    width: 70px;
-    padding: 6px;
-    border-radius: 6px;
-    border: 1px solid #ccc;
+.img-modal-left img { width: 100%; height: 100%; object-fit: contain; padding: 20px; display: block; }
+.img-modal-right { flex: 1; padding: 36px; overflow-y: auto; display: flex; flex-direction: column; }
+.img-modal-right h2 { margin: 0 0 6px; font-size: 1.3em; font-weight: 800; }
+.img-modal-code { color: #aaa; font-size: 0.85em; margin-bottom: 14px; }
+.img-modal-desc { color: #555; font-size: 0.92em; line-height: 1.6; flex: 1; }
+.img-modal-stock { margin-top: 20px; font-size: 0.88em; line-height: 1.9; }
+.img-modal-close { background: none; border: none; font-size: 2em; cursor: pointer; color: #bbb; padding: 0; line-height: 1; align-self: flex-end; margin-bottom: 14px; }
+.img-modal-close:hover { color: #333; }
+.small-modal-box {
+    background: white; border-radius: 14px; padding: 32px;
+    max-width: 480px; width: 92%;
+    box-shadow: 0 12px 40px rgba(0,0,0,.25); animation: popIn .2s ease;
 }
+.small-modal-box h3 { margin: 0 0 10px; font-size: 1.1em; }
+.small-modal-box p { color: #666; margin: 0 0 24px; font-size: 0.92em; }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.modal-actions .safe-btn   { padding: 9px 22px !important; border-radius: 7px !important; cursor: pointer; font-weight: 600; font-size: 0.9em; }
+.modal-actions .danger-btn { padding: 9px 22px !important; border-radius: 7px !important; cursor: pointer; font-weight: 700; font-size: 0.9em; }
+#stockTable { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 0.88em; }
+#stockTable th, #stockTable td { padding: 8px 10px; border-bottom: 1px solid #f0f0f0; text-align: center; }
+#stockTable th { font-size: 0.78em; text-transform: uppercase; color: #aaa; letter-spacing: .04em; background: #fafafa; }
 
-.preview-image {
-    width: 100%;
-    max-height: 320px;
-    object-fit: contain;
-    margin-bottom: 15px;
+
+/* ── Member selector bar ── */
+.member-bar {
+    display: flex; align-items: center; gap: 12px;
+    background: white; border: 1px solid #e8e8e8; border-radius: 10px;
+    padding: 10px 16px; margin-bottom: 16px; flex-wrap: wrap;
 }
-
-.preview-content h4 {
-    color: #D40511;
-    margin-bottom: 10px;
+.member-bar-label {
+    font-size: 0.75em; font-weight: 800; text-transform: uppercase;
+    letter-spacing: .08em; color: #aaa; white-space: nowrap;
 }
-
-.order-box {
-    margin-top: 12px;
+.member-bar select {
+    flex: 1; min-width: 180px; max-width: 280px;
+    padding: 8px 12px !important; border: 1px solid #ddd !important;
+    border-radius: 7px !important; font-size: 0.9em !important;
+    background: white !important; cursor: pointer; font-weight: 600;
 }
-
-.size-row {
-    display: flex;
-    gap: 8px;
-    align-items: center;
+.member-bar select:focus { outline: none; border-color: #FFCC00 !important; box-shadow: 0 0 0 3px rgba(255,204,0,.2) !important; }
+.member-bar-name {
+    font-size: 0.9em; font-weight: 700; color: #333;
+    background: #fffde7; border: 1px solid #FFCC00;
+    border-radius: 6px; padding: 5px 12px;
 }
-
-.size-select {
-    flex: 1;
-    padding: 8px 10px;
-    border-radius: 6px;
-    border: 1px solid #ccc;
-    font-size: 14px;
-    background: #fff;
+.member-bar-clear {
+    font-size: 0.82em; color: #e53935; text-decoration: none; font-weight: 600;
 }
+.member-bar-clear:hover { text-decoration: underline; }
 
-.order-btn {
-    padding: 8px 16px;
-    background: #D40511;
-    border-radius: 6px;
-    font-size: 14px;
+@media (max-width: 960px) {
+    .sw-sidebar { display: none; }
+    .product-row { grid-template-columns: 160px 1fr; }
+    .p-order { grid-column: 1 / -1; border-top: 1px solid #efefef; }
 }
-
-.preview-content p {
-    font-size: 14px;
-    line-height: 1.4;
+@media (max-width: 600px) {
+    .product-row { grid-template-columns: 1fr; }
+    .p-image { height: 200px; }
+    .img-modal-box { flex-direction: column; }
+    .img-modal-left { flex: 0 0 220px; }
 }
-
-/* STOCK SECTION */
-.admin-stock {
-    margin-top: 10px;
-    font-size: 13px;
-    font-weight: bold;
-}
-
-.add-stock-trigger {
-    margin-top: 12px;
-    width: 100%;
-    padding: 8px;
-    background: #2e7d32;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    font-weight: bold;
-    cursor: pointer;
-}
-
-.add-stock-trigger:hover {
-    opacity: 0.9;
-}
-
-/* STOCK EDITOR */
-.stock-editor {
-    display: none;
-    margin-top: 15px;
-    background: #f8f8f8;
-    padding: 15px;
-    border-radius: 8px;
-}
-
-.stock-editor table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-bottom: 12px;
-}
-
-.stock-editor th,
-.stock-editor td {
-    padding: 6px;
-    font-size: 13px;
-    border-bottom: 1px solid #ddd;
-    text-align: center;
-}
-
-.stock-editor input {
-    width: 60px;
-    padding: 4px;
-    text-align: center;
-}
-
-.save-stock-btn {
-    width: 100%;
-    padding: 8px;
-    background: #D40511;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    font-weight: bold;
-    cursor: pointer;
-}
-
-.delete-modal {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.4);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: 3000;
-}
-
-.delete-box {
-    background: white;
-    padding: 30px;
-    border-radius: 14px;
-    width: 380px;
-    text-align: center;
-    box-shadow: 0 25px 60px rgba(0,0,0,0.3);
-}
-
-.modal-actions {
-    margin-top: 20px;
-    display: flex;
-    gap: 10px;
-}
-
-.modal-actions button {
-    flex: 1;
-    padding: 10px;
-    border-radius: 6px;
-    border: none;
-    cursor: pointer;
-    font-weight: bold;
-}
-
-.danger-btn {
-    background: #D40511;
-    color: white;
-}
-
-.safe-btn {
-    background: #2e7d32;   /* DHL-friendly green */
-    color: white;
-}
-
-.safe-btn:hover {
-    background: #256428;
-}
-
-.remove-btn {
-    margin-top: 8px;
-    width: 100%;
-    padding: 8px;
-    background: #999;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-}
-
-.card {
-    background: white;
-    padding: 20px;
-    border-radius: 12px;
-    margin-bottom: 30px;
-    box-shadow: 0 6px 18px rgba(0,0,0,0.05);
-}
-
-
-.role-filter select {
-    padding: 10px 14px;
-    border-radius: 8px;
-    border: 1px solid #ddd;
-    background: white;
-    font-size: 14px;
-    font-weight: 600;
-    min-width: 220px;
-    cursor: pointer;
-}
-
-.role-filter select:focus {
-    border-color: #D40511;
-    outline: none;
-    box-shadow: 0 0 0 2px rgba(212,5,17,0.1);
-}
-
 </style>
 
-<!-- ADMIN FILTER -->
-{% if session.system_role == "admin" %}
-<div class="card">
-    <form method="GET" class="role-filter">
-        <label><strong>Filter by Job Role:</strong></label>
-        <select name="role" id="roleFilter">
-            <option value="">All</option>
-            {% for role in job_roles %}
-                <option value="{{ role.id }}"
-                    {% if selected_role == role.id|string %}selected{% endif %}>
-                    {{ role.name }}
-                </option>
-            {% endfor %}
-        </select>
-    </form>
+<div class="sw">
+
+{% if require_selection %}
+<!-- Force member selection -->
+<div style="max-width:580px;margin:60px auto;background:white;border-radius:14px;border:1px solid #eee;padding:40px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.06);">
+    <h2 style="margin:0 0 8px;">Select Team Member</h2>
+    <p style="color:#888;margin-bottom:28px;">Choose who you are ordering for before browsing products.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;">
+        {% for member in team %}
+        <a href="{{ url_for('shop', team_member_id=member.id) }}"
+           style="display:flex;flex-direction:column;align-items:center;padding:16px 20px;border:2px solid #eee;border-radius:10px;text-decoration:none;color:inherit;min-width:100px;transition:all .2s;"
+           onmouseover="this.style.borderColor='#FFCC00';this.style.background='#fffde7'"
+           onmouseout="this.style.borderColor='#eee';this.style.background='white'">
+            <div style="width:44px;height:44px;border-radius:50%;background:#FFCC00;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.2em;margin-bottom:8px;">{{ member.full_name[0] }}</div>
+            <div style="font-size:0.85em;font-weight:600;">{{ member.full_name }}</div>
+        </a>
+        {% endfor %}
+    </div>
+    <div style="margin-top:20px;"><a href="{{ url_for('add_team_member') }}" style="color:#888;font-size:0.9em;text-decoration:none;">+ Add Team Member</a></div>
 </div>
-{% endif %}
 
-<!-- FLASH MESSAGES -->
-{% with messages = get_flashed_messages(with_categories=true) %}
-  {% if messages %}
-    {% for category, message in messages %}
-      <div class="flash {{ category }}">
-        {{ message }}
-      </div>
-    {% endfor %}
-  {% endif %}
-{% endwith %}
+{% else %}
 
-<!-- PRODUCT GRID -->
-<div class="container" id="productContainer">
-{% for product in products %}
-    <div class="product">
 
-        <div class="image-wrapper">
-            <img
-                src="{{ url_for('static', filename='uploads/' ~ (product.image or 'placeholder.png')) }}"
-                class="product-image"
-                alt="{{ product.name or 'No image available' }}"
-                data-name="{{ product.name }}"
-                data-description="{{ product.description or '' }}"
-                data-article="{{ product.article_number }}"
-                data-sizes='{{ product.sizes | tojson | safe }}'>
+
+<div class="sw-body">
+
+    <!-- ── Sidebar ── -->
+    <aside class="sw-sidebar">
+
+        <div class="sw-sidebar-section">
+            <div class="sw-sidebar-title">Filter by Role</div>
+            <div class="role-links">
+                <a href="{{ url_for('shop') }}{% if selected_member %}?team_member_id={{ selected_member }}{% endif %}"
+                   class="role-link {% if not selected_role %}active{% endif %}">All Roles</a>
+                {% for role in job_roles %}
+                <a href="{{ url_for('shop', role=role.id) }}{% if selected_member %}&team_member_id={{ selected_member }}{% endif %}"
+                   class="role-link {% if selected_role == role.id|string %}active{% endif %}">
+                    {{ role.name }}
+                </a>
+                {% endfor %}
+            </div>
         </div>
 
-        <strong>{{ product.name }}</strong><br>
-        Article #: {{ product.article_number }}<br>
-        Type: {{ product.type }}
+        <div class="sw-sidebar-section">
+            <div class="sw-sidebar-title">Clothing Type</div>
+            <div class="role-links">
+                <a href="#" class="role-link active" onclick="filterType('all',this)">All Types</a>
+                <a href="#" class="role-link" onclick="filterType('SHIRT',this)">Shirts</a>
+                <a href="#" class="role-link" onclick="filterType('PANTS',this)">Pants</a>
+                <a href="#" class="role-link" onclick="filterType('HAT',this)">Hats</a>
+                <a href="#" class="role-link" onclick="filterType('JACKET',this)">Jackets</a>
+                <a href="#" class="role-link" onclick="filterType('SHOES',this)">Shoes</a>
+                <a href="#" class="role-link" onclick="filterType('OTHER',this)">Other</a>
+            </div>
+        </div>
 
-        {% if session.system_role in ['worker', 'supervisor'] %}
-        <div class="order-box">
-            <form method="POST" action="{{ url_for('order_product') }}">
-                <div class="size-row">
+        <div class="sw-sidebar-section">
+            <div class="sw-sidebar-title">Gender</div>
+            <div class="role-links">
+                <a href="#" class="role-link active" onclick="filterGender('all',this)">All</a>
+                <a href="#" class="role-link" onclick="filterGender('male',this)">Herr</a>
+                <a href="#" class="role-link" onclick="filterGender('female',this)">Dam</a>
+                <a href="#" class="role-link" onclick="filterGender('unisex',this)">Unisex</a>
+            </div>
+        </div>
 
-                    {% if product.sizes|length > 1 %}
-                        <select name="product_size_id" required class="size-select">
-                            <option value="">Select size</option>
-                            {% for size in product.sizes %}
-                                {% if size.stock > 0 %}
-                                    <option value="{{ size.id }}">
-                                        {{ size.size }}
-                                    </option>
-                                {% else %}
-                                    <option disabled>
-                                        {{ size.size }} (Out of stock)
-                                    </option>
-                                {% endif %}
+        {% if cart_count > 0 %}
+        <div class="sw-sidebar-section">
+            <div class="sw-cart-box">
+                <div class="sw-cart-count">{{ cart_count }}</div>
+                <div class="sw-cart-label">items in cart</div>
+                <a href="{{ url_for('view_cart') }}" class="sw-cart-btn">View Cart →</a>
+            </div>
+        </div>
+        {% endif %}
+
+    </aside>
+
+    <!-- ── Main ── -->
+    <div class="sw-main">
+
+        {% if session.system_role in ['admin', 'supervisor'] %}
+        <div style="display:flex;align-items:center;gap:10px;background:white;border:1px solid #e8e8e8;border-radius:10px;padding:10px 16px;margin-bottom:14px;">
+            <span style="font-size:0.72em;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#aaa;white-space:nowrap;">🛒 Ordering for</span>
+            <select onchange="assignMember(this.value)"
+                    style="flex:1;max-width:260px;padding:7px 10px!important;border:1px solid #ddd!important;border-radius:7px!important;font-size:0.9em!important;font-weight:600;background:white!important;cursor:pointer;">
+                <option value="">— Select team member —</option>
+                {% for member in team %}
+                <option value="{{ member.id }}" {% if selected_member == member.id|string %}selected{% endif %}>
+                    {{ member.full_name }}
+                </option>
+                {% endfor %}
+            </select>
+            {% if selected_member %}
+            <span style="background:#fffde7;border:1px solid #FFCC00;border-radius:20px;padding:3px 12px;font-size:0.82em;font-weight:800;">
+                {% for m in team %}{% if m.id|string == selected_member %}{{ m.full_name }}{% endif %}{% endfor %}
+            </span>
+            <a href="{{ url_for('shop') }}" style="color:#e53935;font-size:0.85em;font-weight:700;text-decoration:none;">✕ Clear</a>
+            {% elif team %}
+            <span style="font-size:0.82em;color:#aaa;">Select a member to place orders</span>
+            {% else %}
+            <span style="font-size:0.82em;color:#bbb;">No workers assigned to your account yet</span>
+            {% endif %}
+            <!-- Currency selector -->
+            <div style="margin-left:auto;display:flex;align-items:center;gap:6px;flex-shrink:0;">
+                <span style="font-size:0.72em;font-weight:700;color:#aaa;">Currency</span>
+                <select id="currency_select" onchange="convertCurrency(this.value)"
+                        style="padding:6px 10px!important;border:1px solid #ddd!important;border-radius:7px!important;font-size:0.88em!important;font-weight:600;background:white!important;cursor:pointer;width:auto!important;margin:0!important;">
+                    <option value="SEK">SEK</option>
+                    <option value="EUR">EUR</option>
+                    <option value="USD">USD</option>
+                    <option value="GBP">GBP</option>
+                    <option value="DKK">DKK</option>
+                    <option value="NOK">NOK</option>
+                </select>
+                <span id="currency_status" style="font-size:0.75em;color:#aaa;"></span>
+            </div>
+        </div>
+        {% else %}
+        <!-- Currency bar for non-supervisor users -->
+        <div style="display:flex;align-items:center;gap:6px;background:white;border:1px solid #e8e8e8;border-radius:10px;padding:8px 16px;margin-bottom:14px;justify-content:flex-end;">
+            <span style="font-size:0.72em;font-weight:700;color:#aaa;">Currency</span>
+            <select id="currency_select" onchange="convertCurrency(this.value)"
+                    style="padding:6px 10px!important;border:1px solid #ddd!important;border-radius:7px!important;font-size:0.88em!important;font-weight:600;background:white!important;cursor:pointer;width:auto!important;margin:0!important;">
+                <option value="SEK">SEK</option>
+                <option value="EUR">EUR</option>
+                <option value="USD">USD</option>
+                <option value="GBP">GBP</option>
+                <option value="DKK">DKK</option>
+                <option value="NOK">NOK</option>
+            </select>
+            <span id="currency_status" style="font-size:0.75em;color:#aaa;"></span>
+        </div>
+        {% endif %}
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}{% for category, message in messages %}
+            <div class="flash {{ category }}" style="margin-bottom:12px;">{{ message }}</div>
+          {% endfor %}{% endif %}
+        {% endwith %}
+
+        {% if products|length == 0 %}
+        <div class="empty-state">No products available for this selection.</div>
+        {% else %}
+
+        <div class="product-list">
+        {% for product in products %}
+        <div class="product-row" data-type="{{ (product.type or '')|upper }}" data-gender="{{ (product.gender or '')|lower }}">
+
+            <!-- Image -->
+            <div class="p-image image-wrapper">
+                {% if product.image %}
+                <img src="{{ url_for('static', filename='uploads/' ~ product.image) }}"
+                     class="product-image"
+                     alt="{{ product.name }}"
+                     data-name="{{ product.name }}"
+                     data-description="{{ product.description or '' }}"
+                     data-article="{{ product.article_number }}"
+                     data-sizes='{{ (product.sizes or []) | tojson | safe }}'>
+                <div class="p-image-overlay">🔍 Enlarge</div>
+                {% else %}
+                <div class="no-img">No image</div>
+                {% endif %}
+            </div>
+
+            <!-- Info -->
+            <div class="p-info">
+                <div class="p-code">{{ product.article_number }}</div>
+                <div class="p-name">{{ product.name }}</div>
+                {% if product.description %}<div class="p-desc">{{ product.description }}</div>{% endif %}
+                <div class="p-tags">
+                    {% if product.type %}<span class="p-tag">{{ product.type }}</span>{% endif %}
+                    {% if product.gender %}<span class="p-tag">{{ product.gender|title }}</span>{% endif %}
+                    {% if product.max_quantity %}<span class="p-tag">Max {{ product.max_quantity }} pcs</span>{% endif %}
+                </div>
+                {% if product.recommended_size %}
+                <div class="p-rec">Recommended: <span>{{ product.recommended_size }}</span></div>
+                {% endif %}
+                {% if product.price %}
+                <div class="p-price" data-price-sek="{{ product.price }}">{{ "%.2f"|format(product.price) }} SEK</div>
+                {% endif %}
+
+                {% if session.system_role == 'admin' %}
+                <div class="admin-btns">
+                    <button class="abtn abtn-stock"
+                            data-product-id="{{ product.id }}"
+                            data-product-name="{{ product.name }}"
+                            data-sizes='{{ (product.sizes or []) | tojson | safe }}'
+                            onclick="handleStockClick(this)">Add Stock</button>
+                    <button class="abtn abtn-edit"
+                            data-product-id="{{ product.id }}"
+                            data-product-name="{{ product.name }}"
+                            data-product-description="{{ (product.description or '')|replace('"', '&quot;') }}"
+                            data-product-price="{{ product.price or '' }}"
+                            data-product-max-qty="{{ product.max_quantity or '' }}"
+                            data-product-image="{{ product.image or '' }}"
+                            data-product-gender="{{ product.gender or '' }}"
+                            data-product-type="{{ product.type or '' }}"
+                            onclick="openEditModal(this)">Edit</button>
+                    <form method="POST" action="/delete-product/{{ product.id }}" style="margin:0;">
+                        <button type="button" onclick="openModal(this.form)" class="abtn abtn-remove">Remove</button>
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Order -->
+            {% if session.system_role in ['admin', 'supervisor'] %}
+            <div class="p-order">
+                <form method="POST" action="/add-to-cart">
+                    <input type="hidden" name="team_member_id" value="{{ selected_member }}">
+
+                    <div>
+                        <span class="p-order-label">Size</span>
+                        {% if product.sizes|length > 1 %}
+                        <select name="product_size_id" required>
+                            <option value="">Select size…</option>
+                            {% for s in product.sizes %}
+                            <option value="{{ s.id }}"
+                                {% if s.stock == 0 %}disabled{% endif %}
+                                {% if product.recommended_size == s.size %}selected{% endif %}>
+                                {{ s.size }}{% if product.recommended_size == s.size %} ★{% endif %}
+                                — {{ s.stock }} left{% if s.stock == 0 %} (out of stock){% endif %}
+                            </option>
                             {% endfor %}
                         </select>
-                    {% else %}
-                        <input type="hidden"
-                            name="product_size_id"
-                            value="{{ product.sizes[0].id }}">
-                    {% endif %}
+                        {% elif product.sizes|length == 1 %}
+                        <input type="hidden" name="product_size_id" value="{{ product.sizes[0].id }}">
+                        <div class="single-size">{{ product.sizes[0].size }} — {{ product.sizes[0].stock }} left</div>
+                        {% endif %}
+                    </div>
 
-                    <button type="submit" class="order-btn">
-                        Order
-                    </button>
+                    <div>
+                        <span class="p-order-label">Quantity</span>
+                        <div class="qty-row">
+                            <input type="number" name="quantity" value="1" min="1"
+                                   max="{{ product.max_quantity }}"
+                                   data-price="{{ product.price or 0 }}"
+                                   data-target="price-{{ product.id }}"
+                                   oninput="updatePrice(this)">
+                            <span class="qty-price" id="price-{{ product.id }}" data-price-sek="{{ product.price or 0 }}">
+                                {% if product.price %}{{ "%.2f"|format(product.price) }} SEK{% endif %}
+                            </span>
+                        </div>
+                    </div>
 
-                </div>
+                    <button type="submit" class="add-cart-btn">Add to Cart</button>
+                </form>
+            </div>
+            {% endif %}
 
-            </form>
         </div>
+        {% endfor %}
+        </div>
+        <div id="filter-empty" class="empty-state" style="display:none;">No products match the selected filters.</div>
         {% endif %}
 
-        {% if session.system_role == 'admin' %}
-            <button
-                class="add-stock-trigger"
-                data-product-id="{{ product.id }}"
-                data-product-name="{{ product.name }}"
-                data-sizes='{{ product.sizes | tojson | safe }}'
-                onclick="handleStockClick(this)">
-                Add Stock
-            </button>
+    </div><!-- /sw-main -->
+</div><!-- /sw-body -->
+{% endif %}
+</div><!-- /sw -->
 
-            <form method="POST"
-                action="/delete-product/{{ product.id }}"
-                class="delete-form">
-                <button type="button"
-                        onclick="openModal(this.form)"
-                        class="remove-btn">
-                    Remove
-                </button>
-            </form>
-
-        {% endif %}
-
+<!-- IMAGE MODAL -->
+<div id="imageModal" class="overlay img-overlay">
+    <div class="img-modal-box">
+        <div class="img-modal-left">
+            <img id="modalImg" src="" alt="">
+        </div>
+        <div class="img-modal-right">
+            <button class="img-modal-close" onclick="closeImage()">×</button>
+            <h2 id="modalName"></h2>
+            <div class="img-modal-code" id="modalCode"></div>
+            <div class="img-modal-desc" id="modalDesc"></div>
+            <div class="img-modal-stock" id="modalStock"></div>
+        </div>
     </div>
-{% endfor %}
 </div>
 
-<div id="deleteModal" class="delete-modal">
-    <div class="delete-box">
+<!-- DELETE MODAL -->
+<div id="deleteModal" class="overlay">
+    <div class="small-modal-box">
         <h3>Confirm Deletion</h3>
-        <p>Are you sure you want to delete this item?</p>
+        <p>Are you sure you want to remove this product?</p>
         <div class="modal-actions">
             <button onclick="closeModal()" class="safe-btn">Cancel</button>
             <button id="confirmDeleteBtn" class="danger-btn">Delete</button>
@@ -548,229 +631,271 @@ body.preview-active::after {
     </div>
 </div>
 
-<script>
-function toggleStock(button) {
-    const productId = button.dataset.productId;
-    const editor = document.getElementById("stock-" + productId);
 
-    document.querySelectorAll(".stock-editor").forEach(panel => {
-        if (panel !== editor) {
-            panel.style.display = "none";
-        }
-    });
-
-    editor.style.display =
-        editor.style.display === "block" ? "none" : "block";
-}
-
-</script>
-
-<script>
-let formToSubmit = null;
-
-function openModal(form) {
-    formToSubmit = form;
-    document.getElementById("deleteModal").style.display = "flex";
-}
-
-function closeModal() {
-    document.getElementById("deleteModal").style.display = "none";
-}
-
-document.getElementById("confirmDeleteBtn").addEventListener("click", function() {
-    if (formToSubmit) {
-        formToSubmit.submit();
-    }
-});
-</script>
-
-
-<div id="imageModal" class="image-modal">
-    <div class="modal-box">
-        <div class="modal-left">
-            <img id="modalImage">
+<!-- EDIT PRODUCT MODAL -->
+<div id="editModal" class="overlay">
+    <div class="small-modal-box" style="max-width:560px;max-height:88vh;overflow-y:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <h3 id="editModalTitle" style="margin:0;">Edit Product</h3>
+            <button onclick="closeEditModal()" style="background:none !important;border:none !important;font-size:1.8em;cursor:pointer;color:#aaa;padding:0 !important;margin:0 !important;width:auto !important;line-height:1;">×</button>
         </div>
+        <form id="editForm" method="POST" enctype="multipart/form-data">
 
-        <div class="modal-right">
-            <div class="modal-header">
-                <h2 id="modalTitle"></h2>
-                <button class="modal-close" onclick="closeImage()">×</button>
+            <div style="margin-bottom:14px;">
+                <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin-bottom:5px;">Name</div>
+                <input type="text" name="name" id="editName" required
+                       style="width:100% !important;padding:9px 12px !important;border:1px solid #ddd !important;border-radius:7px !important;font-size:0.95em !important;">
             </div>
 
-            <p id="modalArticle"></p>
-            <p id="modalDescription"></p>
+            <div style="margin-bottom:14px;">
+                <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin-bottom:5px;">Description</div>
+                <textarea name="description" id="editDescription"
+                          style="width:100%;padding:9px 12px;border:1px solid #ddd;border-radius:7px;font-size:0.95em;resize:vertical;min-height:90px;font-family:inherit;"></textarea>
+            </div>
 
-            <div id="modalStock"></div>
-        </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+                <div>
+                    <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin-bottom:5px;">Price (SEK)</div>
+                    <input type="number" step="0.01" name="price" id="editPrice"
+                           style="width:100% !important;padding:9px 12px !important;border:1px solid #ddd !important;border-radius:7px !important;font-size:0.95em !important;">
+                </div>
+                <div>
+                    <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin-bottom:5px;">Max Quantity</div>
+                    <input type="number" name="max_quantity" id="editMaxQty"
+                           style="width:100% !important;padding:9px 12px !important;border:1px solid #ddd !important;border-radius:7px !important;font-size:0.95em !important;">
+                </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+                <div>
+                    <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin-bottom:5px;">Gender</div>
+                    <select name="gender" id="editGender"
+                            style="width:100% !important;padding:9px 12px !important;border:1px solid #ddd !important;border-radius:7px !important;font-size:0.95em !important;">
+                        <option value="">Not specified</option>
+                        <option value="male">Herr</option>
+                        <option value="female">Dam</option>
+                        <option value="unisex">Unisex</option>
+                    </select>
+                </div>
+                <div>
+                    <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin-bottom:5px;">Type</div>
+                    <input type="text" name="type" id="editType"
+                           style="width:100% !important;padding:9px 12px !important;border:1px solid #ddd !important;border-radius:7px !important;font-size:0.95em !important;">
+                </div>
+            </div>
+
+            <div style="margin-bottom:20px;">
+                <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin-bottom:8px;">Current Image</div>
+                <div id="editCurrentImage" style="margin-bottom:10px;"></div>
+                <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin-bottom:5px;">Replace Image</div>
+                <input type="file" name="image" accept="image/*"
+                       style="width:100% !important;padding:6px !important;border:1px solid #ddd !important;border-radius:7px !important;font-size:0.9em !important;">
+            </div>
+
+            <div style="display:flex;gap:10px;justify-content:flex-end;">
+                <button type="button" onclick="closeEditModal()" class="safe-btn">Cancel</button>
+                <button type="submit" class="danger-btn" style="background:#D40511 !important;">Save Changes</button>
+            </div>
+
+        </form>
     </div>
 </div>
 
-<script>
-function openImage(src) {
-    const modal = document.getElementById("imageModal");
-    const img = document.getElementById("modalImage");
-    img.src = src;
-    modal.style.display = "flex";
-}
-
-function closeImage() {
-    document.getElementById("imageModal").style.display = "none";
-}
-
-// Close when clicking outside the image
-document.getElementById("imageModal").addEventListener("click", function(e) {
-    if (e.target === this) {
-        closeImage();
-    }
-});
-
-// Close with ESC
-document.addEventListener("keydown", function(e) {
-    if (e.key === "Escape") {
-        closeImage();
-    }
-});
-</script>
-
-<script>
-document.querySelectorAll(".image-wrapper").forEach(wrapper => {
-    wrapper.addEventListener("click", function() {
-
-        const img = wrapper.querySelector(".product-image");
-
-        const src = img.src;
-        const name = img.dataset.name;
-        const description = img.dataset.description || "No description available.";
-        const article = img.dataset.article;
-        const sizes = JSON.parse(img.dataset.sizes);
-
-        document.getElementById("modalImage").src = src;
-        document.getElementById("modalTitle").innerText = name;
-        document.getElementById("modalArticle").innerText = "Article #: " + article;
-        document.getElementById("modalDescription").innerText = description;
-
-        let stockHTML = "";
-
-        if ("{{ session.system_role }}" === "admin") {
-            stockHTML = "<strong>Current Stock:</strong><br>";
-            sizes.forEach(size => {
-                stockHTML += size.size + ": " + size.stock + "<br>";
-            });
-        }
-
-        document.getElementById("modalStock").innerHTML = stockHTML;
-        document.getElementById("imageModal").style.display = "flex";
-    });
-});
-
-function closeImage() {
-    document.getElementById("imageModal").style.display = "none";
-}
-
-document.getElementById("imageModal").addEventListener("click", function(e) {
-    if (e.target === this) {
-        closeImage();
-    }
-});
-
-document.addEventListener("keydown", function(e) {
-    if (e.key === "Escape") {
-        closeImage();
-    }
-});
-</script>
-
-<script>
-function handleStockClick(button) {
-
-    const productId = button.dataset.productId;
-    const name = button.dataset.productName;
-    const sizes = JSON.parse(button.dataset.sizes);
-
-    openStockModal(productId, sizes, name);
-}
-
-function openStockModal(productId, sizes, name) {
-
-    const modal = document.getElementById("stockModal");
-    const table = document.getElementById("stockTable");
-    const form = document.getElementById("stockForm");
-
-    document.getElementById("stockModalTitle").innerText =
-        "Edit Stock — " + name;
-
-    form.action = "/update-stock/" + productId;
-
-    table.innerHTML = `
-        <tr>
-            <th>Size</th>
-            <th>Current</th>
-            <th>Add</th>
-        </tr>
-    `;
-
-    sizes.forEach(size => {
-        table.innerHTML += `
-        <tr>
-            <td>${size.size}</td>
-            <td>${size.stock}</td>
-            <td>
-                    <div style="display:flex; justify-content:center;">
-                    <button type="button"
-                            onclick="this.nextElementSibling.stepDown()">−</button>
-
-                    <input type="number"
-                        name="size_${size.id}"
-                        min="0"
-                        value="0"
-                        style="width:80px; text-align:center; display:block; margin:0 auto;">
-
-                    <button type="button"
-                            onclick="this.previousElementSibling.stepUp()">+</button>
-                </div>
-            </td>
-        </tr>
-        `;
-    });
-
-    modal.style.display = "flex";
-}
-
-function closeStockModal() {
-    document.getElementById("stockModal").style.display = "none";
-}
-
-</script>
-
-<div id="stockModal" class="delete-modal">
-    <div class="delete-box" style="width:500px; max-height:80vh; overflow-y:auto;">
+<!-- STOCK MODAL -->
+<div id="stockModal" class="overlay">
+    <div class="small-modal-box" style="max-width:520px;max-height:85vh;overflow-y:auto;">
         <h3 id="stockModalTitle">Edit Stock</h3>
-
         <form id="stockForm" method="POST">
             <table id="stockTable">
-                <tr>
-                    <th>Size</th>
-                    <th>Current</th>
-                    <th>Add</th>
-                </tr>
+                <tr><th>Size</th><th>Current</th><th>Add</th></tr>
             </table>
-
             <div class="modal-actions">
-                <button type="button" onclick="closeStockModal()" class="safe-btn">
-                    Cancel
-                </button>
-                <button type="submit" class="danger-btn">
-                    Save
-                </button>
+                <button type="button" onclick="closeStockModal()" class="safe-btn">Cancel</button>
+                <button type="submit" class="danger-btn">Save</button>
             </div>
         </form>
     </div>
 </div>
 
 <script>
-document.getElementById("roleFilter").addEventListener("change", function() {
-    this.form.submit();
+// When member is selected, keep current role filter
+function assignMember(memberId) {
+    const url = new URL(window.location.href);
+    if (memberId) {
+        url.searchParams.set('team_member_id', memberId);
+    } else {
+        url.searchParams.delete('team_member_id');
+    }
+    window.location.href = url.toString();
+}
+
+function updatePrice(input) {
+    const qty = parseInt(input.value) || 1;
+    const price = parseFloat(input.dataset.price) || 0;
+    const el = document.getElementById(input.dataset.target);
+    if (el) el.textContent = (qty * price).toFixed(2) + ' SEK';
+}
+
+// Image modal
+document.querySelectorAll('.image-wrapper').forEach(wrapper => {
+    wrapper.addEventListener('click', function() {
+        const img = wrapper.querySelector('.product-image');
+        if (!img) return;
+        document.getElementById('modalImg').src = img.src;
+        document.getElementById('modalName').innerText = img.dataset.name || '';
+        document.getElementById('modalCode').innerText = img.dataset.article ? 'Article #: ' + img.dataset.article : '';
+        document.getElementById('modalDesc').innerText = img.dataset.description || '';
+        let stock = '';
+        {% if session.system_role == 'admin' %}
+        try {
+            const sizes = JSON.parse(img.dataset.sizes || '[]');
+            if (sizes.length) {
+                stock = '<strong>Stock levels:</strong><br>';
+                sizes.forEach(s => stock += s.size + ': ' + s.stock + ' pcs<br>');
+            }
+        } catch(e) {}
+        {% endif %}
+        document.getElementById('modalStock').innerHTML = stock;
+        document.getElementById('imageModal').style.display = 'flex';
+    });
 });
+function closeImage() { document.getElementById('imageModal').style.display = 'none'; }
+document.getElementById('imageModal').addEventListener('click', e => { if (e.target === document.getElementById('imageModal')) closeImage(); });
+
+// Delete modal
+let formToSubmit = null;
+function openModal(form) { formToSubmit = form; document.getElementById('deleteModal').style.display = 'flex'; }
+function closeModal() { document.getElementById('deleteModal').style.display = 'none'; }
+document.getElementById('confirmDeleteBtn').addEventListener('click', () => { if (formToSubmit) formToSubmit.submit(); });
+document.getElementById('deleteModal').addEventListener('click', e => { if (e.target === document.getElementById('deleteModal')) closeModal(); });
+
+// Stock modal
+function handleStockClick(btn) {
+    const sizes = JSON.parse(btn.dataset.sizes || '[]');
+    document.getElementById('stockModalTitle').innerText = 'Edit Stock — ' + btn.dataset.productName;
+    document.getElementById('stockForm').action = '/update-stock/' + btn.dataset.productId;
+    const t = document.getElementById('stockTable');
+    t.innerHTML = '<tr><th>Size</th><th>Current</th><th>Add</th></tr>';
+    sizes.forEach(s => {
+        t.innerHTML += `<tr>
+            <td>${s.size}</td><td>${s.stock}</td>
+            <td><div style="display:flex;align-items:center;gap:5px;justify-content:center;">
+                <button type="button" style="width:28px;height:28px;border:1px solid #ddd;border-radius:5px;cursor:pointer;font-size:1em;" onclick="this.nextElementSibling.stepDown()">−</button>
+                <input type="number" name="size_${s.id}" min="0" value="0" style="width:72px;text-align:center;padding:5px;border:1px solid #ddd;border-radius:5px;">
+                <button type="button" style="width:28px;height:28px;border:1px solid #ddd;border-radius:5px;cursor:pointer;font-size:1em;" onclick="this.previousElementSibling.stepUp()">+</button>
+            </div></td></tr>`;
+    });
+    document.getElementById('stockModal').style.display = 'flex';
+}
+function closeStockModal() { document.getElementById('stockModal').style.display = 'none'; }
+document.getElementById('stockModal').addEventListener('click', e => { if (e.target === document.getElementById('stockModal')) closeStockModal(); });
+
+
+// Edit modal
+function openEditModal(btn) {
+    const id = btn.dataset.productId;
+    document.getElementById('editModalTitle').innerText = 'Edit — ' + btn.dataset.productName;
+    document.getElementById('editForm').action = '/admin/products/edit/' + id;
+    document.getElementById('editName').value = btn.dataset.productName || '';
+    document.getElementById('editDescription').value = btn.dataset.productDescription || '';
+    document.getElementById('editPrice').value = btn.dataset.productPrice || '';
+    document.getElementById('editMaxQty').value = btn.dataset.productMaxQty || '';
+    document.getElementById('editType').value = btn.dataset.productType || '';
+    // Set gender dropdown
+    const genderSel = document.getElementById('editGender');
+    genderSel.value = btn.dataset.productGender || '';
+    // Show current image
+    const imgDiv = document.getElementById('editCurrentImage');
+    if (btn.dataset.productImage) {
+        imgDiv.innerHTML = '<img src="/static/uploads/' + btn.dataset.productImage + '" style="height:80px;border-radius:6px;object-fit:contain;border:1px solid #eee;padding:4px;">';
+    } else {
+        imgDiv.innerHTML = '<span style="color:#aaa;font-size:0.85em;">No image</span>';
+    }
+    document.getElementById('editModal').style.display = 'flex';
+}
+function closeEditModal() { document.getElementById('editModal').style.display = 'none'; }
+document.getElementById('editModal').addEventListener('click', e => { if (e.target === document.getElementById('editModal')) closeEditModal(); });
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeImage(); closeModal(); closeStockModal(); closeEditModal(); } });
+
+// Client-side type/gender filters
+let activeType = 'all';
+let activeGender = 'all';
+
+function applyFilters() {
+    document.querySelectorAll('.product-row').forEach(row => {
+        const t = row.dataset.type || '';
+        const g = row.dataset.gender || '';
+        const typeMatch = activeType === 'all' || t === activeType;
+        const genderMatch = activeGender === 'all' || g === activeGender;
+        row.style.display = (typeMatch && genderMatch) ? '' : 'none';
+    });
+    // Show empty state if nothing visible
+    const visible = [...document.querySelectorAll('.product-row')].filter(r => r.style.display !== 'none');
+    const emptyEl = document.getElementById('filter-empty');
+    if (emptyEl) emptyEl.style.display = visible.length === 0 ? 'block' : 'none';
+}
+
+function filterType(type, el) {
+    activeType = type;
+    document.querySelectorAll('.sw-sidebar .role-links').forEach((group, i) => {
+        if (i === 1) { // second group = type filters
+            group.querySelectorAll('.role-link').forEach(a => a.classList.remove('active'));
+        }
+    });
+    el.classList.add('active');
+    applyFilters();
+}
+
+function filterGender(gender, el) {
+    activeGender = gender;
+    document.querySelectorAll('.sw-sidebar .role-links').forEach((group, i) => {
+        if (i === 2) { // third group = gender filters
+            group.querySelectorAll('.role-link').forEach(a => a.classList.remove('active'));
+        }
+    });
+    el.classList.add('active');
+    applyFilters();
+}
+
+// ── Currency conversion ──
+let currentRate = 1;
+let currentCurrency = 'SEK';
+
+function convertCurrency(toCurrency) {
+    currentCurrency = toCurrency;
+    const statusEls = document.querySelectorAll('#currency_status');
+    const setStatus = t => statusEls.forEach(el => el.textContent = t);
+    if (toCurrency === 'SEK') {
+        currentRate = 1;
+        renderPrices();
+        setStatus('');
+        return;
+    }
+    setStatus('…');
+    // frankfurter.app — ECB data, free, no key, CORS enabled
+    fetch(`https://api.frankfurter.app/latest?from=SEK&to=${toCurrency}`)
+        .then(r => r.json())
+        .then(data => {
+            const rate = data.rates && data.rates[toCurrency];
+            if (rate) {
+                currentRate = rate;
+                renderPrices();
+                setStatus(`1 SEK = ${rate.toFixed(4)} ${toCurrency}`);
+            } else {
+                setStatus('N/A');
+            }
+        })
+        .catch(() => setStatus('N/A'));
+}
+
+function renderPrices() {
+    document.querySelectorAll('[data-price-sek]').forEach(el => {
+        const sek = parseFloat(el.dataset.priceSek);
+        if (!isNaN(sek)) el.textContent = `${(sek * currentRate).toFixed(2)} ${currentCurrency}`;
+    });
+}
+
 </script>
 
 {% endblock %}
