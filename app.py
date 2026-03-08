@@ -33,10 +33,10 @@ os.makedirs("static/reports", exist_ok=True)
 # DB CONNECTION  (adjust env vars as needed)
 # ─────────────────────────────────────────────
 db = mysql.connector.connect(
-    host="localhost",
-    user="root",
-    password="1234",
-    database="corporate_wear",
+    host=os.environ.get("DB_HOST", "localhost"),
+    user=os.environ.get("DB_USER", "root"),
+    password=os.environ.get("DB_PASSWORD", "1234"),
+    database=os.environ.get("DB_NAME", "corporate_wear"),
     buffered=True
 )
 
