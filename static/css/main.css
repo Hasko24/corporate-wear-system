@@ -87,6 +87,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
    ════════════════════════════════════ */
 .navbar {
     width: 100%;
+    box-sizing: border-box;
     background: var(--yellow);
     padding: 0 40px;
     display: flex;
@@ -96,6 +97,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
     z-index: 900;
     height: 56px;
     box-shadow: 0 2px 8px rgba(0,0,0,.1);
+    overflow: hidden;
 }
 .logo-link {
     font-size: 1.0rem;
@@ -901,9 +903,9 @@ tbody tr:hover td { background: var(--yellow-pale); }
     .cart-layout       { grid-template-columns: 1fr; }
     .form-row          { grid-template-columns: 1fr; }
     .form-row-3        { grid-template-columns: 1fr 1fr; }
-    .navbar            { padding: 0 12px; overflow-x: auto; flex-wrap: nowrap; }
-    .navbar .menu      { flex-shrink: 0; }
-    .nav-right         { flex-shrink: 0; }
+    .navbar         { padding: 0 10px; height: auto; min-height: 56px; flex-wrap: wrap; overflow: visible; }
+    .navbar .menu   { flex-wrap: wrap; }
+    .nav-right      { flex-wrap: wrap; }
 }
 @media (max-width: 680px) {
     .stat-grid         { grid-template-columns: 1fr 1fr; }
