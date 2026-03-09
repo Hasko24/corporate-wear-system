@@ -34,6 +34,7 @@ os.makedirs("static/reports", exist_ok=True)
 # ─────────────────────────────────────────────
 db = mysql.connector.connect(
     host=os.environ.get("DB_HOST", "localhost"),
+    port=int(os.environ.get("DB_PORT", 3306)),
     user=os.environ.get("DB_USER", "root"),
     password=os.environ.get("DB_PASSWORD", "1234"),
     database=os.environ.get("DB_NAME", "corporate_wear"),
