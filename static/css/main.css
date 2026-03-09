@@ -48,7 +48,7 @@
 
 /* ── RESET ── */
 *, *::before, *::after { box-sizing: border-box; }
-html { scroll-behavior: smooth; scrollbar-gutter: stable; }
+html { scroll-behavior: smooth; }
 
 body {
     font-family: var(--font);
