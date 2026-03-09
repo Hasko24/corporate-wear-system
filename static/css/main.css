@@ -901,7 +901,9 @@ tbody tr:hover td { background: var(--yellow-pale); }
     .cart-layout       { grid-template-columns: 1fr; }
     .form-row          { grid-template-columns: 1fr; }
     .form-row-3        { grid-template-columns: 1fr 1fr; }
-    .navbar            { padding: 0 20px; }
+    .navbar            { padding: 0 12px; overflow-x: auto; flex-wrap: nowrap; }
+    .navbar .menu      { flex-shrink: 0; }
+    .nav-right         { flex-shrink: 0; }
 }
 @media (max-width: 680px) {
     .stat-grid         { grid-template-columns: 1fr 1fr; }
