@@ -32,31 +32,25 @@ os.makedirs("static/reports", exist_ok=True)
 # ─────────────────────────────────────────────
 # DB CONNECTION  (adjust env vars as needed)
 # ─────────────────────────────────────────────
-db = mysql.connector.connect(
-    host=os.environ.get("DB_HOST", "localhost"),
-    port=int(os.environ.get("DB_PORT", 3306)),
-    user=os.environ.get("DB_USER", "root"),
-    password=os.environ.get("DB_PASSWORD", "1234"),
-    database=os.environ.get("DB_NAME", "corporate_wear"),
-    buffered=True
-)
+def get_db_config():
+    return dict(
+        host=os.environ.get("DB_HOST", "localhost"),
+        port=int(os.environ.get("DB_PORT", 3306)),
+        user=os.environ.get("DB_USER", "root"),
+        password=os.environ.get("DB_PASSWORD", "1234"),
+        database=os.environ.get("DB_NAME", "corporate_wear"),
+        buffered=True
+    )
+
+db = mysql.connector.connect(**get_db_config())
 
 def get_cursor():
-    """Return a fresh dictionary cursor, reconnecting if needed."""
     global db
     try:
         db.ping(reconnect=True, attempts=3, delay=1)
     except Exception:
-        db = mysql.connector.connect(
-            host=os.environ.get("DB_HOST", "localhost"),
-            user=os.environ.get("DB_USER", "root"),
-            password=os.environ.get("DB_PASSWORD", ""),
-            database=os.environ.get("DB_NAME", "uniform_db"),
-            autocommit=False,
-            buffered=True
-        )
+        db = mysql.connector.connect(**get_db_config())
     return db.cursor(dictionary=True)
-
 
 # ─────────────────────────────────────────────
 # EMAIL HELPER
