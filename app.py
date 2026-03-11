@@ -1,6 +1,7 @@
 LOW_STOCK_THRESHOLD = 5
 import os
-import iodef send_welcome_email(to_email, full_name, system_role, subject=None, body=None, site_url=None):
+import io
+def send_welcome_email(to_email, full_name, system_role, subject=None, body=None, site_url=None):
 import uuid
 import pandas as pd
 from datetime import date, datetime
