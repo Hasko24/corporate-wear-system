@@ -1,6 +1,6 @@
 LOW_STOCK_THRESHOLD = 5
 import os
-import io
+import iodef send_welcome_email(to_email, full_name, system_role, subject=None, body=None, site_url=None):
 import uuid
 import pandas as pd
 from datetime import date, datetime
@@ -178,12 +178,6 @@ def get_effective_supervisors(user_id):
     for row in cursor.fetchall():
         supervisors.append(row["from_supervisor_id"])
     return supervisors
-
-def send_welcome_email(to_email, full_name, system_role, subject=None, body=None, site_url=None):
-    if not subject:
-        subject = "Your DHL Corporate Wear account has been created"
-    if not body:
-        body = f"Hi {full_name},\n\nYour account as {system_role} has been created..."
 
 def notify_packers_new_order(cart_id, supervisor_name, total):
     cursor = get_cursor()
