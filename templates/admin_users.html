@@ -58,6 +58,21 @@
                     {% endfor %}
                 </select>
             </div>
+
+            <div class="form-group">
+                <label>Country</label>
+                <select name="country">
+                    <option value="">— Select country —</option>
+                    <option value="Sweden">Sweden</option>
+                    <option value="Norway">Norway</option>
+                    <option value="Denmark">Denmark</option>
+                    <option value="Finland">Finland</option>
+                    <option value="Germany">Germany</option>
+                    <option value="UK">UK</option>
+                    <option value="Netherlands">Netherlands</option>
+                </select>
+            </div>
+            
             <button type="submit" class="btn btn-primary btn-full" style="margin-top:4px;">Create User</button>
         </form>
     </div>
@@ -65,7 +80,7 @@
     <div class="data-table-wrap">
         <table>
             <thead>
-                <tr><th>Name</th><th>Email</th><th>Role</th><th>Job Role</th><th>Supervisor</th><th></th></tr>
+                <tr><th>Name</th><th>Email</th><th>Role</th><th>Country</th><th>Job Role</th><th>Supervisor</th><th></th></tr>
             </thead>
             <tbody>
                 {% for user in users %}
