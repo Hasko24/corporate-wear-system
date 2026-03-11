@@ -56,45 +56,42 @@ def get_cursor():
 # EMAIL HELPER
 # ─────────────────────────────────────────────
 def send_welcome_email(to_email, full_name, system_role, site_url=None):
-    """Send a welcome / account-created email. Silently skips if not configured."""
-    smtp_host = os.environ.get("SMTP_HOST")
-    smtp_port = int(os.environ.get("SMTP_PORT", 587))
-    smtp_user = os.environ.get("SMTP_USER")
-    smtp_pass = os.environ.get("SMTP_PASS")
-    from_addr = os.environ.get("SMTP_FROM", smtp_user)
-
-    if not smtp_host or not smtp_user:
-        return  # Not configured – skip silently
-
-    if not site_url:
-        site_url = os.environ.get("SITE_URL", "http://localhost:5000")
-
-    subject = "Your DHL Corporate Wear account has been created"
-    body = f"""Hi {full_name},
+    import threading
+    def _send():
+        smtp_host = os.environ.get("SMTP_HOST")
+        smtp_port = int(os.environ.get("SMTP_PORT", 465))
+        smtp_user = os.environ.get("SMTP_USER")
+        smtp_pass = os.environ.get("SMTP_PASS")
+        from_addr = os.environ.get("SMTP_FROM", smtp_user)
+        if not smtp_host or not smtp_user:
+            return
+        if not site_url:
+            url = os.environ.get("SITE_URL", "http://localhost:5000")
+        else:
+            url = site_url
+        subject = "Your DHL Corporate Wear account has been created"
+        body = f"""Hi {full_name},
 
 Your account as {system_role} has been created in the DHL Corporate Wear uniform system.
 
-You can log in here: {site_url}/login
-
-If you have any questions, contact your administrator.
+You can log in here: {url}/login
 
 Best regards,
-DHL Corporate Wear Team
-"""
-    try:
-        msg = MIMEMultipart()
-        msg["From"] = from_addr
-        msg["To"] = to_email
-        msg["Subject"] = subject
-        msg.attach(MIMEText(body, "plain"))
-
-        with smtplib.SMTP(smtp_host, smtp_port) as server:
-            server.starttls()
-            server.login(smtp_user, smtp_pass)
-            server.sendmail(from_addr, to_email, msg.as_string())
-    except Exception as e:
-        print(f"[EMAIL] Failed to send to {to_email}: {e}")
-
+DHL Corporate Wear Team"""
+        try:
+            import ssl
+            msg = MIMEMultipart()
+            msg["From"] = from_addr
+            msg["To"] = to_email
+            msg["Subject"] = subject
+            msg.attach(MIMEText(body, "plain"))
+            context = ssl.create_default_context()
+            with smtplib.SMTP_SSL(smtp_host, smtp_port, context=context) as server:
+                server.login(smtp_user, smtp_pass)
+                server.sendmail(from_addr, to_email, msg.as_string())
+        except Exception as e:
+            print(f"[EMAIL] Failed to send to {to_email}: {e}")
+    threading.Thread(target=_send, daemon=True).start()
 
 # ─────────────────────────────────────────────
 # SECURITY HELPER
