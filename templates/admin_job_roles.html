@@ -4,9 +4,10 @@
 <div class="page-header-band">
     <div class="header-row">
         <div>
-            <span class="page-breadcrumb" style="color:rgba(0,0,0,.5);"><a href="{{ url_for('admin_dashboard') }}" style="color:rgba(0,0,0,.5);">Admin</a> › Job Roles</span>
+            <span class="page-breadcrumb"><a href="{{ url_for('admin_dashboard') }}" >Admin</a> › Job Roles</span>
             <h1>Job Roles</h1>
         </div>
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-ghost">← Admin</a>
     </div>
 </div>
 
@@ -17,7 +18,7 @@
         <form method="POST" style="display:flex;flex-direction:column;gap:14px;">
             <div class="form-group" style="margin:0;">
                 <label>Role Name</label>
-                <input type="text" name="name" placeholder="e.g. Warehouse Operative" required>
+                <input type="text" name="name" placeholder="for example, Warehouse Operative" required>
             </div>
             <button type="submit" class="btn btn-primary">Add Role</button>
         </form>
@@ -37,9 +38,8 @@
                     </td>
                     <td style="text-align:right;">
                         {% if role.name not in ('Everyone', 'Packer') %}
-                        <form method="POST" action="{{ url_for('delete_job_role', role_id=role.id) }}"
-                              onsubmit="return confirm('Delete this role?');" style="margin:0;display:inline;">
-                            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--red);">Delete</button>
+                        <form method="POST" action="{{ url_for('delete_job_role', role_id=role.id) }}" style="margin:0;display:inline;">
+                            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="showConfirm(this.closest('form'),'Delete this role?','This cannot be undone.');return false;">Delete</button>
                         </form>
                         {% endif %}
                     </td>

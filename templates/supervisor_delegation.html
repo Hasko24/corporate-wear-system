@@ -3,16 +3,21 @@
 
 <div class="page-header-band">
     <div class="header-row">
-        <h1>Delegation</h1>
-        <div class="header-sub">Assign a temporary deputy to manage orders on your behalf</div>
+        <div>
+            <span class="page-breadcrumb"><a href="{{ url_for('supervisor_dashboard') }}">Dashboard</a> › Delegation</span>
+            <h1>Delegation</h1>
+            <div class="header-sub">Grant another supervisor temporary access to order for your team</div>
+        </div>
     </div>
 </div>
 
-<div style="display:grid;grid-template-columns:380px 1fr;gap:28px;align-items:start;">
+<div style="display:grid;grid-template-columns:340px 1fr;gap:28px;align-items:start;">
 
+    <!-- Create form -->
     <div class="surface">
-        <div class="section-label">Create Delegation</div>
+        <div class="section-label">New Delegation</div>
         <form method="POST">
+            <input type="hidden" name="action" value="add">
             <div class="form-group">
                 <label>Delegate To</label>
                 <select name="delegate_id" required>
@@ -22,39 +27,143 @@
                     {% endfor %}
                 </select>
             </div>
-            <div class="form-row">
-                <div class="form-group" style="margin:0;">
-                    <label>Start Date</label>
-                    <input type="date" name="start_date" required>
-                </div>
-                <div class="form-group" style="margin:0;">
-                    <label>End Date</label>
-                    <input type="date" name="end_date" required>
-                </div>
+            <div class="form-group">
+                <label>Start Date</label>
+                <input type="date" name="start_date" required>
             </div>
-            <button type="submit" class="btn btn-primary btn-full" style="margin-top:20px;">Create Delegation</button>
+            <div class="form-group">
+                <label>End Date</label>
+                <input type="date" name="end_date" required>
+            </div>
+            <button type="submit" class="btn-primary btn-full" style="margin-top:8px;">Create Delegation</button>
         </form>
     </div>
 
-    <div>
-        <div class="section-label">Active Delegations</div>
-        <div class="data-table-wrap">
-            <table>
-                <thead><tr><th>Delegate</th><th>From</th><th>To</th></tr></thead>
-                <tbody>
-                    {% for d in delegations %}
-                    <tr>
-                        <td class="text-bold">{{ d.full_name }}</td>
-                        <td>{{ d.start_date }}</td>
-                        <td>{{ d.end_date }}</td>
-                    </tr>
-                    {% else %}
-                    <tr><td colspan="3" class="empty-state">No active delegations.</td></tr>
+    <!-- Right column -->
+    <div style="display:flex;flex-direction:column;gap:24px;">
+
+        <!-- Outgoing delegations -->
+        <div>
+            <div class="section-label">Delegations You've Created</div>
+            {% if delegations|length == 0 %}
+            <div class="surface" style="color:var(--text-3);text-align:center;padding:32px;">No delegations yet.</div>
+            {% else %}
+            <div class="data-table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Delegated To</th>
+                            <th>Start</th>
+                            <th>End Date</th>
+                            <th>Status</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for d in delegations %}
+                        <tr>
+                            <td class="text-bold">{{ d.delegate_name }}</td>
+                            <td>{{ d.start_date }}</td>
+                            <td>
+                                <form method="POST" style="margin:0;display:flex;gap:6px;align-items:center;">
+                                    <input type="hidden" name="action" value="extend">
+                                    <input type="hidden" name="delegation_id" value="{{ d.id }}">
+                                    <input type="date" name="new_end_date" value="{{ d.end_date }}"
+                                           style="font-size:0.82em;padding:4px 8px;border:1px solid var(--border);border-radius:6px;width:140px;">
+                                    <button type="submit" class="btn btn-ghost btn-sm">Save</button>
+                                </form>
+                            </td>
+                            <td>
+                                {% if d.end_date >= now_date %}
+                                <span class="status-pill status-completed">Active</span>
+                                {% else %}
+                                <span class="status-pill status-cancelled">Expired</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button type="button" class="btn btn-ghost btn-sm" style="color:var(--red);"
+                                        onclick="confirmDelete('{{ d.id }}', '{{ d.delegate_name }}')">Remove</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Incoming: teams I'm currently covering -->
+        {% if incoming_delegations|length > 0 %}
+        <div>
+            <div class="section-label">Teams You're Currently Covering</div>
+            {% for d in incoming_delegations %}
+            <div class="surface" style="border-left:4px solid var(--yellow);margin-bottom:12px;">
+                <div style="font-weight:700;font-size:1em;margin-bottom:4px;">{{ d.owner_name }}'s Team</div>
+                <div style="font-size:0.83em;color:var(--text-3);margin-bottom:10px;">
+                    Active {{ d.start_date }} to {{ d.end_date }}
+                </div>
+                {% if d.members|length == 0 %}
+                <div style="font-size:0.85em;color:var(--text-3);">No team members.</div>
+                {% else %}
+                <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                    {% for m in d.members %}
+                    <span style="background:#f5f5f5;border-radius:6px;padding:4px 12px;font-size:0.83em;font-weight:600;">
+                        {{ m.full_name }}
+                        <span style="color:var(--text-3);font-weight:400;"> · {{ m.employee_number }}</span>
+                    </span>
                     {% endfor %}
-                </tbody>
-            </table>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+
+<!-- Delete confirmation modal -->
+<div id="delModal" class="overlay" style="display:flex;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .15s;">
+    <div class="small-modal-box" style="text-align:center;transform:scale(.97);transition:transform .15s,opacity .15s;opacity:0;">
+        <h3 style="margin:0 0 10px;">Remove Delegation</h3>
+        <p id="delModalMsg" style="color:var(--text-2);margin:0 0 24px;font-size:0.92em;"></p>
+        <div class="modal-actions">
+            <button onclick="closeDelModal()" class="safe-btn">Cancel</button>
+            <form id="delForm" method="POST" style="margin:0;">
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" id="delDelegationId" name="delegation_id" value="">
+                <button type="submit" class="danger-btn">Remove</button>
+            </form>
         </div>
     </div>
 </div>
+
+<script>
+// @ts-nocheck
+function confirmDelete(id, name) {
+    document.getElementById('delDelegationId').value = id;
+    document.getElementById('delModalMsg').textContent = 'Remove delegation for ' + name + '? This cannot be undone.';
+    const overlay = document.getElementById('delModal');
+    const box = overlay.querySelector('.small-modal-box');
+    overlay.style.opacity = '1';
+    overlay.style.visibility = 'visible';
+    overlay.style.pointerEvents = 'auto';
+    box.style.transform = 'scale(1)';
+    box.style.opacity = '1';
+}
+function closeDelModal() {
+    const overlay = document.getElementById('delModal');
+    const box = overlay.querySelector('.small-modal-box');
+    overlay.style.opacity = '0';
+    overlay.style.visibility = 'hidden';
+    overlay.style.pointerEvents = 'none';
+    box.style.transform = 'scale(.97)';
+    box.style.opacity = '0';
+}
+document.getElementById('delModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('delModal')) closeDelModal();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDelModal(); });
+</script>
 
 {% endblock %}

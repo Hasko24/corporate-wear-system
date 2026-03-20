@@ -4,6 +4,16 @@
 <div class="page-header-band">
     <div class="header-row">
         <h1>Orders</h1>
+        <div style="display:flex;gap:8px;">
+            <a href="{{ url_for('export_orders_excel', **current_filters) }}" class="btn-ghost" style="display:inline-flex;align-items:center;gap:6px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Export Excel
+            </a>
+            <a href="{{ url_for('export_orders_pdf', **current_filters) }}" class="btn-ghost" style="display:inline-flex;align-items:center;gap:6px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Export PDF
+            </a>
+        </div>
     </div>
 </div>
 
@@ -71,7 +81,14 @@
                 <td class="text-bold">{{ "%.2f"|format(order.total_price) if order.total_price else '—' }} SEK</td>
                 <td class="text-muted">{{ order.created_at.strftime('%d %b %Y') if order.created_at else '—' }}</td>
                 <td><span class="status-pill status-{{ order.status }}">{{ order.status }}</span></td>
-                <td><a href="{{ url_for('order_detail', cart_id=order.id) }}" class="btn btn-ghost btn-sm">View →</a></td>
+                <td style="display:flex;gap:6px;align-items:center;">
+                    <a href="{{ url_for('order_detail', cart_id=order.id) }}" class="btn btn-ghost btn-sm">View →</a>
+                    {% if order.status in ('created', 'submitted') and (session.system_role == 'admin' or session.system_role == 'supervisor') %}
+                    <form method="POST" action="{{ url_for('cancel_order', cart_id=order.id) }}" style="margin:0;">
+                        <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="showConfirm(this.closest('form'),'Cancel this order?','The order will be cancelled.','Cancel Order');return false;">Cancel</button>
+                    </form>
+                    {% endif %}
+                </td>
             </tr>
             {% else %}
             <tr><td colspan="8" class="empty-state">No orders found.</td></tr>

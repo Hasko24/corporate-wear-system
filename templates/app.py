@@ -15,7 +15,6 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
 from werkzeug.utils import secure_filename
-from PIL import Image as PilImage
 
 # Optional: email sending
 try:
@@ -2075,21 +2074,14 @@ def news():
         target_role = request.form.get("target_role", "all")
         image = request.files.get("image")
         image_path = None
-        image_width, image_height = None, None
         if image and image.filename != "":
             filename = str(uuid.uuid4()) + "_" + secure_filename(image.filename)
-            filepath = os.path.join("static", "uploads", filename)
-            image.save(filepath)
+            image.save(os.path.join("static", "uploads", filename))
             image_path = f"uploads/{filename}"
-            try:
-                with PilImage.open(filepath) as img:
-                    image_width, image_height = img.size
-            except Exception:
-                pass
         cursor.execute("""
-            INSERT INTO news_posts (title, content, created_by, target_role, image_path, image_width, image_height)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-        """, (title, content, session["user_id"], target_role, image_path, image_width, image_height))
+            INSERT INTO news_posts (title, content, created_by, target_role, image_path)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (title, content, session["user_id"], target_role, image_path))
         db.commit()
         flash("Post created.", "success")
         return redirect(url_for("news"))
@@ -2225,25 +2217,17 @@ def edit_news(post_id):
     content = request.form.get("content", "").strip()
     target_role = request.form.get("target_role", "all")
     image_path = post["image_path"]
-    image_width = post.get("image_width")
-    image_height = post.get("image_height")
 
     image = request.files.get("image")
     if image and image.filename != "":
         filename = str(uuid.uuid4()) + "_" + secure_filename(image.filename)
         os.makedirs(os.path.join("static", "uploads"), exist_ok=True)
-        filepath = os.path.join("static", "uploads", filename)
-        image.save(filepath)
+        image.save(os.path.join("static", "uploads", filename))
         image_path = f"uploads/{filename}"
-        try:
-            with PilImage.open(filepath) as img:
-                image_width, image_height = img.size
-        except Exception:
-            pass
 
     cursor.execute("""
-        UPDATE news_posts SET title=%s, content=%s, target_role=%s, image_path=%s, image_width=%s, image_height=%s WHERE id=%s
-    """, (title, content, target_role, image_path, image_width, image_height, post_id))
+        UPDATE news_posts SET title=%s, content=%s, target_role=%s, image_path=%s WHERE id=%s
+    """, (title, content, target_role, image_path, post_id))
     db.commit()
     flash("Post updated.", "success")
     return redirect(url_for("admin_news"))

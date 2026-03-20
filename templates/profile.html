@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header-band">
+    <h1>My Profile</h1>
+    <div class="header-sub">Update your personal details and password</div>
+</div>
+
+<div style="max-width:560px;">
+    <div class="surface">
+        <form method="POST" enctype="multipart/form-data">
+
+            {% if user.profile_photo %}
+            <div style="margin-bottom:20px;text-align:center;">
+                <img src="{{ url_for('static', filename=user.profile_photo) }}"
+                     style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid var(--yellow);">
+            </div>
+            {% endif %}
+
+            <div class="form-group">
+                <label>Profile Photo</label>
+                <input type="file" name="photo" accept="image/*">
+            </div>
+
+            <div class="form-group">
+                <label>Full Name</label>
+                <input type="text" name="full_name" value="{{ user.full_name }}" required>
+            </div>
+
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" name="email" value="{{ user.email }}" required>
+            </div>
+
+            <div class="section-label" style="margin-top:24px;">Change Password</div>
+            <p style="font-size:0.85em;color:var(--text-3);margin-bottom:12px;">Leave blank to keep current password.</p>
+
+            <div class="form-group">
+                <label>Current Password</label>
+                <div style="position:relative;">
+                    <input type="password" name="current_password" id="currentPwd" style="padding-right:42px;width:100%;box-sizing:border-box;">
+                    <button type="button" onclick="togglePassword('currentPwd',this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-3);font-size:0.85em;">Show</button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>New Password</label>
+                <div style="position:relative;">
+                    <input type="password" name="new_password" id="newPwd" style="padding-right:42px;width:100%;box-sizing:border-box;">
+                    <button type="button" onclick="togglePassword('newPwd',this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-3);font-size:0.85em;">Show</button>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-primary btn-full" style="margin-top:8px;">Save Changes</button>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

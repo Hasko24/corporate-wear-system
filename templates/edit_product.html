@@ -102,9 +102,8 @@
 
         <div class="surface" style="border-top:2px solid var(--red);">
             <div class="section-label" style="color:var(--red);">Danger Zone</div>
-            <form method="POST" action="{{ url_for('delete_product', product_id=product.id) }}"
-                  onsubmit="return confirm('Delete {{ product.name }}? This cannot be undone.');">
-                <button type="submit" class="btn btn-danger btn-full">Delete Product</button>
+            <form method="POST" action="{{ url_for('delete_product', product_id=product.id) }}">
+                <button type="submit" class="btn btn-danger btn-full" onclick="showConfirm(this.closest('form'),'Delete this product?','This cannot be undone.');return false;">Delete Product</button>
             </form>
         </div>
 

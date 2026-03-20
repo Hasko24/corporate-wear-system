@@ -6,6 +6,7 @@
             <span class="page-breadcrumb"><a href="{{ url_for('admin_dashboard') }}">Admin</a> › Sites</span>
             <h1>Sites</h1>
         </div>
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-ghost">← Admin</a>
     </div>
 </div>
 
@@ -14,7 +15,7 @@
         <div class="section-label">Add Site</div>
         <form method="POST" style="display:flex;gap:10px;margin-top:12px;">
             <input type="hidden" name="action" value="add">
-            <input type="text" name="name" placeholder="e.g. PUD, GTW" required style="flex:1;">
+            <input type="text" name="name" placeholder="for example, PUD, GTW" required style="flex:1;">
             <button type="submit" class="btn-primary">Add</button>
         </form>
     </div>
@@ -29,10 +30,10 @@
                 <tr>
                     <td style="font-weight:600;">{{ site.name }}</td>
                     <td style="text-align:right;">
-                        <form method="POST" onsubmit="return confirm('Delete site?');" style="margin:0;display:inline;">
+                        <form method="POST" style="margin:0;display:inline;">
                             <input type="hidden" name="action" value="delete">
                             <input type="hidden" name="site_id" value="{{ site.id }}">
-                            <button type="submit" class="btn-danger" style="padding:4px 12px;font-size:0.82em;">Delete</button>
+                            <button type="submit" class="btn-danger" style="padding:4px 12px;font-size:0.82em;" onclick="showConfirm(this.closest('form'),'Delete this site?','This cannot be undone.');return false;">Delete</button>
                         </form>
                     </td>
                 </tr>

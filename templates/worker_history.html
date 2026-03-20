@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header-band">
+    <div class="header-row">
+        <div>
+            <span class="page-breadcrumb"><a href="{{ url_for('view_team') }}">My Team</a> › Uniforms</span>
+            <h1>{{ member.full_name }}</h1>
+            <div class="header-sub">Employee #{{ member.employee_number }} — Uniform order history</div>
+        </div>
+    </div>
+</div>
+
+{% if uniforms|length == 0 %}
+<div class="surface" style="text-align:center;padding:60px 40px;color:var(--text-3);">
+    <p style="font-size:1.1em;font-weight:600;color:var(--text-2);margin:0 0 6px;">No uniforms ordered yet.</p>
+    <p style="margin:0;">Uniforms will appear here once orders have been placed for this employee.</p>
+</div>
+{% else %}
+<div class="data-table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Order</th>
+                <th>Product</th>
+                <th>Size</th>
+                <th>Qty</th>
+                <th>Date</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for u in uniforms %}
+            <tr>
+                <td><a href="{{ url_for('order_detail', cart_id=u.order_id) }}" style="color:var(--red);font-weight:600;">#{{ u.order_id }}</a></td>
+                <td style="font-weight:600;">{{ u.product_name }}</td>
+                <td>{{ u.size }}</td>
+                <td>{{ u.quantity }}</td>
+                <td class="text-muted">{{ u.order_date.strftime('%d %b %Y') if u.order_date else '—' }}</td>
+                <td><span class="status-pill status-{{ u.status }}">{{ u.status|title }}</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<div style="margin-top:20px;">
+    <a href="{{ url_for('view_team') }}" class="btn-ghost">← Back to Team</a>
+</div>
+
+{% endblock %}

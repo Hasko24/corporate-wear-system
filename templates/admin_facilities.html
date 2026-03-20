@@ -4,9 +4,10 @@
 <div class="page-header-band">
     <div class="header-row">
         <div>
-            <span class="page-breadcrumb" style="color:rgba(0,0,0,.5);"><a href="{{ url_for('admin_dashboard') }}" style="color:rgba(0,0,0,.5);">Admin</a> › Facilities</span>
+            <span class="page-breadcrumb"><a href="{{ url_for('admin_dashboard') }}" >Admin</a> › Facilities</span>
             <h1>Facilities</h1>
         </div>
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-ghost">← Admin</a>
     </div>
 </div>
 
@@ -18,7 +19,7 @@
             <input type="hidden" name="action" value="add">
             <div class="form-group" style="margin:0;">
                 <label>Facility Name</label>
-                <input type="text" name="name" placeholder="e.g. Örebro Hub" required>
+                <input type="text" name="name" placeholder="for example, Örebro Hub" required>
             </div>
             <button type="submit" class="btn btn-primary">Add Facility</button>
         </form>
@@ -32,10 +33,10 @@
                 <tr>
                     <td class="text-bold">{{ f.name }}</td>
                     <td style="text-align:right;">
-                        <form method="POST" onsubmit="return confirm('Delete facility?');" style="margin:0;display:inline;">
+                        <form method="POST" style="margin:0;display:inline;">
                             <input type="hidden" name="action" value="delete">
                             <input type="hidden" name="facility_id" value="{{ f.id }}">
-                            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--red);">Delete</button>
+                            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="showConfirm(this.closest('form'),'Delete this facility?','This cannot be undone.');return false;">Delete</button>
                         </form>
                     </td>
                 </tr>

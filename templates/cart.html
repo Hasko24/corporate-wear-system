@@ -15,13 +15,14 @@
     <div class="data-table-wrap" style="align-self:start;">
         <table>
             <thead>
-                <tr><th>Product</th><th>Size</th><th>Qty</th><th>Unit Price</th><th>Subtotal</th><th></th></tr>
+                <tr><th>Product</th><th>Size</th><th>For</th><th>Qty</th><th>Unit Price</th><th>Subtotal</th><th></th></tr>
             </thead>
             <tbody>
                 {% for item in items %}
                 <tr>
                     <td class="text-bold">{{ item.name }}</td>
                     <td>{{ item.size }}</td>
+                    <td class="text-muted">{{ item.worker_name or '—' }}</td>
                     <td>{{ item.quantity }}</td>
                     <td class="text-muted">{{ "%.2f"|format(item.price_at_time) }} SEK</td>
                     <td class="text-bold">{{ "%.2f"|format(item.subtotal) }} SEK</td>
@@ -53,26 +54,11 @@
         </div>
 
         <form method="POST" action="{{ url_for('checkout') }}" style="margin-top:20px;">
-            {% if team %}
-            <div class="form-group">
-                <label>Order For</label>
-                <select name="team_member_id" required>
-                    <option value="">Select team member…</option>
-                    {% for member in team %}
-                    <option value="{{ member.id }}" {% if cart.team_member_id == member.id %}selected{% endif %}>
-                        {{ member.full_name }}{% if member.employee_number %} ({{ member.employee_number }}){% endif %}
-                    </option>
-                    {% endfor %}
-                </select>
-            </div>
-            {% endif %}
-
             <div class="form-group">
                 <label>Comment (optional)</label>
                 <textarea name="comment" rows="3" placeholder="Any notes for the packer…">{{ cart.comment or '' }}</textarea>
             </div>
-
-            <button type="submit" class="btn btn-primary btn-full btn-lg">Submit Order</button>
+            <button type="submit" class="btn btn-primary btn-full btn-lg" onclick="showConfirm(this.closest('form'), 'Submit this order?', 'The order will be sent for packing.', 'Submit Order'); return false;">Submit Order</button>
         </form>
     </div>
 </div>

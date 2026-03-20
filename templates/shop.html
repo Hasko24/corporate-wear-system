@@ -95,6 +95,7 @@
     object-fit: contain !important; border-radius: 0 !important;
     padding: 12px !important; max-height: unset !important;
     transform: none !important; transition: transform .3s ease;
+    will-change: transform;
 }
 .sw .p-image:hover img { transform: scale(1.05) !important; }
 .img-modal-left img {
@@ -208,7 +209,7 @@
 .p-image-overlay {
     position: absolute; inset: 0; display: flex; align-items: center;
     justify-content: center; background: rgba(0,0,0,0); color: white;
-    font-size: 0.85em; font-weight: 600; opacity: 0; transition: all .2s;
+    font-size: 0.85em; font-weight: 600; opacity: 0; transition: opacity .2s;
     pointer-events: none;
 }
 .p-image:hover .p-image-overlay { opacity: 1; background: rgba(0,0,0,.32); }
@@ -224,8 +225,20 @@
 .p-desc { font-size: 0.84em; color: #666; line-height: 1.55; margin-bottom: 10px; }
 .p-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
 .p-tag { font-size: 0.72em; padding: 3px 9px; background: #f2f2f2; border-radius: 20px; color: #555; font-weight: 500; }
-.p-rec { font-size: 0.8em; color: #888; margin-bottom: 6px; }
-.p-rec span { background: #fffde7; border: 1px solid #FFCC00; border-radius: 4px; padding: 1px 6px; color: #b8860b; font-weight: 700; }
+.p-rec-banner {
+    display: flex; align-items: center; justify-content: space-between;
+    background: #f8f8f8; border: 1px solid #e8e8e8; border-radius: 8px;
+    padding: 10px 14px; margin-bottom: 10px;
+    font-size: 0.85em; color: #222; gap: 8px;
+}
+.p-rec-banner-left { display: flex; align-items: center; gap: 8px; }
+.p-rec-icon { font-size: 1.1em; opacity: 0.7; flex-shrink: 0; }
+.p-rec-text { color: #333; }
+.p-rec-text strong { color: #111; font-size: 1.05em; }
+.p-rec-why {
+    font-size: 0.85em; font-weight: 700; text-decoration: underline;
+    cursor: pointer; white-space: nowrap; color: #111; flex-shrink: 0;
+}
 .p-price { font-size: 1.1em; font-weight: 900; color: #111; margin-top: 6px; }
 
 /* ── Admin buttons ── */
@@ -262,17 +275,27 @@
 
 /* ── Modals ── */
 .overlay {
-    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.65);
+    position: fixed; inset: 0; background: rgba(0,0,0,.65);
     z-index: 9999; align-items: center; justify-content: center;
+    display: flex;
+    opacity: 0; visibility: hidden; pointer-events: none;
+    transition: opacity .15s ease, visibility .15s ease;
+}
+.overlay.open {
+    opacity: 1; visibility: visible; pointer-events: auto;
 }
 .img-overlay { background: rgba(0,0,0,.82); }
 .img-modal-box {
     display: flex; background: white; border-radius: 16px; overflow: hidden;
     max-width: 920px; width: 93vw; max-height: 88vh;
     box-shadow: 0 24px 64px rgba(0,0,0,.5);
-    animation: popIn .22s ease;
+    transform: scale(.97); opacity: 0;
+    transition: transform .18s ease, opacity .18s ease;
+    will-change: transform, opacity;
 }
-@keyframes popIn { from { transform: scale(.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.overlay.open .img-modal-box {
+    transform: scale(1); opacity: 1;
+}
 .img-modal-left {
     flex: 0 0 440px; background: #f5f5f5;
     display: flex; align-items: center; justify-content: center; overflow: hidden;
@@ -281,23 +304,34 @@
 .img-modal-right { flex: 1; padding: 36px; overflow-y: auto; display: flex; flex-direction: column; }
 .img-modal-right h2 { margin: 0 0 6px; font-size: 1.3em; font-weight: 800; }
 .img-modal-code { color: #aaa; font-size: 0.85em; margin-bottom: 14px; }
-.img-modal-desc { color: #555; font-size: 0.92em; line-height: 1.6; flex: 1; }
+.img-modal-desc { color: #555; font-size: 0.92em; line-height: 1.6; flex: 1; white-space: pre-line; }
 .img-modal-stock { margin-top: 20px; font-size: 0.88em; line-height: 1.9; }
 .img-modal-close { background: none; border: none; font-size: 2em; cursor: pointer; color: #bbb; padding: 0; line-height: 1; align-self: flex-end; margin-bottom: 14px; }
 .img-modal-close:hover { color: #333; }
 .small-modal-box {
     background: white; border-radius: 14px; padding: 32px;
     max-width: 480px; width: 92%;
-    box-shadow: 0 12px 40px rgba(0,0,0,.25); animation: popIn .2s ease;
+    box-shadow: 0 12px 40px rgba(0,0,0,.25);
+    transform: scale(.97); opacity: 0;
+    transition: transform .18s ease, opacity .18s ease;
+    will-change: transform, opacity;
+}
+.overlay.open .small-modal-box {
+    transform: scale(1); opacity: 1;
 }
 .small-modal-box h3 { margin: 0 0 10px; font-size: 1.1em; }
 .small-modal-box p { color: #666; margin: 0 0 24px; font-size: 0.92em; }
-.modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.modal-actions { display: flex; gap: 10px; justify-content: center; }
 .modal-actions .safe-btn   { padding: 9px 22px !important; border-radius: 7px !important; cursor: pointer; font-weight: 600; font-size: 0.9em; }
 .modal-actions .danger-btn { padding: 9px 22px !important; border-radius: 7px !important; cursor: pointer; font-weight: 700; font-size: 0.9em; }
 #stockTable { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 0.88em; }
 #stockTable th, #stockTable td { padding: 8px 10px; border-bottom: 1px solid #f0f0f0; text-align: center; }
 #stockTable th { font-size: 0.78em; text-transform: uppercase; color: #aaa; letter-spacing: .04em; background: #fafafa; }
+#stockTable td:last-child { text-align: center; padding-left: 0; padding-right: 0; }
+#stockTable td:last-child > div { display: inline-flex !important; align-items: center; gap: 5px; }
+#stockTable input[type=number]::-webkit-inner-spin-button,
+#stockTable input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+#stockTable input[type=number] { -moz-appearance: textfield; }
 
 
 /* ── Member selector bar ── */
@@ -341,29 +375,6 @@
 </style>
 
 <div class="sw">
-
-{% if require_selection %}
-<!-- Force member selection -->
-<div style="max-width:580px;margin:60px auto;background:white;border-radius:14px;border:1px solid #eee;padding:40px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.06);">
-    <h2 style="margin:0 0 8px;">Select Team Member</h2>
-    <p style="color:#888;margin-bottom:28px;">Choose who you are ordering for before browsing products.</p>
-    <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;">
-        {% for member in team %}
-        <a href="{{ url_for('shop', team_member_id=member.id) }}"
-           style="display:flex;flex-direction:column;align-items:center;padding:16px 20px;border:2px solid #eee;border-radius:10px;text-decoration:none;color:inherit;min-width:100px;transition:all .2s;"
-           onmouseover="this.style.borderColor='#FFCC00';this.style.background='#fffde7'"
-           onmouseout="this.style.borderColor='#eee';this.style.background='white'">
-            <div style="width:44px;height:44px;border-radius:50%;background:#FFCC00;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.2em;margin-bottom:8px;">{{ member.full_name[0] }}</div>
-            <div style="font-size:0.85em;font-weight:600;">{{ member.full_name }}</div>
-        </a>
-        {% endfor %}
-    </div>
-    <div style="margin-top:20px;"><a href="{{ url_for('add_team_member') }}" style="color:#888;font-size:0.9em;text-decoration:none;">+ Add Team Member</a></div>
-</div>
-
-{% else %}
-
-
 
 <div class="sw-body">
 
@@ -422,7 +433,7 @@
     <!-- ── Main ── -->
     <div class="sw-main">
 
-        {% if session.system_role in ['admin', 'supervisor'] %}
+        {% if session.system_role == 'supervisor' %}
         <div style="display:flex;align-items:center;gap:10px;background:white;border:1px solid #e8e8e8;border-radius:10px;padding:10px 16px;margin-bottom:14px;">
             <span style="font-size:0.72em;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#aaa;white-space:nowrap;">🛒 Ordering for</span>
             <select onchange="assignMember(this.value)"
@@ -510,14 +521,13 @@
             <div class="p-info">
                 <div class="p-code">{{ product.article_number }}</div>
                 <div class="p-name">{{ product.name }}</div>
-                {% if product.description %}<div class="p-desc">{{ product.description }}</div>{% endif %}
+                {% if product.description %}<div class="p-desc" style="white-space:pre-line;">{{ product.description }}</div>{% endif %}
                 <div class="p-tags">
                     {% if product.type %}<span class="p-tag">{{ product.type }}</span>{% endif %}
                     {% if product.gender %}<span class="p-tag">{{ product.gender|title }}</span>{% endif %}
                     {% if product.max_quantity %}<span class="p-tag">Max {{ product.max_quantity }} pcs</span>{% endif %}
                 </div>
                 {% if product.recommended_size %}
-                <div class="p-rec">Recommended: <span>{{ product.recommended_size }}</span></div>
                 {% endif %}
                 {% if product.price %}
                 <div class="p-price" data-price-sek="{{ product.price }}">{{ "%.2f"|format(product.price) }} SEK</div>
@@ -548,13 +558,30 @@
             </div>
 
             <!-- Order -->
-            {% if session.system_role in ['admin', 'supervisor'] %}
+            {% if session.system_role == 'supervisor' %}
             <div class="p-order">
+                {% if not selected_member %}
+                <button type="button" disabled style="width:100%;padding:12px;background:#f0f0f0;color:#aaa;border:none;border-radius:8px;font-weight:700;font-size:0.88em;cursor:not-allowed;">
+                    Select a team member to order
+                </button>
+                {% elif worker_eligible_ids is not none and product.id not in worker_eligible_ids %}
+                <div style="padding:12px;background:#f9f9f9;border-radius:8px;text-align:center;color:var(--text-3);font-size:0.85em;">
+                    Not available for this worker's role
+                </div>
+                {% else %}
                 <form method="POST" action="/add-to-cart">
                     <input type="hidden" name="team_member_id" value="{{ selected_member }}">
+                    <div style="font-size:0.78em;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">
+                        For: <span style="color:var(--black);">{% for m in team %}{% if m.id|string == selected_member %}{{ m.full_name }}{% endif %}{% endfor %}</span>
+                    </div>
 
                     <div>
-                        <span class="p-order-label">Size</span>
+                        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:5px;">
+                            <span class="p-order-label">Size</span>
+                            {% if product.recommended_size %}
+                            <span style="font-size:0.75em;color:var(--text-3);">Recommended: <strong style="color:var(--black);font-weight:700;">{{ product.recommended_size }}</strong></span>
+                            {% endif %}
+                        </div>
                         {% if product.sizes|length > 1 %}
                         <select name="product_size_id" required>
                             <option value="">Select size…</option>
@@ -589,6 +616,7 @@
 
                     <button type="submit" class="add-cart-btn">Add to Cart</button>
                 </form>
+                {% endif %}
             </div>
             {% endif %}
 
@@ -600,7 +628,6 @@
 
     </div><!-- /sw-main -->
 </div><!-- /sw-body -->
-{% endif %}
 </div><!-- /sw -->
 
 <!-- IMAGE MODAL -->
@@ -718,6 +745,8 @@
 </div>
 
 <script>
+// @ts-nocheck
+/* eslint-disable */
 // When member is selected, keep current role filter
 function assignMember(memberId) {
     const url = new URL(window.location.href);
@@ -746,7 +775,6 @@ document.querySelectorAll('.image-wrapper').forEach(wrapper => {
         document.getElementById('modalCode').innerText = img.dataset.article ? 'Article #: ' + img.dataset.article : '';
         document.getElementById('modalDesc').innerText = img.dataset.description || '';
         let stock = '';
-        {% if session.system_role == 'admin' %}
         try {
             const sizes = JSON.parse(img.dataset.sizes || '[]');
             if (sizes.length) {
@@ -754,18 +782,17 @@ document.querySelectorAll('.image-wrapper').forEach(wrapper => {
                 sizes.forEach(s => stock += s.size + ': ' + s.stock + ' pcs<br>');
             }
         } catch(e) {}
-        {% endif %}
         document.getElementById('modalStock').innerHTML = stock;
-        document.getElementById('imageModal').style.display = 'flex';
+        openOverlay('imageModal');
     });
 });
-function closeImage() { document.getElementById('imageModal').style.display = 'none'; }
+function closeImage() { closeOverlay('imageModal'); }
 document.getElementById('imageModal').addEventListener('click', e => { if (e.target === document.getElementById('imageModal')) closeImage(); });
 
 // Delete modal
 let formToSubmit = null;
-function openModal(form) { formToSubmit = form; document.getElementById('deleteModal').style.display = 'flex'; }
-function closeModal() { document.getElementById('deleteModal').style.display = 'none'; }
+function openModal(form) { formToSubmit = form; openOverlay('deleteModal'); }
+function closeModal() { closeOverlay('deleteModal'); }
 document.getElementById('confirmDeleteBtn').addEventListener('click', () => { if (formToSubmit) formToSubmit.submit(); });
 document.getElementById('deleteModal').addEventListener('click', e => { if (e.target === document.getElementById('deleteModal')) closeModal(); });
 
@@ -775,19 +802,19 @@ function handleStockClick(btn) {
     document.getElementById('stockModalTitle').innerText = 'Edit Stock — ' + btn.dataset.productName;
     document.getElementById('stockForm').action = '/update-stock/' + btn.dataset.productId;
     const t = document.getElementById('stockTable');
-    t.innerHTML = '<tr><th>Size</th><th>Current</th><th>Add</th></tr>';
+    t.innerHTML = '<tr><th>Size</th><th>Current</th><th>&nbsp;&nbsp;&nbsp;Add</th></tr>';
     sizes.forEach(s => {
         t.innerHTML += `<tr>
             <td>${s.size}</td><td>${s.stock}</td>
-            <td><div style="display:flex;align-items:center;gap:5px;justify-content:center;">
+            <td><div style="display:flex;align-items:center;gap:5px;">
                 <button type="button" style="width:28px;height:28px;border:1px solid #ddd;border-radius:5px;cursor:pointer;font-size:1em;" onclick="this.nextElementSibling.stepDown()">−</button>
                 <input type="number" name="size_${s.id}" min="0" value="0" style="width:72px;text-align:center;padding:5px;border:1px solid #ddd;border-radius:5px;">
                 <button type="button" style="width:28px;height:28px;border:1px solid #ddd;border-radius:5px;cursor:pointer;font-size:1em;" onclick="this.previousElementSibling.stepUp()">+</button>
             </div></td></tr>`;
     });
-    document.getElementById('stockModal').style.display = 'flex';
+    openOverlay('stockModal');
 }
-function closeStockModal() { document.getElementById('stockModal').style.display = 'none'; }
+function closeStockModal() { closeOverlay('stockModal'); }
 document.getElementById('stockModal').addEventListener('click', e => { if (e.target === document.getElementById('stockModal')) closeStockModal(); });
 
 
@@ -801,22 +828,24 @@ function openEditModal(btn) {
     document.getElementById('editPrice').value = btn.dataset.productPrice || '';
     document.getElementById('editMaxQty').value = btn.dataset.productMaxQty || '';
     document.getElementById('editType').value = btn.dataset.productType || '';
-    // Set gender dropdown
     const genderSel = document.getElementById('editGender');
     genderSel.value = btn.dataset.productGender || '';
-    // Show current image
     const imgDiv = document.getElementById('editCurrentImage');
     if (btn.dataset.productImage) {
         imgDiv.innerHTML = '<img src="/static/uploads/' + btn.dataset.productImage + '" style="height:80px;border-radius:6px;object-fit:contain;border:1px solid #eee;padding:4px;">';
     } else {
         imgDiv.innerHTML = '<span style="color:#aaa;font-size:0.85em;">No image</span>';
     }
-    document.getElementById('editModal').style.display = 'flex';
+    openOverlay('editModal');
 }
-function closeEditModal() { document.getElementById('editModal').style.display = 'none'; }
+function closeEditModal() { closeOverlay('editModal'); }
 document.getElementById('editModal').addEventListener('click', e => { if (e.target === document.getElementById('editModal')) closeEditModal(); });
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeImage(); closeModal(); closeStockModal(); closeEditModal(); } });
+
+// Shared open/close helpers — class-based so the browser composites on GPU (no layout thrash)
+function openOverlay(id) { document.getElementById(id).classList.add('open'); }
+function closeOverlay(id) { document.getElementById(id).classList.remove('open'); }
 
 // Client-side type/gender filters
 let activeType = 'all';

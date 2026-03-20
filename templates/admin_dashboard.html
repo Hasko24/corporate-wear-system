@@ -1,71 +1,212 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="page-header-band">
-    <div class="header-row">
-        <div>
-            <h1>Admin Panel</h1>
-            <div class="header-sub">DHL Corporate Wear — Control Centre</div>
+<style>
+.dash-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 32px; padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+}
+.dash-greeting { font-size: 1.4em; font-weight: 800; color: var(--black); margin: 0 0 3px; }
+.dash-sub { font-size: 0.85em; color: var(--text-3); }
+
+.dash-stats {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 12px;
+    margin-bottom: 32px;
+}
+.dash-stat {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 18px 14px;
+}
+.dash-stat-num {
+    font-family: var(--font-display); font-size: 1.9em;
+    font-weight: 900; color: var(--black); line-height: 1; margin-bottom: 6px;
+}
+.dash-stat-label {
+    font-size: 0.72em; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .07em; color: var(--text-3);
+}
+.dash-stat-alert { border-top: 3px solid #f59e0b; }
+.dash-stat-alert .dash-stat-num { color: #92400e; }
+
+.dash-sections {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+}
+.dash-section {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+}
+.dash-section-head {
+    padding: 14px 18px 12px;
+    border-bottom: 1px solid var(--border);
+    border-top: 3px solid var(--yellow);
+}
+.dash-section-title {
+    font-weight: 800; font-size: 0.9em; color: var(--black); margin-bottom: 2px;
+}
+.dash-section-desc {
+    font-size: 0.76em; color: var(--text-3); line-height: 1.4;
+}
+.dash-links { padding: 4px 0; }
+.dash-link {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 18px; text-decoration: none;
+    color: var(--black); font-size: 0.86em; font-weight: 500;
+    border-bottom: 1px solid #f5f5f5;
+}
+.dash-link:last-child { border-bottom: none; }
+.dash-link:hover { background: #fafafa; color: var(--black); text-decoration: none; }
+.dash-link-meta { font-size: 0.78em; color: var(--text-3); }
+.dash-link-arrow { color: #ccc; font-size: 0.75em; }
+.dash-badge-red {
+    background: #fee2e2; color: #dc2626; font-size: 0.7em;
+    font-weight: 700; padding: 2px 7px; border-radius: 4px;
+}
+.dash-badge-amber {
+    background: #fef3c7; color: #92400e; font-size: 0.7em;
+    font-weight: 700; padding: 2px 7px; border-radius: 4px;
+}
+.dash-lowstock-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 9px 18px; border-bottom: 1px solid #f5f5f5;
+    font-size: 0.84em;
+}
+.dash-lowstock-row:last-child { border-bottom: none; }
+.dash-stock-pill {
+    font-weight: 700; font-size: 0.82em;
+    color: #dc2626; background: #fee2e2;
+    padding: 2px 8px; border-radius: 4px;
+}
+.dash-section-head-green { border-top-color: #22c55e; }
+.dash-section-head-red { border-top-color: var(--red); }
+
+@media (max-width: 900px) {
+    .dash-stats { grid-template-columns: repeat(3, 1fr); }
+    .dash-sections { grid-template-columns: 1fr 1fr; }
+}
+</style>
+
+<div class="dash-header">
+    <div>
+        <div class="dash-greeting">Admin Panel</div>
+        <div class="dash-sub">DHL Corporate Wear — Control Centre</div>
+    </div>
+    <a href="{{ url_for('shop') }}" class="btn-ghost">Browse Shop</a>
+</div>
+
+<!-- Sections -->
+<div class="dash-sections">
+
+    <!-- People -->
+    <div class="dash-section">
+        <div class="dash-section-head">
+            <div class="dash-section-title">People</div>
+        </div>
+        <div class="dash-links">
+            <a href="{{ url_for('admin_users') }}" class="dash-link">
+                <span>Users</span>
+                <span class="dash-link-meta">Create, edit & delete accounts</span>
+            </a>
+            <a href="{{ url_for('admin_job_roles') }}" class="dash-link">
+                <span>Job Roles</span>
+                <span class="dash-link-meta">Add & manage roles</span>
+            </a>
+            <a href="{{ url_for('admin_facilities') }}" class="dash-link">
+                <span>Facilities</span>
+                <span class="dash-link-meta">Add & manage facilities</span>
+            </a>
+            <a href="{{ url_for('admin_sites') }}" class="dash-link">
+                <span>Sites</span>
+                <span class="dash-link-meta">Manage PUD, GTW & CCP sites</span>
+            </a>
         </div>
     </div>
-</div>
 
-<div class="stat-grid">
-    <div class="stat-card">
-        <div class="stat-value">{{ users_count }}</div>
-        <div class="stat-label">Users</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-value">{{ product_count }}</div>
-        <div class="stat-label">Products</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-value">{{ orders_count }}</div>
-        <div class="stat-label">Total Orders</div>
-    </div>
-    <div class="stat-card stat-card-red">
-        <div class="stat-value">{{ low_stock|length }}</div>
-        <div class="stat-label">Low Stock Items</div>
-    </div>
-</div>
+    <!-- Catalogue -->
+    <div class="dash-section">
+        <div class="dash-section-head">
+            <div class="dash-section-title">Catalogue</div>
+        </div>
+        <div class="dash-links">
+            <a href="{{ url_for('admin_products') }}" class="dash-link">
+                <span>Products</span>
+                <span class="dash-link-meta">Add, edit & remove products</span>
+            </a>
+            <a href="{{ url_for('add_product') }}" class="dash-link">
+                <span>Add Product</span>
+                <span class="dash-link-meta">Add a new product to the catalogue</span>
+            </a>
 
-<div class="section-label">Quick Access</div>
-<div class="admin-grid">
-    <a href="{{ url_for('admin_users') }}" class="admin-card">
-        <h3>Users</h3><p>Manage accounts &amp; roles</p>
-    </a>
-    <a href="{{ url_for('admin_products') }}" class="admin-card">
-        <h3>Products</h3><p>Catalogue &amp; stock</p>
-    </a>
-    <a href="{{ url_for('view_orders') }}" class="admin-card">
-        <h3>Orders</h3><p>View &amp; process orders</p>
-    </a>
-    <a href="{{ url_for('admin_analytics') }}" class="admin-card">
-        <h3>Analytics</h3><p>Spending &amp; metrics</p>
-    </a>
-    <a href="{{ url_for('admin_news') }}" class="admin-card">
-        <h3>News</h3><p>Announcements</p>
-    </a>
-    <a href="{{ url_for('admin_job_roles') }}" class="admin-card">
-        <h3>Job Roles</h3><p>Role management</p>
-    </a>
-    <a href="{{ url_for('admin_sites') }}" class="admin-card">
-        <h3>Sites</h3><p>PUD, GTW, CCP…</p>
-    </a>
-    <a href="{{ url_for('admin_facilities') }}" class="admin-card">
-        <h3>Facilities</h3><p>Buildings &amp; hubs</p>
-    </a>
-    <a href="{{ url_for('admin_size_guides') }}" class="admin-card">
-        <h3>Size Guides</h3><p>Brand charts</p>
-    </a>
-    </a>
-    <a href="{{ url_for('admin_stock_risk') }}" class="admin-card {% if low_stock %}admin-card-danger{% endif %}">
-        <h3>Stock Risk</h3>
-        <p>{{ low_stock|length }} low-stock item{{ 's' if low_stock|length != 1 }}</p>
-    </a>
-    <a href="{{ url_for('size_analytics') }}" class="admin-card">
-        <h3>Size Analytics</h3><p>Distribution data</p>
-    </a>
+            <a href="{{ url_for('admin_stock_risk') }}" class="dash-link">
+                <span>Stock Risk</span>
+                {% if low_stock|length > 0 %}
+                <span class="dash-badge-amber">{{ low_stock|length }} low</span>
+                {% else %}
+                <span class="dash-link-meta">Identify items running low</span>
+                {% endif %}
+            </a>
+            <a href="{{ url_for('admin_size_guides') }}" class="dash-link">
+                <span>Size Guides</span>
+                <span class="dash-link-meta">Upload brand size charts</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Orders -->
+    <div class="dash-section">
+        <div class="dash-section-head {% if pending_orders > 0 %}dash-section-head-red{% endif %}">
+            <div class="dash-section-title">Orders</div>
+        </div>
+        <div class="dash-links">
+            <a href="{{ url_for('view_orders') }}" class="dash-link">
+                <span>All Orders</span>
+                {% if pending_orders > 0 %}
+                <span class="dash-badge-red">{{ pending_orders }} pending</span>
+                {% else %}
+                <span class="dash-link-meta">View & filter all orders</span>
+                {% endif %}
+            </a>
+            <a href="{{ url_for('view_orders') }}?status=submitted" class="dash-link">
+                <span>Submitted</span>
+                <span class="dash-link-meta">Orders awaiting packing</span>
+            </a>
+            <a href="{{ url_for('view_orders') }}?status=packed" class="dash-link">
+                <span>Packed</span>
+                <span class="dash-link-meta">Ready for delivery</span>
+            </a>
+            <a href="{{ url_for('export_orders_excel') }}" class="dash-link">
+                <span>Export to Excel</span>
+                <span class="dash-link-meta">Download full order history</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Content -->
+    <div class="dash-section">
+        <div class="dash-section-head">
+            <div class="dash-section-title">Content</div>
+        </div>
+        <div class="dash-links">
+            <a href="{{ url_for('admin_news') }}" class="dash-link">
+                <span>Manage News</span>
+                <span class="dash-link-meta">Create, edit & delete posts</span>
+            </a>
+            <a href="{{ url_for('news') }}" class="dash-link">
+                <span>News Feed</span>
+                <span class="dash-link-meta">See what users see</span>
+            </a>
+        </div>
+    </div>
+
+
 </div>
 
 {% endblock %}

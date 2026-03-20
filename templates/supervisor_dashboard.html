@@ -5,9 +5,12 @@
     <div class="header-row">
         <div>
             <h1>Dashboard</h1>
-            <div class="header-sub">Welcome back</div>
+            <div class="header-sub">Welcome back, {{ session.full_name }}</div>
         </div>
-        <a href="{{ url_for('shop') }}" class="btn-primary">Browse Shop →</a>
+        <div style="display:flex;gap:10px;">
+            <a href="{{ url_for('bulk_order') }}" class="btn-ghost">Bulk Order</a>
+            <a href="{{ url_for('shop') }}" class="btn-primary">Browse Shop →</a>
+        </div>
     </div>
 </div>
 
@@ -20,11 +23,11 @@
         <div class="stat-value">{{ team_size }}</div>
         <div class="stat-label">Team Members</div>
     </div>
-    {% if budget %}
     <div class="stat-card">
-        <div class="stat-value">{{ "%.0f"|format(used) }} <span style="font-size:0.45em;font-weight:500;color:var(--text-2)">SEK</span></div>
-        <div class="stat-label">Budget Used This Month</div>
+        <div class="stat-value">{{ recent_uniforms|length }}</div>
+        <div class="stat-label">Uniforms Issued</div>
     </div>
+    {% if budget %}
     <div class="stat-card">
         <div class="stat-value">{{ "%.0f"|format(budget - used) }} <span style="font-size:0.45em;font-weight:500;color:var(--text-2)">SEK</span></div>
         <div class="stat-label">Budget Remaining</div>
@@ -45,10 +48,72 @@
 </div>
 {% endif %}
 
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-bottom:28px;">
+    <div class="surface">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <div class="section-label" style="margin:0;">Recent Orders</div>
+            <a href="{{ url_for('view_orders') }}" style="font-size:0.82em;color:var(--red);font-weight:600;">View all →</a>
+        </div>
+        {% if recent_orders|length == 0 %}
+        <p style="color:var(--text-3);font-size:0.88em;">No orders yet.</p>
+        {% else %}
+        <div style="display:flex;flex-direction:column;gap:8px;">
+            {% for order in recent_orders %}
+            <a href="{{ url_for('order_detail', cart_id=order.id) }}"
+               style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:var(--r);text-decoration:none;color:inherit;">
+                <div>
+                    <div style="font-weight:600;font-size:0.88em;">Order #{{ order.id }}</div>
+                    <div style="font-size:0.8em;color:var(--text-3);">{{ order.worker_name or '—' }}</div>
+                </div>
+                <span class="status-pill status-{{ order.status }}">{{ order.status|title }}</span>
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="surface">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <div class="section-label" style="margin:0;">Team Uniforms</div>
+            <a href="{{ url_for('my_uniforms') }}" style="font-size:0.82em;color:var(--red);font-weight:600;">View all →</a>
+        </div>
+        {% if recent_uniforms|length == 0 %}
+        <p style="color:var(--text-3);font-size:0.88em;">No uniforms issued yet.</p>
+        {% else %}
+        <div style="display:flex;flex-direction:column;gap:8px;">
+            {% for u in recent_uniforms %}
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:var(--r);">
+                <div>
+                    <div style="font-weight:600;font-size:0.88em;">{{ u.product_name }} — {{ u.size }}</div>
+                    <div style="font-size:0.8em;color:var(--text-3);">{{ u.worker_name }}</div>
+                </div>
+                <span class="status-pill status-{{ u.status|replace(' ','_') }}">{{ u.status|replace('_',' ')|title }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if low_stock|length > 0 %}
+<div class="surface" style="border-left:3px solid #f59e0b;margin-bottom:20px;">
+    <div class="section-label" style="color:#b45309;">⚠ Low Stock Alert</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
+        {% for item in low_stock %}
+        <span style="background:#fef3c7;color:#92400e;padding:4px 10px;border-radius:20px;font-size:0.82em;font-weight:600;">
+            {{ item.name }} {{ item.size }} — {{ item.stock }} left
+        </span>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
 <div style="display:flex;gap:12px;flex-wrap:wrap;">
-    <a href="{{ url_for('view_orders') }}" class="btn-ghost">View Orders</a>
+    <a href="{{ url_for('view_orders') }}" class="btn-ghost">Orders</a>
     <a href="{{ url_for('view_team') }}" class="btn-ghost">My Team</a>
+    <a href="{{ url_for('my_uniforms') }}" class="btn-ghost">Uniforms</a>
     <a href="{{ url_for('supervisor_delegation') }}" class="btn-ghost">Delegation</a>
+    <a href="{{ url_for('bulk_order') }}" class="btn-ghost">Bulk Order</a>
 </div>
 
 {% endblock %}

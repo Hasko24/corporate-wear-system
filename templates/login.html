@@ -15,12 +15,17 @@
                 <div class="form-group">
                     <label>Password</label>
                     <div style="position:relative;">
-                        <input type="password" name="password" id="loginPassword" required autocomplete="current-password" style="padding-right:42px;width:100%;box-sizing:border-box;">
-                        <button type="button" onclick="togglePassword('loginPassword', this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-3);font-size:0.85em;">Show</button>
+                        <input type="password" name="password" id="loginPassword" required autocomplete="current-password"
+                               style="padding-right:42px;width:100%;box-sizing:border-box;">
+                        <button type="button" onclick="togglePassword('loginPassword',this)"
+                                style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-3);font-size:0.85em;">Show</button>
                     </div>
                 </div>
                 <button type="submit" class="btn btn-primary">Log in</button>
             </form>
+            <div style="text-align:center;margin-top:14px;">
+                <a href="{{ url_for('forgot_password') }}" style="font-size:0.85em;color:var(--text-3);">Forgot password?</a>
+            </div>
             {% if error %}
             <div class="error">{{ error }}</div>
             {% endif %}

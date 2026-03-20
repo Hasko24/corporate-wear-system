@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title>DHL Corporate Wear</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=6">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=20">
     {% block extra_css %}{% endblock %}
 </head>
 <body>
@@ -38,9 +38,11 @@
         </a>
         <a href="{{ url_for('size_guide') }}" class="{% if request.endpoint == 'size_guide' %}active{% endif %}">Size Guide</a>
         {% if session.system_role != "packer" %}
-        <a href="{{ url_for('view_cart') }}" class="nav-cart {% if request.endpoint == 'view_cart' %}active{% endif %}">
-            Cart{% if cart_count > 0 %} <span class="badge">{{ cart_count }}</span>{% else %} (0){% endif %}
+        {% if session.system_role != 'admin' %}
+        <a href="{{ url_for('view_cart') }}" class="nav-cart {% if cart_count > 0 %}active{% elif request.endpoint == 'view_cart' %}active{% endif %} {% if cart_count == 0 %}nav-cart-empty{% endif %}">
+            Cart{% if cart_count > 0 %} <span class="badge">{{ cart_count }}</span>{% endif %}
         </a>
+        {% endif %}
         {% endif %}
         <a href="{{ url_for('logout') }}">Logout</a>
     </div>
@@ -72,17 +74,6 @@ window.addEventListener("load", function () {
     });
 });
 
-/* Scroll position restore */
-window.history.scrollRestoration = "manual";
-window.addEventListener("beforeunload", () =>
-    sessionStorage.setItem("scrollPosition", window.scrollY));
-window.addEventListener("load", () => {
-    const pos = sessionStorage.getItem("scrollPosition");
-    if (pos !== null) { window.scrollTo(0, parseInt(pos)); sessionStorage.removeItem("scrollPosition"); }
-});
-</script>
-
-<script>
 function togglePassword(inputId, btn) {
     const input = document.getElementById(inputId);
     if (input.type === 'password') {
@@ -93,7 +84,56 @@ function togglePassword(inputId, btn) {
         btn.textContent = 'Show';
     }
 }
+
+/* Scroll position restore */
+window.history.scrollRestoration = "manual";
+window.addEventListener("beforeunload", () =>
+    sessionStorage.setItem("scrollPosition", window.scrollY));
+window.addEventListener("load", () => {
+    const pos = sessionStorage.getItem("scrollPosition");
+    if (pos !== null) { window.scrollTo(0, parseInt(pos)); sessionStorage.removeItem("scrollPosition"); }
+});
 </script>
 
+
+<!-- ── Global styled confirm modal ── -->
+<div id="confirmModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:14px;padding:36px 32px;max-width:420px;width:92%;box-shadow:0 16px 48px rgba(0,0,0,.22);border-top:4px solid var(--red);text-align:center;">
+        <p id="confirmModalMsg" style="font-size:1em;font-weight:600;color:var(--black);margin:0 0 8px;"></p>
+        <p id="confirmModalSub" style="font-size:0.88em;color:var(--text-3);margin:0 0 28px;"></p>
+        <div style="display:flex;gap:12px;justify-content:center;">
+            <button onclick="closeConfirmModal()" style="min-width:110px;padding:10px 20px;border:1px solid var(--border);border-radius:8px;background:#fff;font-weight:600;font-size:0.9em;cursor:pointer;">Cancel</button>
+            <button id="confirmModalOk" style="min-width:110px;padding:10px 20px;border:none;border-radius:8px;background:var(--red);color:#fff;font-weight:700;font-size:0.9em;cursor:pointer;">Delete</button>
+        </div>
+    </div>
+</div>
+<script>
+var _confirmForm = null;
+function showConfirm(form, msg, sub, okLabel) {
+    _confirmForm = form;
+    document.getElementById('confirmModalMsg').textContent = msg || 'Are you sure?';
+    document.getElementById('confirmModalSub').textContent = sub || 'This action cannot be undone.';
+    document.getElementById('confirmModalOk').textContent = okLabel || 'Delete';
+    var modal = document.getElementById('confirmModal');
+    modal.style.display = 'flex';
+    // animate in
+    var box = modal.querySelector('div');
+    box.style.transform = 'scale(.95)'; box.style.opacity = '0'; box.style.transition = 'transform .15s,opacity .15s';
+    setTimeout(function(){ box.style.transform = 'scale(1)'; box.style.opacity = '1'; }, 10);
+}
+function closeConfirmModal() {
+    document.getElementById('confirmModal').style.display = 'none';
+    _confirmForm = null;
+}
+document.getElementById('confirmModalOk').addEventListener('click', function() {
+    if (_confirmForm) _confirmForm.submit();
+});
+document.getElementById('confirmModal').addEventListener('click', function(e) {
+    if (e.target === this) closeConfirmModal();
+});
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeConfirmModal();
+});
+</script>
 </body>
 </html>

@@ -4,14 +4,16 @@
 <div class="page-header-band">
     <div class="header-row">
         <div>
-            <span class="page-breadcrumb" style="color:rgba(0,0,0,.5);"><a href="{{ url_for('admin_dashboard') }}" style="color:rgba(0,0,0,.5);">Admin</a> › Users</span>
+            <span class="page-breadcrumb"><a href="{{ url_for('admin_dashboard') }}">Admin</a> › Users</span>
             <h1>Users</h1>
         </div>
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-ghost">← Admin</a>
     </div>
 </div>
 
 <div style="display:grid;grid-template-columns:380px 1fr;gap:28px;align-items:start;">
 
+    <!-- Create form -->
     <div class="surface">
         <div class="section-label">Create User</div>
         <form method="POST" action="{{ url_for('create_user') }}">
@@ -27,16 +29,12 @@
                 <label>Password</label>
                 <div style="position:relative;">
                     <input type="password" name="password" id="createPassword" required style="padding-right:42px;width:100%;box-sizing:border-box;">
-                    <button type="button" onclick="togglePassword('createPassword', this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-3);font-size:0.85em;">Show</button>
+                    <button type="button" onclick="togglePassword('createPassword',this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-3);font-size:0.85em;">Show</button>
                 </div>
             </div>
-            <div class="form-group">
-                <label>Cost Centre</label>
-                <input type="text" name="cost_centre" placeholder="e.g. Operations">
-            </div>
-            <div class="form-group">
+<div class="form-group">
                 <label>System Role</label>
-                <select name="system_role" id="systemRoleSelect" required>
+                <select name="system_role" id="createRoleSelect" required onchange="toggleCreateFields()">
                     <option value="supervisor">Supervisor</option>
                     <option value="packer">Packer</option>
                     <option value="admin">Admin</option>
@@ -52,17 +50,7 @@
                     {% endfor %}
                 </select>
             </div>
-            <div class="form-group" id="supervisorGroup" style="display:none;">
-                <label>Supervisor</label>
-                <select name="supervisor_id">
-                    <option value="">None</option>
-                    {% for supervisor in supervisors %}
-                    <option value="{{ supervisor.id }}">{{ supervisor.full_name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div class="form-group">
+            <div class="form-group" id="createCountryGroup" style="display:none;">
                 <label>Country</label>
                 <select name="country">
                     <option value="">— Select country —</option>
@@ -75,15 +63,15 @@
                     <option value="Netherlands">Netherlands</option>
                 </select>
             </div>
-            
             <button type="submit" class="btn btn-primary btn-full" style="margin-top:4px;">Create User</button>
         </form>
     </div>
 
+    <!-- Users table -->
     <div class="data-table-wrap">
         <table>
             <thead>
-                <tr><th>Name</th><th>Email</th><th>Role</th><th>Country</th><th>Job Role</th><th>Supervisor</th><th></th></tr>
+                <tr><th>Name</th><th>Email</th><th>Role</th><th>Country</th><th>Job Role</th><th></th></tr>
             </thead>
             <tbody>
                 {% for user in users %}
@@ -91,13 +79,11 @@
                     <td class="text-bold">{{ user.full_name }}</td>
                     <td class="text-muted text-sm">{{ user.email }}</td>
                     <td><span class="tag">{{ user.system_role }}</span></td>
+                    <td class="text-muted">{{ user.country or '—' }}</td>
                     <td class="text-muted">{{ user.job_role or '—' }}</td>
-                    <td>
-                        {% if user.system_role == 'worker' and user.supervisor_name %}
-                        <a href="{{ url_for('admin_view_supervisor_team', supervisor_id=user.supervisor_id) }}" style="color:var(--red);font-weight:600;">{{ user.supervisor_name }}</a>
-                        {% else %}—{% endif %}
-                    </td>
-                    <td>
+                    <td style="display:flex;gap:6px;align-items:center;">
+                        <button type="button" onclick="openEditModal({{ user.id }}, '{{ user.full_name|replace("'","\\'")|e }}', '{{ user.email|e }}', '{{ user.system_role }}', '{{ user.job_role_id or "" }}', '{{ user.country or "" }}')"
+                                class="btn btn-ghost btn-sm">Edit</button>
                         {% if user.id != session.user_id %}
                         <form method="POST" action="{{ url_for('delete_user', user_id=user.id) }}" style="margin:0;">
                             <button type="button" onclick="openDeleteModal(this.form)" class="btn btn-ghost btn-sm" style="color:var(--red);">Delete</button>
@@ -108,6 +94,66 @@
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+</div>
+
+<!-- Edit modal -->
+<div id="editUserModal" class="overlay" style="z-index:9999;">
+    <div class="small-modal-box" style="max-width:460px;text-align:left;">
+        <h3 id="editModalTitle" style="margin:0 0 18px;">Edit User</h3>
+        <form id="editUserForm" method="POST">
+            <div class="form-group">
+                <label>Full Name</label>
+                <input type="text" name="full_name" id="editFullName" required>
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" name="email" id="editEmail" required>
+            </div>
+            <div class="form-group">
+                <label>New Password <span style="font-weight:400;color:var(--text-3);font-size:0.85em;">(leave blank to keep current)</span></label>
+                <div style="position:relative;">
+                    <input type="password" name="password" id="editPassword" style="padding-right:42px;width:100%;box-sizing:border-box;">
+                    <button type="button" onclick="togglePassword('editPassword',this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-3);font-size:0.85em;">Show</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>System Role</label>
+                <select name="system_role" id="editRoleSelect" onchange="toggleEditCountry()">
+                    <option value="supervisor">Supervisor</option>
+                    <option value="packer">Packer</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Job Role</label>
+                <select name="job_role_id" id="editJobRole">
+                    <option value="">— None —</option>
+                    {% for role in job_roles %}
+                    {% if role.name != 'Everyone' %}
+                    <option value="{{ role.id }}">{{ role.name }}</option>
+                    {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group" id="editCountryGroup" style="display:none;">
+                <label>Country</label>
+                <select name="country" id="editCountry">
+                    <option value="">— Select country —</option>
+                    <option value="Sweden">Sweden</option>
+                    <option value="Norway">Norway</option>
+                    <option value="Denmark">Denmark</option>
+                    <option value="Finland">Finland</option>
+                    <option value="Germany">Germany</option>
+                    <option value="UK">UK</option>
+                    <option value="Netherlands">Netherlands</option>
+                </select>
+            </div>
+<div class="modal-actions" style="justify-content:flex-end;margin-top:8px;">
+                <button type="button" onclick="closeEditModal()" class="btn btn-ghost">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -124,6 +170,7 @@
 </div>
 
 <script>
+// Delete modal
 let formToSubmit = null;
 function openDeleteModal(form) {
     formToSubmit = form;
@@ -133,11 +180,37 @@ document.getElementById('confirmDeleteBtn').addEventListener('click', () => {
     if (formToSubmit) formToSubmit.submit();
 });
 
-const roleSelect = document.getElementById('systemRoleSelect');
-const supGroup   = document.getElementById('supervisorGroup');
-function toggleFields() { supGroup.style.display = roleSelect.value === 'worker' ? 'flex' : 'none'; }
-roleSelect.addEventListener('change', toggleFields);
-toggleFields();
+// Create form — show country only for admin
+function toggleCreateFields() {
+    const role = document.getElementById('createRoleSelect').value;
+    document.getElementById('createCountryGroup').style.display = role === 'admin' ? 'block' : 'none';
+}
+toggleCreateFields();
+
+// Edit modal
+function openEditModal(id, fullName, email, sysRole, jobRoleId, country) {
+    document.getElementById('editUserForm').action = '/admin/edit-user/' + id;
+    document.getElementById('editModalTitle').textContent = 'Edit — ' + fullName;
+    document.getElementById('editFullName').value = fullName;
+    document.getElementById('editEmail').value = email;
+    document.getElementById('editPassword').value = '';
+    document.getElementById('editRoleSelect').value = sysRole;
+    document.getElementById('editJobRole').value = jobRoleId;
+    document.getElementById('editCountry').value = country;
+toggleEditCountry();
+    document.getElementById('editUserModal').style.display = 'flex';
+}
+function closeEditModal() {
+    document.getElementById('editUserModal').style.display = 'none';
+}
+function toggleEditCountry() {
+    const role = document.getElementById('editRoleSelect').value;
+    document.getElementById('editCountryGroup').style.display = role === 'admin' ? 'block' : 'none';
+}
+document.getElementById('editUserModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('editUserModal')) closeEditModal();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeEditModal(); });
 </script>
 
 {% endblock %}

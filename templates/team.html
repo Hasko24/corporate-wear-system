@@ -3,52 +3,92 @@
 
 <div class="page-header-band">
     <div class="header-row">
-        <h1>My Team</h1>
+        <div>
+            <span class="page-breadcrumb"><a href="{{ url_for('supervisor_dashboard') }}">Dashboard</a> › My Team</span>
+            <h1>My Team</h1>
+        </div>
         <a href="{{ url_for('add_team_member') }}" class="btn btn-dark btn-lg">+ Add Member</a>
     </div>
 </div>
 
-<div class="team-layout">
+{% if delegated %}
+<div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:24px;">
+    <button onclick="showTab('own')" id="tab-own"
+        style="padding:10px 22px;font-weight:700;font-size:0.88em;border:none;background:none;cursor:pointer;border-bottom:2px solid var(--red);margin-bottom:-2px;color:var(--red);">
+        My Team ({{ team|length }})
+    </button>
+    {% for sup_name, members in delegated.items() %}
+    <button onclick="showTab('del-{{ loop.index }}')" id="tab-del-{{ loop.index }}"
+        style="padding:10px 22px;font-weight:600;font-size:0.88em;border:none;background:none;cursor:pointer;color:var(--text-2);border-bottom:2px solid transparent;margin-bottom:-2px;">
+        {{ sup_name }} ({{ members|length }})
+    </button>
+    {% endfor %}
+</div>
+{% endif %}
 
-    <!-- Quick-add form -->
-    <div class="surface" style="border-top:4px solid var(--yellow);">
-        <div class="section-label">Quick Add</div>
-        <form method="POST" action="{{ url_for('add_team_member') }}">
-            <div class="form-group">
-                <label>Full Name <span style="color:var(--red);">*</span></label>
-                <input type="text" name="full_name" required placeholder="First and last name">
-            </div>
-            <div class="form-group">
-                <label>Employee Number</label>
-                <input type="text" name="employee_number" placeholder="e.g. EMP-1042">
-            </div>
-            <div class="form-group">
-                <label>Job Role <span style="color:var(--red);">*</span></label>
-                <select name="job_role_id" required>
-                    <option value="">Select a role…</option>
-                    {% for role in roles %}
-                    {% if role.name not in ('Everyone', 'Packer') %}
-                    <option value="{{ role.id }}">{{ role.name }}</option>
-                    {% endif %}
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Cost Centre</label>
-                <input type="text" name="cost_centre" placeholder="e.g. Warehouse A">
-            </div>
-            <button type="submit" class="btn btn-primary btn-full">Add Member</button>
-        </form>
+<!-- My own team -->
+<div id="panel-own">
+<div class="data-table-wrap">
+    <table>
+        <thead>
+            <tr><th>Member</th><th>Employee #</th><th>Role</th><th>Sizes</th><th></th></tr>
+        </thead>
+        <tbody>
+            {% for member in team %}
+            <tr>
+                <td>
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <div class="team-avatar">{{ member.full_name[0] }}</div>
+                        <div>
+                            <span class="text-bold">{{ member.full_name }}</span>
+                        </div>
+                    </div>
+                </td>
+                <td class="text-muted text-mono">{{ member.employee_number or '—' }}</td>
+                <td>{{ member.role_name or '—' }}</td>
+                <td>
+                    <div style="display:flex;flex-wrap:wrap;gap:4px;font-size:0.8em;">
+                        {% if member.shirt_size %}<span class="tag">Shirt: {{ member.shirt_size }}</span>{% endif %}
+                        {% if member.pants_size %}<span class="tag">Pants: {{ member.pants_size }}</span>{% endif %}
+                        {% if member.shoe_size %}<span class="tag">Shoes: {{ member.shoe_size }}</span>{% endif %}
+                        {% if not member.shirt_size and not member.pants_size and not member.shoe_size %}
+                        <span class="text-muted">Not set</span>
+                        {% endif %}
+                    </div>
+                </td>
+                <td>
+                    <div style="display:flex;gap:6px;align-items:center;">
+                        <a href="{{ url_for('worker_history', member_id=member.id) }}" class="btn btn-ghost btn-sm">Uniforms</a>
+                        <button type="button" class="btn btn-ghost btn-sm" onclick="openEditMember({{ member.id }}, '{{ member.full_name }}', '{{ member.employee_number or '' }}', '{{ member.shirt_size or '' }}', '{{ member.pants_size or '' }}', '{{ member.shoe_size or '' }}')">Edit</button>
+                        <form method="POST" action="{{ url_for('delete_team_member', member_id=member.id) }}" style="margin:0;">
+                            <button type="submit" class="btn btn-danger btn-sm"
+                                onclick="showConfirm(this.closest('form'),'Remove {{ member.full_name }}?','They will be removed from your team.','Remove');return false;">Remove</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="empty-state">No team members yet. Add your first one!</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+</div>
+
+<!-- Delegated teams (read-only) -->
+{% if delegated %}
+{% for sup_name, members in delegated.items() %}
+<div id="panel-del-{{ loop.index }}" style="display:none;">
+    <div style="background:var(--yellow-pale);border-radius:var(--r);padding:10px 16px;margin-bottom:16px;font-size:0.88em;color:var(--text-2);">
+        You are covering <strong>{{ sup_name }}</strong>'s team. You can order for them but cannot edit or remove members.
     </div>
-
-    <!-- Team table -->
     <div class="data-table-wrap">
         <table>
             <thead>
                 <tr><th>Member</th><th>Employee #</th><th>Role</th><th>Sizes</th><th></th></tr>
             </thead>
             <tbody>
-                {% for member in team %}
+                {% for member in members %}
                 <tr>
                     <td>
                         <div style="display:flex;align-items:center;gap:12px;">
@@ -57,30 +97,100 @@
                         </div>
                     </td>
                     <td class="text-muted text-mono">{{ member.employee_number or '—' }}</td>
-                    <td>{{ member.job_role or '—' }}</td>
+                    <td>{{ member.role_name or '—' }}</td>
                     <td>
                         <div style="display:flex;flex-wrap:wrap;gap:4px;font-size:0.8em;">
-                            {% if member.shirt_size %}<span class="tag">👕 {{ member.shirt_size }}</span>{% endif %}
-                            {% if member.pants_size %}<span class="tag">👖 {{ member.pants_size }}</span>{% endif %}
-                            {% if member.shoe_size %}<span class="tag">👟 {{ member.shoe_size }}</span>{% endif %}
+                            {% if member.shirt_size %}<span class="tag">Shirt: {{ member.shirt_size }}</span>{% endif %}
+                            {% if member.pants_size %}<span class="tag">Pants: {{ member.pants_size }}</span>{% endif %}
+                            {% if member.shoe_size %}<span class="tag">Shoes: {{ member.shoe_size }}</span>{% endif %}
                             {% if not member.shirt_size and not member.pants_size and not member.shoe_size %}
                             <span class="text-muted">Not set</span>
                             {% endif %}
                         </div>
                     </td>
                     <td>
-                        <form method="POST" action="{{ url_for('delete_team_member', member_id=member.id) }}"
-                              onsubmit="return confirm('Remove {{ member.full_name }} from your team?');" style="margin:0;">
-                            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--red);">Remove</button>
-                        </form>
+                        <a href="{{ url_for('worker_history', member_id=member.id) }}" class="btn btn-ghost btn-sm">Uniforms</a>
                     </td>
                 </tr>
                 {% else %}
-                <tr><td colspan="5" class="empty-state">No team members yet. Add your first one!</td></tr>
+                <tr><td colspan="5" class="empty-state">No members.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 </div>
+{% endfor %}
+
+<script>
+function showTab(name) {
+    document.querySelectorAll('[id^="panel-"]').forEach(p => p.style.display = 'none');
+    document.querySelectorAll('[id^="tab-"]').forEach(t => {
+        t.style.color = 'var(--text-2)';
+        t.style.borderBottomColor = 'transparent';
+        t.style.fontWeight = '600';
+    });
+    document.getElementById('panel-' + name).style.display = 'block';
+    const tab = document.getElementById('tab-' + name);
+    tab.style.color = 'var(--red)';
+    tab.style.borderBottomColor = 'var(--red)';
+    tab.style.fontWeight = '700';
+}
+</script>
+{% endif %}
+
+<!-- Combined edit member modal -->
+<div id="editMemberModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:14px;padding:32px;max-width:440px;width:92%;box-shadow:0 16px 48px rgba(0,0,0,.2);">
+        <h3 style="margin:0 0 20px;font-size:1.1em;font-weight:700;">Edit Member</h3>
+        <form id="editMemberForm" method="POST">
+            <div class="form-group">
+                <label>Full Name</label>
+                <input type="text" name="full_name" id="editFullName" required>
+            </div>
+            <div class="form-group">
+                <label>Employee #</label>
+                <input type="text" name="employee_number" id="editEmpNum">
+            </div>
+            <div class="section-label" style="margin-top:18px;">Sizes</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px;">
+                <div class="form-group" style="margin:0;">
+                    <label>Shirt</label>
+                    <input type="text" name="shirt_size" id="editShirtSize" placeholder="for example, M, L, XL">
+                </div>
+                <div class="form-group" style="margin:0;">
+                    <label>Pants</label>
+                    <input type="text" name="pants_size" id="editPantsSize" placeholder="for example, 32, 34">
+                </div>
+                <div class="form-group" style="margin:0;">
+                    <label>Shoes</label>
+                    <input type="text" name="shoe_size" id="editShoeSize" placeholder="for example, 42, 43">
+                </div>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:20px;">
+                <button type="submit" class="btn btn-primary">Save</button>
+                <button type="button" onclick="closeEditMember()" class="btn btn-ghost">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openEditMember(id, name, emp, shirt, pants, shoe) {
+    document.getElementById('editFullName').value = name;
+    document.getElementById('editEmpNum').value = emp;
+    document.getElementById('editShirtSize').value = shirt;
+    document.getElementById('editPantsSize').value = pants;
+    document.getElementById('editShoeSize').value = shoe;
+    document.getElementById('editMemberForm').action = '/team/' + id + '/edit';
+    const modal = document.getElementById('editMemberModal');
+    modal.style.display = 'flex';
+}
+function closeEditMember() {
+    document.getElementById('editMemberModal').style.display = 'none';
+}
+document.getElementById('editMemberModal').addEventListener('click', function(e) {
+    if (e.target === this) closeEditMember();
+});
+</script>
 
 {% endblock %}

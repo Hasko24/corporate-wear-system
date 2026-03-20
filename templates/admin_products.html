@@ -4,10 +4,13 @@
 <div class="page-header-band">
     <div class="header-row">
         <div>
-            <span class="page-breadcrumb" style="color:rgba(0,0,0,.5);"><a href="{{ url_for('admin_dashboard') }}" style="color:rgba(0,0,0,.5);">Admin</a> › Products</span>
+            <span class="page-breadcrumb"><a href="{{ url_for('admin_dashboard') }}" >Admin</a> › Products</span>
             <h1>Products</h1>
         </div>
-        <a href="{{ url_for('add_product') }}" class="btn btn-dark btn-lg">+ Add Product</a>
+        <div style="display:flex;gap:8px;">
+            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-ghost">← Back</a>
+            <a href="{{ url_for('add_product') }}" class="btn btn-dark btn-lg">+ Add Product</a>
+        </div>
     </div>
 </div>
 
@@ -32,7 +35,7 @@
                     <div style="display:flex;flex-wrap:wrap;gap:4px;">
                         {% for s in product.sizes %}
                         <span style="font-size:0.74em;padding:2px 8px;border-radius:2px;font-weight:700;font-family:var(--font);border:1px solid;
-                            {% if s.stock <= 5 %}background:#fce4ec;color:#c62828;border-color:#f5c6cb;
+                            {% if s.stock <= 2 %}background:#fce4ec;color:#c62828;border-color:#f5c6cb;
                             {% else %}background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7;{% endif %}">
                             {{ s.size }}: {{ s.stock }}
                         </span>
@@ -44,8 +47,8 @@
                     <div style="display:flex;gap:6px;white-space:nowrap;">
                         <a href="{{ url_for('edit_product', product_id=product.id) }}" class="btn btn-ghost btn-sm">Edit</a>
                         <a href="{{ url_for('manage_product_sizes', product_id=product.id) }}" class="btn btn-ghost btn-sm">Sizes</a>
-                        <form method="POST" action="{{ url_for('delete_product', product_id=product.id) }}" onsubmit="return confirm('Delete this product?');" style="margin:0;">
-                            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--red);">Delete</button>
+                        <form method="POST" action="{{ url_for('delete_product', product_id=product.id) }}" style="margin:0;">
+                            <button type="submit" class="btn btn-danger btn-sm" onclick="showConfirm(this.closest('form'),'Delete this product?','This cannot be undone.');return false;">Delete</button>
                         </form>
                     </div>
                 </td>

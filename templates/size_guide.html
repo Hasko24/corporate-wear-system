@@ -3,7 +3,6 @@
 
 <div class="page-header-band">
     <h1>Size Guides</h1>
-    <p class="header-sub">Reference charts by brand to help choose the right size.</p>
 </div>
 
     {% if session.get('system_role') == 'admin' %}
@@ -13,7 +12,7 @@
             <div style="display:flex;flex-direction:column;gap:12px;">
                 <div>
                     <label style="font-weight:600;display:block;margin-bottom:4px;">Brand / Company</label>
-                    <input type="text" name="brand" placeholder="e.g. Helly Hansen" required
+                    <input type="text" name="brand" placeholder="for example, Helly Hansen" required
                            style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;box-sizing:border-box;">
                 </div>
                 <div>
@@ -47,9 +46,8 @@
                     {{ guide.created_at.strftime('%d %b %Y') if guide.created_at else '' }}
                 </span>
                 {% if session.get('system_role') == 'admin' %}
-                <form method="POST" action="{{ url_for('delete_size_guide', guide_id=guide.id) }}"
-                      onsubmit="return confirm('Delete this size guide?');" style="margin:0;">
-                    <button type="submit" class="btn-delete-sm">Delete</button>
+                <form method="POST" action="{{ url_for('delete_size_guide', guide_id=guide.id) }}" style="margin:0;">
+                    <button type="submit" class="btn btn-danger btn-sm" onclick="showConfirm(this.closest('form'),'Delete this size guide?','This cannot be undone.');return false;">Delete</button>
                 </form>
                 {% endif %}
             </div>
@@ -127,26 +125,26 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeGuideMo
 /* Modal */
 .guide-modal {
     display: none; position: fixed; inset: 0;
-    background: rgba(0,0,0,.75); z-index: 9999;
-    align-items: center; justify-content: center; padding: 20px;
+    background: rgba(0,0,0,.85); z-index: 9999;
+    align-items: center; justify-content: center; padding: 12px;
 }
 .guide-modal-inner {
     background: white; border-radius: 12px; overflow: hidden;
-    max-width: 90vw; max-height: 90vh;
+    max-width: 98vw; max-height: 96vh;
     display: flex; flex-direction: column;
-    box-shadow: 0 20px 60px rgba(0,0,0,.4);
+    box-shadow: 0 20px 60px rgba(0,0,0,.5);
 }
 .guide-modal-header {
     display: flex; justify-content: space-between; align-items: center;
-    padding: 14px 20px; border-bottom: 1px solid #eee; font-weight: 700;
+    padding: 12px 18px; border-bottom: 1px solid #eee; font-weight: 700; flex-shrink: 0;
 }
 .guide-modal-close {
     padding: 6px 14px; background: #f0f0f0; border: none;
     border-radius: 6px; cursor: pointer; font-size: 0.9em;
 }
 .guide-modal-img {
-    max-width: 80vw; max-height: 75vh; object-fit: contain; display: block;
-    margin: 0 auto; padding: 16px;
+    max-width: 98vw; max-height: calc(96vh - 52px); object-fit: contain; display: block;
+    margin: 0 auto; padding: 10px;
 }
 </style>
 {% endblock %}

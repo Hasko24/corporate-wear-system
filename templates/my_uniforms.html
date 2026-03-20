@@ -2,7 +2,8 @@
 {% block content %}
 
 <div class="page-header-band">
-    <h1>My Uniforms</h1>
+    <span class="page-breadcrumb"><a href="{{ url_for('supervisor_dashboard') }}">Dashboard</a> › My Uniforms</span>
+            <h1>My Uniforms</h1>
 </div>
 
 {% if uniforms|length == 0 %}

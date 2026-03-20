@@ -6,6 +6,7 @@
             <span class="page-breadcrumb"><a href="{{ url_for('admin_dashboard') }}">Admin</a> › Size Guides</span>
             <h1>Size Guides</h1>
         </div>
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-ghost">← Back</a>
     </div>
 </div>
 
@@ -15,7 +16,7 @@
         <form method="POST" enctype="multipart/form-data" style="margin-top:14px;display:flex;flex-direction:column;gap:14px;">
             <div class="form-group">
                 <label>Brand / Company</label>
-                <input type="text" name="brand" placeholder="e.g. Helly Hansen" required>
+                <input type="text" name="brand" placeholder="for example, Helly Hansen" required>
             </div>
             <div class="form-group">
                 <label>Size Chart Image</label>
@@ -33,15 +34,19 @@
             <tbody>
                 {% for guide in guides %}
                 <tr>
-                    <td style="font-weight:600;">{{ guide.brand_name }}</td>
+                    <td>
+                        <form method="POST" action="{{ url_for('edit_size_guide', guide_id=guide.id) }}" style="margin:0;display:flex;align-items:center;gap:8px;">
+                            <input type="text" name="brand_name" value="{{ guide.brand_name }}" style="font-weight:600;width:180px;" required>
+                            <button type="submit" class="btn btn-ghost btn-sm">Save</button>
+                        </form>
+                    </td>
                     <td>
                         <img src="{{ url_for('static', filename=guide.image_path) }}"
                              style="max-height:60px;border-radius:4px;">
                     </td>
                     <td style="text-align:right;">
-                        <form method="POST" action="{{ url_for('delete_size_guide', guide_id=guide.id) }}"
-                              onsubmit="return confirm('Delete this size guide?');" style="margin:0;display:inline;">
-                            <button type="submit" class="btn-danger" style="padding:4px 12px;font-size:0.82em;">Delete</button>
+                        <form method="POST" action="{{ url_for('delete_size_guide', guide_id=guide.id) }}" style="margin:0;display:inline;">
+                            <button type="submit" class="btn btn-danger btn-sm" onclick="showConfirm(this.closest('form'),'Delete this size guide?','This cannot be undone.');return false;">Delete</button>
                         </form>
                     </td>
                 </tr>

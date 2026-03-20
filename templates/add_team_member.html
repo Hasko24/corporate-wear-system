@@ -4,7 +4,7 @@
 <div class="page-header-band">
     <div class="header-row">
         <div>
-            <span class="page-breadcrumb" style="color:rgba(0,0,0,.5);"><a href="{{ url_for('view_team') }}" style="color:rgba(0,0,0,.5);">My Team</a> › Add Member</span>
+            <span class="page-breadcrumb"><a href="{{ url_for('view_team') }}" >My Team</a> › Add Member</span>
             <h1>Add Team Member</h1>
         </div>
         <a href="{{ url_for('view_team') }}" class="btn btn-ghost">← Back to Team</a>
@@ -20,7 +20,7 @@
             </div>
             <div class="form-group">
                 <label>Employee Number</label>
-                <input type="text" name="employee_number" placeholder="e.g. EMP-1042">
+                <input type="text" name="employee_number" placeholder="for example, EMP-1042">
             </div>
         </div>
         <div class="form-row">
@@ -35,11 +35,7 @@
                     {% endfor %}
                 </select>
             </div>
-            <div class="form-group">
-                <label>Cost Centre</label>
-                <input type="text" name="cost_centre" placeholder="e.g. Warehouse A">
-            </div>
-        </div>
+</div>
 
         <hr>
 

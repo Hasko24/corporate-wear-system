@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header-band">
+    <div class="header-row">
+        <div>
+            <span class="page-breadcrumb"><a href="{{ url_for('shop') }}">Shop</a> › Bulk Order</span>
+            <h1>Bulk Order</h1>
+            <div class="header-sub">Order items for multiple workers at once</div>
+        </div>
+    </div>
+</div>
+
+<form method="POST" action="{{ url_for('bulk_order') }}">
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:start;">
+
+    <!-- Workers -->
+    <div class="surface">
+        <div class="section-label">Step 1 — Select Workers</div>
+        {% if team|length == 0 %}
+        <p style="color:var(--text-3);padding:20px 0;">No team members found.</p>
+        {% else %}
+        <div style="display:flex;flex-direction:column;gap:8px;max-height:400px;overflow-y:auto;">
+            {% for member in team %}
+            <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--r);cursor:pointer;">
+                <input type="checkbox" name="member_id" value="{{ member.id }}" style="width:16px;height:16px;flex-shrink:0;">
+                <div>
+                    <div style="font-weight:600;font-size:0.9em;">{{ member.full_name }}</div>
+                    <div style="font-size:0.8em;color:var(--text-3);">{{ member.employee_number }}</div>
+                </div>
+            </label>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Products -->
+    <div class="surface">
+        <div class="section-label">Step 2 — Select Items & Quantities</div>
+        <div style="display:flex;flex-direction:column;gap:12px;max-height:400px;overflow-y:auto;">
+            {% for product in products %}
+            {% if product.sizes|length > 0 %}
+            <div style="padding:12px;border:1px solid var(--border);border-radius:var(--r);">
+                <div style="font-weight:600;font-size:0.9em;margin-bottom:8px;">{{ product.name }}</div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                    <select name="product_size_id" style="flex:1;min-width:120px;">
+                        <option value="">— Size —</option>
+                        {% for size in product.sizes %}
+                        <option value="{{ size.id }}">{{ size.size }} ({{ size.stock }} left)</option>
+                        {% endfor %}
+                    </select>
+                    <input type="number" name="quantity" value="1" min="1" max="10"
+                           style="width:70px;" placeholder="Qty">
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div style="margin-top:24px;display:flex;gap:12px;">
+    <button type="submit" class="btn-primary btn-lg">Create Bulk Order</button>
+    <a href="{{ url_for('shop') }}" class="btn-ghost btn-lg">Cancel</a>
+</div>
+</form>
+
+{% endblock %}

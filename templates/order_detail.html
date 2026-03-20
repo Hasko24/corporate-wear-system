@@ -4,7 +4,7 @@
 <div class="page-header-band">
     <div class="header-row">
         <div>
-            <span class="page-breadcrumb" style="color:rgba(0,0,0,.5);"><a href="{{ url_for('view_orders') }}" style="color:rgba(0,0,0,.5);">Orders</a> › #{{ cart.id }}</span>
+            <span class="page-breadcrumb"><a href="{{ url_for('view_orders') }}" >Orders</a> › #{{ cart.id }}</span>
             <h1>Order #{{ cart.id }}</h1>
         </div>
         <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
@@ -43,21 +43,29 @@
 <div class="data-table-wrap" style="margin-bottom:24px;">
     <table>
         <thead>
-            <tr><th>Product</th><th>Size</th><th>Qty</th><th>Unit Price</th><th>Line Total</th></tr>
+            <tr>
+                <th>Product</th>
+                <th>Size</th>
+                <th>Qty</th>
+                <th>Unit Price</th>
+                <th>Line Total</th>
+                <th>Employee</th>
+            </tr>
         </thead>
         <tbody>
             {% for item in items %}
             <tr>
-                <td class="text-bold">{{ item.product_name }}</td>
+                <td class="text-bold">{{ item.name }}</td>
                 <td>{{ item.size }}</td>
                 <td>{{ item.quantity }}</td>
                 <td>{{ "%.2f"|format(item.price_at_time) }} SEK</td>
-                <td class="text-bold">{{ "%.2f"|format(item.price_at_time * item.quantity) }} SEK</td>
+                <td class="text-bold">{{ "%.2f"|format(item.subtotal) }} SEK</td>
+                <td class="text-muted">{{ item.worker_name or '—' }}</td>
             </tr>
             {% endfor %}
             {% if total %}
             <tr style="background:var(--yellow-pale);">
-                <td colspan="4" style="text-align:right;font-weight:800;font-size:0.9em;text-transform:uppercase;letter-spacing:.06em;border-bottom:none;">Total</td>
+                <td colspan="5" style="text-align:right;font-weight:800;font-size:0.9em;text-transform:uppercase;letter-spacing:.06em;border-bottom:none;">Total</td>
                 <td style="font-weight:900;font-size:1.05em;border-bottom:none;">{{ "%.2f"|format(total) }} SEK</td>
             </tr>
             {% endif %}
@@ -69,12 +77,14 @@
 <div style="display:flex;gap:12px;flex-wrap:wrap;">
     {% if cart.status == 'submitted' %}
     <form method="POST" action="{{ url_for('pack_order', cart_id=cart.id) }}" style="margin:0;">
-        <button type="submit" class="btn btn-primary">Mark as Packed</button>
+        <button type="submit" class="btn btn-primary"
+                onclick="showConfirm(this.closest('form'),'Mark order #{{ cart.id }} as packed?','This will notify the supervisor.','Mark as Packed');return false;">Mark as Packed</button>
     </form>
     {% endif %}
     {% if cart.status == 'packed' %}
     <form method="POST" action="{{ url_for('complete_order', cart_id=cart.id) }}" style="margin:0;">
-        <button type="submit" class="btn btn-primary">Mark as Completed</button>
+        <button type="submit" class="btn btn-primary"
+                onclick="showConfirm(this.closest('form'),'Mark order #{{ cart.id }} as completed?','This will notify the supervisor.','Mark as Completed');return false;">Mark as Completed</button>
     </form>
     {% endif %}
 </div>

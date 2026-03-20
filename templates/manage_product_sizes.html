@@ -21,7 +21,7 @@
             <input type="hidden" name="action" value="add">
             <div class="form-group">
                 <label>Size</label>
-                <input type="text" name="size" required placeholder="e.g. M, 42, OneSize">
+                <input type="text" name="size" required placeholder="for example, M, 42, OneSize">
             </div>
             <div class="form-group">
                 <label>Initial Stock</label>
@@ -47,10 +47,10 @@
                         </span>
                     </td>
                     <td style="text-align:right;">
-                        <form method="POST" onsubmit="return confirm('Delete size {{ size.size }}?');" style="margin:0;display:inline;">
+                        <form method="POST" style="margin:0;display:inline;">
                             <input type="hidden" name="action" value="delete">
                             <input type="hidden" name="size_id" value="{{ size.id }}">
-                            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--red);">Delete</button>
+                            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="showConfirm(this.closest('form'),'Delete size {{ size.size }}?','This cannot be undone.');return false;">Delete</button>
                         </form>
                     </td>
                 </tr>

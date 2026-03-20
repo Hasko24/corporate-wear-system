@@ -2,7 +2,8 @@
 {% block content %}
 <div class="page-header-band">
     <div class="header-row">
-        <h1>My Team</h1>
+        <span class="page-breadcrumb"><a href="{{ url_for('supervisor_dashboard') }}">Dashboard</a> › My Team</span>
+            <h1>My Team</h1>
         <a href="{{ url_for('add_team_member') }}" class="btn-primary">+ Add Member</a>
     </div>
 </div>

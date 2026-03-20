@@ -4,9 +4,10 @@
 <div class="page-header-band">
     <div class="header-row">
         <div>
-            <span class="page-breadcrumb" style="color:rgba(0,0,0,.5);"><a href="{{ url_for('admin_dashboard') }}" style="color:rgba(0,0,0,.5);">Admin</a> › News</span>
+            <span class="page-breadcrumb"><a href="{{ url_for('admin_dashboard') }}" >Admin</a> › News</span>
             <h1>Manage News</h1>
         </div>
+        <a href="{{ url_for('news') }}" class="btn-ghost">View News Feed →</a>
     </div>
 </div>
 
@@ -15,7 +16,7 @@
     <!-- Create form -->
     <div class="surface" style="border-top:4px solid var(--yellow);">
         <div class="section-label">Create Post</div>
-        <form method="POST" enctype="multipart/form-data">
+        <form method="POST" action="{{ url_for('admin_news') }}" enctype="multipart/form-data">
             <div class="form-group">
                 <label>Title</label>
                 <input type="text" name="title" required placeholder="Post headline">
@@ -47,17 +48,66 @@
         <div style="display:flex;flex-direction:column;gap:12px;">
             {% for post in posts %}
             <div class="surface" style="padding:18px 22px;">
+
+                <!-- Post header -->
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
                     <div>
                         <div class="text-bold" style="font-size:1em;margin-bottom:4px;">{{ post.title }}</div>
-                        <div class="text-muted text-sm">{{ post.created_at.strftime('%d %b %Y') if post.created_at else '' }}</div>
+                        <div class="text-muted text-sm">{{ post.created_at.strftime('%d %b %Y') if post.created_at else '' }}
+                            {% if post.pinned %}<span style="margin-left:6px;background:var(--yellow);padding:2px 7px;border-radius:10px;font-size:0.8em;font-weight:700;">📌 Pinned</span>{% endif %}
+                        </div>
                     </div>
-                    <form method="POST" action="{{ url_for('delete_news', post_id=post.id) }}"
-                          onsubmit="return confirm('Delete this post?');" style="margin:0;flex-shrink:0;">
-                        <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--red);">Delete</button>
+                    <div style="display:flex;gap:6px;flex-shrink:0;">
+                        <button type="button" onclick="toggleEdit({{ post.id }})" class="btn btn-ghost btn-sm">Edit</button>
+                        <form method="POST" action="{{ url_for('delete_news', post_id=post.id) }}" style="margin:0;">
+                            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="showConfirm(this.closest('form'),'Delete this post?','This cannot be undone.');return false;">Delete</button>
+                        </form>
+                    </div>
+                </div>
+
+                <p style="margin-top:10px;font-size:0.9em;color:var(--text-2);line-height:1.6;white-space:pre-line;">{{ post.content[:200] }}{% if post.content|length > 200 %}…{% endif %}</p>
+
+                {% if post.image_path %}
+                <img src="{{ url_for('static', filename=post.image_path) }}" style="max-height:80px;border-radius:6px;object-fit:cover;margin-top:6px;">
+                {% endif %}
+
+                <!-- Inline edit form (hidden by default) -->
+                <div id="edit-{{ post.id }}" style="display:none;margin-top:18px;padding-top:18px;border-top:1px solid var(--border);">
+                    <div class="section-label" style="margin-bottom:12px;">Edit Post</div>
+                    <form method="POST" action="{{ url_for('edit_news', post_id=post.id) }}" enctype="multipart/form-data">
+                        <div class="form-group">
+                            <label>Title</label>
+                            <input type="text" name="title" value="{{ post.title }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Content</label>
+                            <textarea name="content" rows="6" required>{{ post.content }}</textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Visible For</label>
+                            <select name="target_role">
+                                <option value="all" {% if post.target_role == 'all' %}selected{% endif %}>All Users</option>
+                                <option value="supervisor" {% if post.target_role == 'supervisor' %}selected{% endif %}>Supervisors</option>
+                                <option value="packer" {% if post.target_role == 'packer' %}selected{% endif %}>Packers</option>
+                                <option value="admin" {% if post.target_role == 'admin' %}selected{% endif %}>Admins Only</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Replace Image (optional)</label>
+                            {% if post.image_path %}
+                            <div style="margin-bottom:6px;">
+                                <img src="{{ url_for('static', filename=post.image_path) }}" style="height:60px;border-radius:4px;object-fit:cover;">
+                            </div>
+                            {% endif %}
+                            <input type="file" name="image" accept="image/*">
+                        </div>
+                        <div style="display:flex;gap:10px;">
+                            <button type="submit" class="btn btn-primary">Save Changes</button>
+                            <button type="button" onclick="toggleEdit({{ post.id }})" class="btn btn-ghost">Cancel</button>
+                        </div>
                     </form>
                 </div>
-                <p style="margin-top:10px;font-size:0.9em;color:var(--text-2);line-height:1.6;">{{ post.content[:200] }}{% if post.content|length > 200 %}…{% endif %}</p>
+
             </div>
             {% else %}
             <div class="empty-state">No posts yet.</div>
@@ -65,5 +115,12 @@
         </div>
     </div>
 </div>
+
+<script>
+function toggleEdit(id) {
+    const el = document.getElementById('edit-' + id);
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+</script>
 
 {% endblock %}
