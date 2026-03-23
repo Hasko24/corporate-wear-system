@@ -481,6 +481,14 @@ def shop():
         product["recommended_size"] = recommended_sizes.get(product.get("type", "").upper())
         c.close()
 
+        # Fetch assigned job role IDs for the edit modal
+        c = get_cursor()
+        c.execute("""
+            SELECT job_role_id FROM product_job_roles WHERE product_id = %s
+        """, (product["id"],))
+        product["role_ids"] = [row["job_role_id"] for row in c.fetchall()]
+        c.close()
+
     return render_template(
         "shop.html",
         products=products,
@@ -2592,6 +2600,13 @@ def debug_db():
         return "DB Connected OK!"
     except Exception as e:
         return f"DB Connection FAILED: {str(e)}"
+
+@app.route("/admin/returns")
+def admin_returns():
+    if session.get("system_role") != "admin":
+        return redirect(url_for("shop"))
+    return render_template("admin_returns.html")
+
 
 if __name__ == "__main__":
     app.run(debug=True)
