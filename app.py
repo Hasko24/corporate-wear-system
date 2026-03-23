@@ -848,6 +848,20 @@ def complete_order(cart_id):
         return redirect(url_for("view_orders"))
     cursor = get_cursor()
     cursor.execute("UPDATE order_carts SET status='completed' WHERE id=%s", (cart_id,))
+
+    # Insert each order item into user_uniforms so they appear in My Uniforms
+    cursor.execute("""
+        SELECT oi.product_size_id, oi.team_member_id
+        FROM order_items oi
+        WHERE oi.cart_id = %s
+    """, (cart_id,))
+    items = cursor.fetchall()
+    for item in items:
+        cursor.execute("""
+            INSERT INTO user_uniforms (product_size_id, team_member_id, status, issued_at)
+            VALUES (%s, %s, 'active', NOW())
+        """, (item["product_size_id"], item["team_member_id"]))
+
     db.commit()
     # Notify supervisor
     cursor.execute("""
