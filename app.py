@@ -991,7 +991,10 @@ def export_orders_pdf():
     rows = cursor.fetchall()
 
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=40, rightMargin=40, topMargin=40, bottomMargin=40)
+    from reportlab.lib.units import mm
+    left_margin = 15 * mm
+    right_margin = 15 * mm
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=left_margin, rightMargin=right_margin, topMargin=15*mm, bottomMargin=15*mm)
     styles = getSampleStyleSheet()
     elements = []
 
@@ -1011,15 +1014,33 @@ def export_orders_pdf():
             r["worker"] or "-"
         ])
 
-    t = Table(table_data, repeatRows=1)
+    usable_width = 210*mm - left_margin - right_margin
+    col_widths = [
+        0.07 * usable_width,
+        0.08 * usable_width,
+        0.09 * usable_width,
+        0.11 * usable_width,
+        0.28 * usable_width,
+        0.06 * usable_width,
+        0.05 * usable_width,
+        0.08 * usable_width,
+        0.18 * usable_width,
+    ]
+
+    t = Table(table_data, colWidths=col_widths, repeatRows=1)
     t.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#FFCC00")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.black),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("FONTSIZE", (0, 0), (-1, -1), 7),
+        ("LEADING", (0, 0), (-1, -1), 9),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F9F9F9")]),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
     ]))
     elements.append(t)
     doc.build(elements)
