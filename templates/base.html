@@ -39,8 +39,8 @@
         <a href="{{ url_for('size_guide') }}" class="{% if request.endpoint == 'size_guide' %}active{% endif %}">Size Guide</a>
         {% if session.system_role != "packer" %}
         {% if session.system_role != 'admin' %}
-        <a href="{{ url_for('view_cart') }}" class="nav-cart {% if cart_count > 0 %}active{% elif request.endpoint == 'view_cart' %}active{% endif %} {% if cart_count == 0 %}nav-cart-empty{% endif %}">
-            Cart{% if cart_count > 0 %} <span class="badge">{{ cart_count }}</span>{% endif %}
+        <a href="{{ url_for('view_cart') }}" id="nav-cart-link" class="nav-cart {% if cart_count > 0 %}active{% elif request.endpoint == 'view_cart' %}active{% endif %} {% if cart_count == 0 %}nav-cart-empty{% endif %}">
+            Cart{% if cart_count > 0 %} <span class="badge" id="nav-cart-badge">{{ cart_count }}</span>{% else %}<span class="badge" id="nav-cart-badge" style="display:none;">0</span>{% endif %}
         </a>
         {% endif %}
         {% endif %}
@@ -102,11 +102,25 @@ window.addEventListener("load", () => {
         <p id="confirmModalMsg" style="font-size:1em;font-weight:600;color:var(--black);margin:0 0 8px;"></p>
         <p id="confirmModalSub" style="font-size:0.88em;color:var(--text-3);margin:0 0 28px;"></p>
         <div style="display:flex;gap:12px;justify-content:center;">
-            <button onclick="closeConfirmModal()" style="min-width:110px;padding:10px 20px;border:1px solid var(--border);border-radius:8px;background:#fff;font-weight:600;font-size:0.9em;cursor:pointer;">Cancel</button>
-            <button id="confirmModalOk" style="min-width:110px;padding:10px 20px;border:none;border-radius:8px;background:var(--red);color:#fff;font-weight:700;font-size:0.9em;cursor:pointer;">Delete</button>
+            <button onclick="closeConfirmModal()" class="confirm-btn-cancel">Cancel</button>
+            <button id="confirmModalOk" class="confirm-btn-ok">Delete</button>
         </div>
     </div>
 </div>
+<style>
+.confirm-btn-cancel {
+    min-width:110px; padding:10px 20px; border:1px solid #ddd; border-radius:8px;
+    background:#fff; font-weight:600; font-size:0.9em; cursor:pointer;
+    transition:background .12s;
+}
+.confirm-btn-cancel:hover { background:#f5f5f5; }
+.confirm-btn-ok {
+    min-width:110px; padding:10px 20px; border:none; border-radius:8px;
+    background:#e53935; color:#fff; font-weight:700; font-size:0.9em; cursor:pointer;
+    transition:background .12s;
+}
+.confirm-btn-ok:hover { background:#c62828; }
+</style>
 <script>
 var _confirmForm = null;
 function showConfirm(form, msg, sub, okLabel) {

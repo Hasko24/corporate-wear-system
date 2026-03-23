@@ -1,6 +1,23 @@
 {% extends "base.html" %}
 {% block content %}
 
+<style>
+.qty-control { display:flex; align-items:center; gap:6px; }
+.qty-btn {
+    width:28px; height:28px; border:1px solid var(--border); border-radius:6px;
+    background:var(--white); cursor:pointer; font-size:1em; font-weight:700;
+    display:flex; align-items:center; justify-content:center;
+    transition:background .12s;
+}
+.qty-btn:hover { background:#f0f0f0; }
+.qty-num { min-width:28px; text-align:center; font-weight:700; font-size:0.95em; }
+.size-select {
+    border:1px solid var(--border); border-radius:6px; padding:4px 8px;
+    font-size:0.85em; background:var(--white); cursor:pointer;
+}
+.cart-row-removing { opacity:0.4; pointer-events:none; transition:opacity .2s; }
+</style>
+
 <div class="page-header-band">
     <div class="header-row">
         <h1>Shopping Cart</h1>
@@ -11,25 +28,38 @@
 {% if cart and items %}
 <div class="cart-layout">
 
-    <!-- Items table -->
     <div class="data-table-wrap" style="align-self:start;">
-        <table>
+        <table id="cart-table">
             <thead>
                 <tr><th>Product</th><th>Size</th><th>For</th><th>Qty</th><th>Unit Price</th><th>Subtotal</th><th></th></tr>
             </thead>
             <tbody>
                 {% for item in items %}
-                <tr>
+                <tr id="cart-row-{{ item.item_id }}">
                     <td class="text-bold">{{ item.name }}</td>
-                    <td>{{ item.size }}</td>
-                    <td class="text-muted">{{ item.worker_name or '—' }}</td>
-                    <td>{{ item.quantity }}</td>
-                    <td class="text-muted">{{ "%.2f"|format(item.price_at_time) }} SEK</td>
-                    <td class="text-bold">{{ "%.2f"|format(item.subtotal) }} SEK</td>
                     <td>
-                        <form method="POST" action="{{ url_for('remove_cart_item', item_id=item.item_id) }}" style="margin:0;">
-                            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--red);" title="Remove">✕</button>
-                        </form>
+                        {% if item.all_sizes|length > 1 %}
+                        <select class="size-select" onchange="changeSize({{ item.item_id }}, this.value, this)">
+                            {% for s in item.all_sizes %}
+                            <option value="{{ s.id }}" {% if s.id == item.size_id %}selected{% endif %}>{{ s.size }} ({{ s.stock }} left)</option>
+                            {% endfor %}
+                        </select>
+                        {% else %}
+                        <span id="size-label-{{ item.item_id }}">{{ item.size }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-muted">{{ item.worker_name or '—' }}</td>
+                    <td>
+                        <div class="qty-control">
+                            <button class="qty-btn" onclick="changeQty({{ item.item_id }}, -1, this)">−</button>
+                            <span class="qty-num" id="qty-{{ item.item_id }}">{{ item.quantity }}</span>
+                            <button class="qty-btn" onclick="changeQty({{ item.item_id }}, 1, this)">+</button>
+                        </div>
+                    </td>
+                    <td class="text-muted">{{ "%.2f"|format(item.price_at_time) }} SEK</td>
+                    <td class="text-bold" id="subtotal-{{ item.item_id }}">{{ "%.2f"|format(item.subtotal) }} SEK</td>
+                    <td>
+                        <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="removeItem({{ item.item_id }}, {{ item.price_at_time }})">✕</button>
                     </td>
                 </tr>
                 {% endfor %}
@@ -37,20 +67,19 @@
         </table>
     </div>
 
-    <!-- Summary & checkout -->
     <div class="cart-summary-box">
         <div class="section-label">Order Summary</div>
 
         {% for item in items %}
         <div style="display:flex;justify-content:space-between;font-size:0.88em;padding:5px 0;border-bottom:1px solid var(--border);">
-            <span class="text-muted">{{ item.name }} × {{ item.quantity }}</span>
-            <span>{{ "%.2f"|format(item.subtotal) }}</span>
+            <span class="text-muted">{{ item.name }} × <span id="summary-qty-{{ item.item_id }}">{{ item.quantity }}</span></span>
+            <span id="summary-sub-{{ item.item_id }}">{{ "%.2f"|format(item.subtotal) }}</span>
         </div>
         {% endfor %}
 
         <div class="cart-total-row">
             <span style="font-weight:800;text-transform:uppercase;letter-spacing:.06em;font-size:0.85em;">Total</span>
-            <span class="cart-total-amount">{{ "%.2f"|format(total) }} SEK</span>
+            <span class="cart-total-amount" id="cart-total">{{ "%.2f"|format(total) }} SEK</span>
         </div>
 
         <form method="POST" action="{{ url_for('checkout') }}" style="margin-top:20px;">
@@ -69,5 +98,86 @@
     <a href="{{ url_for('shop') }}" class="btn btn-primary" style="margin-top:12px;">Browse the Shop</a>
 </div>
 {% endif %}
+
+<script>
+const priceMap = { {% for item in items %}{{ item.item_id }}: {{ item.price_at_time }},{% endfor %} };
+
+function updateTotal() {
+    let total = 0;
+    document.querySelectorAll('[id^="subtotal-"]').forEach(el => {
+        const val = parseFloat(el.textContent);
+        if (!isNaN(val)) total += val;
+    });
+    const el = document.getElementById('cart-total');
+    if (el) el.textContent = total.toFixed(2) + ' SEK';
+}
+
+function changeQty(itemId, delta, btn) {
+    const qtyEl = document.getElementById('qty-' + itemId);
+    const current = parseInt(qtyEl.textContent);
+    const newQty = current + delta;
+    if (newQty < 0) return;
+
+    const fd = new FormData();
+    fd.append('quantity', newQty);
+    fetch('/cart/update/' + itemId, { method: 'POST', headers: {'X-Requested-With':'XMLHttpRequest'}, body: fd })
+    .then(r => r.json()).then(res => {
+        if (res.ok) {
+            if (newQty === 0) {
+                const row = document.getElementById('cart-row-' + itemId);
+                if (row) { row.classList.add('cart-row-removing'); setTimeout(() => row.remove(), 200); }
+                const summaryRow = document.querySelector(`#summary-qty-${itemId}`)?.closest('div');
+                if (summaryRow) summaryRow.remove();
+            } else {
+                qtyEl.textContent = newQty;
+                const price = priceMap[itemId] || 0;
+                const sub = (newQty * price).toFixed(2);
+                const subEl = document.getElementById('subtotal-' + itemId);
+                if (subEl) subEl.textContent = sub + ' SEK';
+                const sqEl = document.getElementById('summary-qty-' + itemId);
+                if (sqEl) sqEl.textContent = newQty;
+                const ssEl = document.getElementById('summary-sub-' + itemId);
+                if (ssEl) ssEl.textContent = sub;
+            }
+            if (res.total) document.getElementById('cart-total').textContent = res.total + ' SEK';
+            const badge = document.getElementById('nav-cart-badge');
+            if (badge && res.cart_count !== undefined) {
+                badge.textContent = res.cart_count;
+                badge.style.display = res.cart_count > 0 ? '' : 'none';
+            }
+        }
+    });
+}
+
+function removeItem(itemId) {
+    const fd = new FormData();
+    fd.append('quantity', 0);
+    fetch('/cart/update/' + itemId, { method: 'POST', headers: {'X-Requested-With':'XMLHttpRequest'}, body: fd })
+    .then(r => r.json()).then(res => {
+        if (res.ok) {
+            const row = document.getElementById('cart-row-' + itemId);
+            if (row) { row.classList.add('cart-row-removing'); setTimeout(() => row.remove(), 200); }
+            const summaryRow = document.querySelector(`#summary-qty-${itemId}`)?.closest('div');
+            if (summaryRow) summaryRow.remove();
+            if (res.total) document.getElementById('cart-total').textContent = res.total + ' SEK';
+            const badge = document.getElementById('nav-cart-badge');
+            if (badge && res.cart_count !== undefined) {
+                badge.textContent = res.cart_count;
+                badge.style.display = res.cart_count > 0 ? '' : 'none';
+            }
+        }
+    });
+}
+
+function changeSize(itemId, sizeId, sel) {
+    const fd = new FormData();
+    fd.append('product_size_id', sizeId);
+    fetch('/cart/update/' + itemId, { method: 'POST', headers: {'X-Requested-With':'XMLHttpRequest'}, body: fd })
+    .then(r => r.json()).then(res => {
+        if (!res.ok) sel.value = sel.dataset.prev || sel.value;
+        else sel.dataset.prev = sizeId;
+    });
+}
+</script>
 
 {% endblock %}

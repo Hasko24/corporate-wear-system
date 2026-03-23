@@ -549,6 +549,7 @@
                             data-product-image="{{ product.image or '' }}"
                             data-product-gender="{{ product.gender or '' }}"
                             data-product-type="{{ product.type or '' }}"
+                            data-product-roles="{{ product.role_ids | tojson | safe }}"
                             onclick="openEditModal(this)">Edit</button>
                     <form method="POST" action="/delete-product/{{ product.id }}" style="margin:0;">
                         <button type="button" onclick="openModal(this.form)" class="abtn abtn-remove">Remove</button>
@@ -569,7 +570,7 @@
                     Not available for this worker's role
                 </div>
                 {% else %}
-                <form method="POST" action="/add-to-cart">
+                <form class="add-to-cart-form" action="/add-to-cart" onsubmit="addToCart(event, this)">
                     <input type="hidden" name="team_member_id" value="{{ selected_member }}">
                     <div style="font-size:0.78em;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">
                         For: <span style="color:var(--black);">{% for m in team %}{% if m.id|string == selected_member %}{{ m.full_name }}{% endif %}{% endfor %}</span>
@@ -666,7 +667,7 @@
             <h3 id="editModalTitle" style="margin:0;">Edit Product</h3>
             <button onclick="closeEditModal()" style="background:none !important;border:none !important;font-size:1.8em;cursor:pointer;color:#aaa;padding:0 !important;margin:0 !important;width:auto !important;line-height:1;">×</button>
         </div>
-        <form id="editForm" method="POST" enctype="multipart/form-data">
+        <form id="editForm" method="POST" enctype="multipart/form-data" onsubmit="submitEditForm(event)">
 
             <div style="margin-bottom:14px;">
                 <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin-bottom:5px;">Name</div>
@@ -719,6 +720,22 @@
                        style="width:100% !important;padding:6px !important;border:1px solid #ddd !important;border-radius:7px !important;font-size:0.9em !important;">
             </div>
 
+            <div style="margin-bottom:14px;">
+                <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin-bottom:8px;">Job Roles</div>
+                <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+                    <select id="editRoleSelect" style="flex:1;padding:8px 10px;border:1px solid #ddd;border-radius:7px;font-size:0.9em;">
+                        <option value="">— Add a role —</option>
+                        {% for role in job_roles %}
+                        <option value="{{ role.id }}" data-name="{{ role.name }}">{{ role.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="button" onclick="editAddRole()" style="padding:8px 14px;border:1px solid #ddd;border-radius:7px;background:#f5f5f5;font-size:0.88em;cursor:pointer;">Add</button>
+                    <button type="button" onclick="editAddAllRoles()" style="padding:8px 14px;border:1px solid #ddd;border-radius:7px;background:#f5f5f5;font-size:0.88em;cursor:pointer;">All</button>
+                </div>
+                <div id="editSelectedRoles" style="display:flex;flex-direction:column;gap:6px;"></div>
+                <p style="color:#aaa;font-size:0.78em;margin-top:6px;">Leave empty to show to all roles.</p>
+            </div>
+
             <div style="display:flex;gap:10px;justify-content:flex-end;">
                 <button type="button" onclick="closeEditModal()" class="safe-btn">Cancel</button>
                 <button type="submit" class="danger-btn" style="background:#D40511 !important;">Save Changes</button>
@@ -732,7 +749,7 @@
 <div id="stockModal" class="overlay">
     <div class="small-modal-box" style="max-width:520px;max-height:85vh;overflow-y:auto;">
         <h3 id="stockModalTitle">Edit Stock</h3>
-        <form id="stockForm" method="POST">
+        <form id="stockForm" method="POST" onsubmit="submitStockForm(event)">
             <table id="stockTable">
                 <tr><th>Size</th><th>Current</th><th>Add</th></tr>
             </table>
@@ -793,7 +810,17 @@ document.getElementById('imageModal').addEventListener('click', e => { if (e.tar
 let formToSubmit = null;
 function openModal(form) { formToSubmit = form; openOverlay('deleteModal'); }
 function closeModal() { closeOverlay('deleteModal'); }
-document.getElementById('confirmDeleteBtn').addEventListener('click', () => { if (formToSubmit) formToSubmit.submit(); });
+document.getElementById('confirmDeleteBtn').addEventListener('click', () => {
+    if (formToSubmit) {
+        const row = formToSubmit.closest('.product-row');
+        fetch(formToSubmit.action, { method:'POST' })
+            .then(() => {
+                closeModal();
+                showToast('Product removed');
+                if (row) { row.style.transition='opacity .2s'; row.style.opacity='0'; setTimeout(() => row.remove(), 200); }
+            });
+    }
+});
 document.getElementById('deleteModal').addEventListener('click', e => { if (e.target === document.getElementById('deleteModal')) closeModal(); });
 
 // Stock modal
@@ -815,10 +842,24 @@ function handleStockClick(btn) {
     openOverlay('stockModal');
 }
 function closeStockModal() { closeOverlay('stockModal'); }
+function submitStockForm(e) {
+    e.preventDefault();
+    const form = document.getElementById('stockForm');
+    fetch(form.action, { method:'POST', body: new FormData(form) })
+        .then(() => { closeStockModal(); showToast('Stock updated successfully'); });
+}
+function submitEditForm(e) {
+    e.preventDefault();
+    const form = document.getElementById('editForm');
+    fetch(form.action, { method:'POST', body: new FormData(form) })
+        .then(() => { closeEditModal(); showToast('Product updated successfully'); });
+}
 document.getElementById('stockModal').addEventListener('click', e => { if (e.target === document.getElementById('stockModal')) closeStockModal(); });
 
 
 // Edit modal
+const allJobRoles = {{ job_roles | tojson | safe }};
+
 function openEditModal(btn) {
     const id = btn.dataset.productId;
     document.getElementById('editModalTitle').innerText = 'Edit — ' + btn.dataset.productName;
@@ -836,7 +877,34 @@ function openEditModal(btn) {
     } else {
         imgDiv.innerHTML = '<span style="color:#aaa;font-size:0.85em;">No image</span>';
     }
+    // Populate roles
+    const assignedIds = JSON.parse(btn.dataset.productRoles || '[]');
+    document.getElementById('editSelectedRoles').innerHTML = '';
+    document.getElementById('editRoleSelect').value = '';
+    assignedIds.forEach(roleId => {
+        const role = allJobRoles.find(r => r.id === roleId);
+        if (role) editAddRoleById(role.id, role.name);
+    });
     openOverlay('editModal');
+}
+
+function editAddRoleById(id, name) {
+    if (!id || document.getElementById('editSelectedRoles').querySelector(`input[value="${id}"]`)) return;
+    const div = document.createElement('div');
+    div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:#f8f8f8;border-radius:7px;border:1px solid #e0e0e0;';
+    div.innerHTML = `<span style="font-size:0.88em;font-weight:600;">${name}</span>
+        <input type="hidden" name="job_role_ids" value="${id}">
+        <button type="button" onclick="this.closest('div').remove()" style="background:none;border:none;color:#D40511;cursor:pointer;font-weight:700;padding:0 4px;">x</button>`;
+    document.getElementById('editSelectedRoles').appendChild(div);
+}
+function editAddRole() {
+    const sel = document.getElementById('editRoleSelect');
+    editAddRoleById(sel.value, sel.options[sel.selectedIndex].text);
+    sel.value = '';
+}
+function editAddAllRoles() {
+    document.getElementById('editSelectedRoles').innerHTML = '';
+    allJobRoles.forEach(r => editAddRoleById(r.id, r.name));
 }
 function closeEditModal() { closeOverlay('editModal'); }
 document.getElementById('editModal').addEventListener('click', e => { if (e.target === document.getElementById('editModal')) closeEditModal(); });
@@ -923,6 +991,62 @@ function renderPrices() {
         const sek = parseFloat(el.dataset.priceSek);
         if (!isNaN(sek)) el.textContent = `${(sek * currentRate).toFixed(2)} ${currentCurrency}`;
     });
+}
+
+function addToCart(e, form) {
+    e.preventDefault();
+    const btn = form.querySelector('.add-cart-btn');
+    const cartLink = document.getElementById('nav-cart-link') || document.querySelector('.nav-cart');
+    if (btn && cartLink) {
+        const btnRect = btn.getBoundingClientRect();
+        const cartRect = cartLink.getBoundingClientRect();
+        const dot = document.createElement('div');
+        dot.style.cssText = `position:fixed;left:${btnRect.left+btnRect.width/2-5}px;top:${btnRect.top+btnRect.height/2-5}px;width:10px;height:10px;background:#FFCC00;border-radius:50%;z-index:99999;pointer-events:none;opacity:0.9;`;
+        document.body.appendChild(dot);
+        const sx = btnRect.left + btnRect.width/2;
+        const sy = btnRect.top + btnRect.height/2;
+        const ex = cartRect.left + cartRect.width/2;
+        const ey = cartRect.top + cartRect.height/2;
+        const start = performance.now();
+        (function step(now) {
+            const t = Math.min((now - start) / 350, 1);
+            const ease = t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
+            dot.style.left = (sx + (ex-sx)*ease - 5) + 'px';
+            dot.style.top = (sy + (ey-sy)*ease - 5) + 'px';
+            dot.style.opacity = 0.9 - ease * 0.9;
+            if (t < 1) requestAnimationFrame(step);
+            else dot.remove();
+        })(start);
+    }
+
+    fetch('/add-to-cart', {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        body: new FormData(form)
+    }).then(r => r.json()).then(res => {
+        if (res.ok) {
+            showToast('Added to cart successfully');
+            const badge = document.getElementById('nav-cart-badge');
+            if (badge && res.cart_count !== undefined) {
+                badge.textContent = res.cart_count;
+                badge.style.display = '';
+                if (cartLink) { cartLink.classList.add('active'); cartLink.classList.remove('nav-cart-empty'); }
+                badge.style.transform = 'scale(1.5)';
+                setTimeout(() => { badge.style.transform = ''; }, 250);
+            }
+        } else {
+            showToast(res.message || 'Could not add to cart');
+        }
+    }).catch(() => showToast('Could not add to cart'));
+}
+
+function showToast(msg) {
+    let t = document.getElementById('shop-toast');
+    if (!t) { t = document.createElement('div'); t.id = 'shop-toast'; document.body.appendChild(t); }
+    t.textContent = msg;
+    t.style.cssText = `position:fixed;top:24px;left:50%;transform:translateX(-50%) translateY(0);background:#f0fdf4;color:#166534;padding:12px 20px;border-radius:8px;font-size:0.88em;font-weight:600;z-index:9999;white-space:nowrap;border-left:4px solid #22c55e;opacity:1;transition:opacity .3s;`;
+    clearTimeout(t._t);
+    t._t = setTimeout(() => { t.style.opacity = '0'; }, 2500);
 }
 
 </script>

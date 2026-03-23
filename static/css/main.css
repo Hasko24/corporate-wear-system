@@ -171,6 +171,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
     font-weight: 700;
     min-width: 17px;
     line-height: 1.4;
+    transition: transform 0.2s ease;
 }
 
 /* ════════════════════════════════════

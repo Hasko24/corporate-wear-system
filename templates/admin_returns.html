@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header-band">
+    <div class="header-row">
+        <div>
+            <span class="page-breadcrumb"><a href="{{ url_for('admin_dashboard') }}">Admin</a> › Returns</span>
+            <h1>Uniform Returns</h1>
+        </div>
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-ghost">Back</a>
+    </div>
+</div>
+
+<!-- Summary pills -->
+<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px;">
+    <a href="{{ url_for('admin_returns') }}" class="btn {% if not status_filter %}btn-dark{% else %}btn-ghost{% endif %} btn-sm">All ({{ total }})</a>
+    <a href="{{ url_for('admin_returns', status='worn_out') }}" class="btn {% if status_filter=='worn_out' %}btn-dark{% else %}btn-ghost{% endif %} btn-sm">Worn out ({{ counts.worn_out or 0 }})</a>
+    <a href="{{ url_for('admin_returns', status='damaged') }}" class="btn {% if status_filter=='damaged' %}btn-dark{% else %}btn-ghost{% endif %} btn-sm">Damaged ({{ counts.damaged or 0 }})</a>
+    <a href="{{ url_for('admin_returns', status='size_exchange') }}" class="btn {% if status_filter=='size_exchange' %}btn-dark{% else %}btn-ghost{% endif %} btn-sm">Size exchange ({{ counts.size_exchange or 0 }})</a>
+    <a href="{{ url_for('admin_returns', status='stolen') }}" class="btn {% if status_filter=='stolen' %}btn-dark{% else %}btn-ghost{% endif %} btn-sm">Stolen ({{ counts.stolen or 0 }})</a>
+    <a href="{{ url_for('admin_returns', status='other') }}" class="btn {% if status_filter=='other' %}btn-dark{% else %}btn-ghost{% endif %} btn-sm">Other ({{ counts.other or 0 }})</a>
+</div>
+
+{% if returns|length == 0 %}
+<div class="surface" style="text-align:center;padding:60px 40px;color:var(--text-3);">
+    <p style="font-size:1.1em;font-weight:600;color:var(--text-2);margin:0 0 6px;">No returns yet.</p>
+</div>
+{% else %}
+<div class="data-table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Date Returned</th>
+                <th>Worker</th>
+                <th>Supervisor</th>
+                <th>Product</th>
+                <th>Size</th>
+                <th>Reason</th>
+                <th>Notes</th>
+                <th>Order</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in returns %}
+            <tr>
+                <td class="text-muted">{{ r.returned_at.strftime('%d %b %Y') if r.returned_at else '—' }}</td>
+                <td style="font-weight:600;">{{ r.worker_name or '—' }}</td>
+                <td>{{ r.supervisor_name or '—' }}</td>
+                <td>{{ r.product_name }}</td>
+                <td>{{ r.size }}</td>
+                <td>
+                    {% if r.return_reason == 'stolen' %}
+                    <span class="status-pill" style="background:#fee2e2;color:#dc2626;">Stolen</span>
+                    {% elif r.return_reason == 'lost' %}
+                    <span class="status-pill" style="background:#fee2e2;color:#dc2626;">Lost</span>
+                    {% elif r.return_reason == 'worn_out' %}
+                    <span class="status-pill" style="background:#f3f4f6;color:#374151;">Worn out</span>
+                    {% elif r.return_reason == 'damaged' %}
+                    <span class="status-pill" style="background:#fef3c7;color:#92400e;">Damaged</span>
+                    {% elif r.return_reason == 'size_exchange' %}
+                    <span class="status-pill" style="background:#e0f2fe;color:#0369a1;">Size exchange</span>
+                    {% else %}
+                    <span class="status-pill" style="background:#f3f4f6;color:#374151;">{{ r.return_reason|replace('_',' ')|title if r.return_reason else 'Other' }}</span>
+                    {% endif %}
+                </td>
+                <td style="max-width:220px;color:var(--text-2);font-size:0.87em;">{{ r.return_note or '—' }}</td>
+                <td><a href="{{ url_for('order_detail', cart_id=r.order_id) }}" style="color:var(--red);font-weight:600;">#{{ r.order_id }}</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% endblock %}

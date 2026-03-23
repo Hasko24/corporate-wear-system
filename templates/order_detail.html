@@ -8,7 +8,7 @@
             <h1>Order #{{ cart.id }}</h1>
         </div>
         <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
-            <span class="status-pill status-{{ cart.status }}" style="font-size:0.85em;padding:7px 16px;">{{ cart.status }}</span>
+            <span class="status-pill status-{{ cart.status }}" style="font-size:0.85em;padding:7px 16px;">{{ 'Sent' if cart.status == 'completed' else cart.status|title }}</span>
             <a href="{{ url_for('view_orders') }}" class="btn btn-ghost">← Back</a>
         </div>
     </div>
@@ -73,7 +73,7 @@
     </table>
 </div>
 
-{% if session.system_role in ['admin', 'packer'] %}
+{% if session.system_role == 'packer' %}
 <div style="display:flex;gap:12px;flex-wrap:wrap;">
     {% if cart.status == 'submitted' %}
     <form method="POST" action="{{ url_for('pack_order', cart_id=cart.id) }}" style="margin:0;">
@@ -84,7 +84,7 @@
     {% if cart.status == 'packed' %}
     <form method="POST" action="{{ url_for('complete_order', cart_id=cart.id) }}" style="margin:0;">
         <button type="submit" class="btn btn-primary"
-                onclick="showConfirm(this.closest('form'),'Mark order #{{ cart.id }} as completed?','This will notify the supervisor.','Mark as Completed');return false;">Mark as Completed</button>
+                onclick="showConfirm(this.closest('form'),'Mark order #{{ cart.id }} as sent?','This will notify the supervisor.','Mark as Sent');return false;">Mark as Sent</button>
     </form>
     {% endif %}
 </div>

@@ -11,13 +11,13 @@ from flask import Flask, render_template, request, redirect, url_for, flash, ses
 import mysql.connector
 from mysql.connector import IntegrityError
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.units import mm
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
 from werkzeug.utils import secure_filename
 from PIL import Image as PilImage
 
-# Optional: email sending
 try:
     import smtplib
     from email.mime.text import MIMEText
@@ -33,9 +33,6 @@ app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs("static/reports", exist_ok=True)
 
-# ─────────────────────────────────────────────
-# DB CONNECTION  (adjust env vars as needed)
-# ─────────────────────────────────────────────
 def get_db_config():
     return dict(
         host=os.environ.get("DB_HOST", "localhost"),
@@ -56,9 +53,6 @@ def get_cursor():
         db = mysql.connector.connect(**get_db_config())
     return db.cursor(dictionary=True)
 
-# ─────────────────────────────────────────────
-# EMAIL HELPER
-# ─────────────────────────────────────────────
 def send_welcome_email(to_email, full_name, system_role, site_url=None):
     import ssl, threading
     smtp_host = os.environ.get("SMTP_HOST")
@@ -99,7 +93,6 @@ DHL Corporate Wear Team"""
 
     threading.Thread(target=_send, daemon=True).start()
 
-
 def send_status_email(to_email, full_name, cart_id, status):
     import ssl, threading
     smtp_host = os.environ.get("SMTP_HOST")
@@ -114,7 +107,7 @@ def send_status_email(to_email, full_name, cart_id, status):
     subject = f"Order #{cart_id} has been {status}"
     body = f"""Hi {full_name},
 
-Your order #{cart_id} has been {status_label}.
+Your order
 
 View it here: {site_url}/order/{cart_id}
 
@@ -138,7 +131,6 @@ DHL Corporate Wear Team"""
         except Exception as e:
             print(f"[EMAIL] Status email failed: {e}")
     threading.Thread(target=_send, daemon=True).start()
-# ─────────────────────────────────────────────
 def can_act_for_supervisor(real_supervisor_id):
     current_user = session.get("user_id")
     role = session.get("system_role")
@@ -158,10 +150,6 @@ def can_act_for_supervisor(real_supervisor_id):
         """, (real_supervisor_id, current_user))
     return cursor.fetchone() is not None
 
-
-# ─────────────────────────────────────────────
-# BUDGET HELPER
-# ─────────────────────────────────────────────
 def get_supervisor_month_usage(supervisor_id):
     cursor = get_cursor()
     now = datetime.now()
@@ -176,17 +164,11 @@ def get_supervisor_month_usage(supervisor_id):
     result = cursor.fetchone()
     return float(result["total"]) if result else 0.0
 
-
-# ─────────────────────────────────────────────
-# CART HELPER
-# ─────────────────────────────────────────────
 def get_or_create_cart(team_member_id, supervisor_id=None):
     cursor = get_cursor()
-    # Verify the team member exists
     cursor.execute("SELECT id FROM team_members WHERE id = %s", (team_member_id,))
     if not cursor.fetchone():
         return None
-    # Use the logged-in supervisor (may be a delegate), not the worker's original owner
     from flask import session as _session
     acting_supervisor = supervisor_id or _session.get("user_id")
 
@@ -203,10 +185,6 @@ def get_or_create_cart(team_member_id, supervisor_id=None):
     db.commit()
     return cursor.lastrowid
 
-
-# ─────────────────────────────────────────────
-# EFFECTIVE SUPERVISORS (delegation aware)
-# ─────────────────────────────────────────────
 def get_effective_supervisors(user_id):
     cursor = get_cursor()
     supervisors = [user_id]
@@ -254,9 +232,6 @@ def notify_packers_new_order(cart_id, supervisor_name, total):
             except Exception as e:
                 print(f"[EMAIL] Packer notify failed: {e}")
         threading.Thread(target=_send, daemon=True).start()
-# ─────────────────────────────────────────────
-# CONTEXT PROCESSORS
-# ─────────────────────────────────────────────
 @app.context_processor
 def inject_global_counts():
     if "user_id" not in session:
@@ -276,19 +251,13 @@ def inject_global_counts():
     except Exception:
         return dict(unread_news_count=0)
 
-
 @app.context_processor
 def inject_cart_count():
-    return dict(cart_count=0)  # cart_count handled per-page via selected_member
+    return dict(cart_count=0)
 
-
-# ─────────────────────────────────────────────
-# AUTH
-# ─────────────────────────────────────────────
 @app.route("/")
 def home():
     return redirect(url_for("login"))
-
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -305,7 +274,7 @@ def login():
             if user["system_role"] == "packer":
                 return redirect(url_for("view_orders"))
             elif user["system_role"] == "supervisor":
-                return redirect(url_for("news"))       # news is the landing page
+                return redirect(url_for("news"))
             elif user["system_role"] == "admin":
                 return redirect(url_for("admin_dashboard"))
             else:
@@ -314,16 +283,11 @@ def login():
             return render_template("login.html", error="Invalid credentials")
     return render_template("login.html")
 
-
 @app.route("/logout")
 def logout():
     session.clear()
     return redirect(url_for("login"))
 
-
-# ─────────────────────────────────────────────
-# SHOP
-# ─────────────────────────────────────────────
 @app.route("/shop")
 def shop():
     if "user_id" not in session:
@@ -334,7 +298,6 @@ def shop():
     search = request.args.get("search", "").strip()
     role = session["system_role"]
 
-    # --- Team members (from team_members table) ---
     team = []
     if role in ("supervisor", "admin"):
         c = get_cursor()
@@ -353,11 +316,10 @@ def shop():
         team = c.fetchall()
         c.close()
 
-    require_selection = False  # browsing always allowed
+    require_selection = False
 
     recommended_sizes = {}
 
-    # Load worker's saved sizes + auto-set role filter from worker's job role
     worker_job_role_id = None
     if selected_member:
         c = get_cursor()
@@ -365,11 +327,9 @@ def shop():
         row = c.fetchone()
         worker_job_role_id = row["job_role_id"] if row else None
         c.close()
-        # Auto-apply worker's role as the filter unless supervisor manually overrode it
         if worker_job_role_id and not selected_role:
             selected_role = str(worker_job_role_id)
 
-    # Load worker's saved sizes if a member is selected
     if selected_member:
         c = get_cursor()
         c.execute("SELECT product_type, size FROM worker_sizes WHERE team_member_id = %s", (selected_member,))
@@ -377,7 +337,6 @@ def shop():
             recommended_sizes[row["product_type"].upper()] = row["size"]
         c.close()
 
-    # --- Cart count ---
     cart_count = 0
     if selected_member:
         c = get_cursor()
@@ -391,16 +350,13 @@ def shop():
         cart_count = int(row["cnt"]) if row else 0
         c.close()
 
-    # --- Job roles ---
     c = get_cursor()
     c.execute("SELECT id, name FROM job_roles ORDER BY name")
     job_roles = c.fetchall()
     c.close()
 
-    # --- Products ---
     c = get_cursor()
     if role == "admin":
-        # Admin always sees everything, can filter by role manually
         if selected_role:
             c.execute("""
                 SELECT DISTINCT p.* FROM products p
@@ -410,7 +366,6 @@ def shop():
         else:
             c.execute("SELECT * FROM products ORDER BY article_number")
     elif role == "supervisor":
-        # Supervisor sees ALL products always
         if selected_role:
             c.execute("""
                 SELECT DISTINCT p.* FROM products p
@@ -437,8 +392,6 @@ def shop():
     products = c.fetchall()
     c.close()
 
-    # --- Build set of product IDs the worker is eligible to order ---
-    # Used in template to disable Add to Cart for ineligible products
     worker_eligible_ids = None
     if selected_member and worker_job_role_id:
         c = get_cursor()
@@ -451,18 +404,29 @@ def shop():
         worker_eligible_ids = {row["id"] for row in c.fetchall()}
         c.close()
 
-    # --- Apply search filter ---
     if search:
         products = [p for p in products if search.lower() in p["name"].lower() or search.lower() in (p.get("article_number") or "").lower()]
 
-    # --- Sizes per product ---
     for product in products:
         c = get_cursor()
         c.execute("""
             SELECT id, size, stock FROM product_sizes WHERE product_id = %s
         """, (product["id"],))
         product["sizes"] = c.fetchall()
-        product["recommended_size"] = recommended_sizes.get(product.get("type", "").upper())
+        available_sizes = {s["size"].upper() for s in product["sizes"]}
+        UPPER_BODY = {"JACKET", "SWEATSHIRT", "VEST"}
+        LOWER_BODY = {"TROUSER", "SHORTS"}
+        ptype = (product.get("type") or "").upper()
+        recommended = recommended_sizes.get(ptype)
+        if recommended is None and ptype in UPPER_BODY:
+            recommended = recommended_sizes.get("SHIRT")
+        if recommended is None and ptype in LOWER_BODY:
+            recommended = recommended_sizes.get("PANTS")
+        if recommended and recommended.upper() not in available_sizes:
+            recommended = None
+        product["recommended_size"] = recommended
+        c.execute("SELECT job_role_id FROM product_job_roles WHERE product_id=%s", (product["id"],))
+        product["role_ids"] = [r["job_role_id"] for r in c.fetchall()]
         c.close()
 
     return render_template(
@@ -478,9 +442,6 @@ def shop():
         worker_eligible_ids=worker_eligible_ids,
     )
 
-# ─────────────────────────────────────────────
-# CART
-# ─────────────────────────────────────────────
 @app.route("/add-to-cart", methods=["POST"])
 def add_to_cart():
     if "user_id" not in session:
@@ -498,7 +459,6 @@ def add_to_cart():
     quantity = int(request.form.get("quantity", 1))
     cursor = get_cursor()
 
-    # Verify the worker belongs to this supervisor OR a delegated supervisor
     if session.get("system_role") == "supervisor":
         effective_ids = get_effective_supervisors(session["user_id"])
         placeholders = ",".join(["%s"] * len(effective_ids))
@@ -517,7 +477,6 @@ def add_to_cart():
         return redirect(url_for("shop"))
 
     cursor = get_cursor()
-    # Check if item already in cart
     cursor.execute("""
         SELECT id, quantity FROM order_items
         WHERE cart_id = %s AND product_size_id = %s AND team_member_id = %s
@@ -540,9 +499,18 @@ def add_to_cart():
         """, (cart_id, product_size_id, team_member_id, quantity, price))
     db.commit()
     cursor.close()
-    flash("Added to cart.", "success")
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        c2 = get_cursor()
+        c2.execute("""
+            SELECT COALESCE(SUM(oi.quantity),0) as cnt
+            FROM order_items oi
+            JOIN order_carts oc ON oi.cart_id = oc.id
+            WHERE oc.supervisor_id = %s AND oc.status = 'created'
+        """, (session["user_id"],))
+        row = c2.fetchone()
+        count = int(row["cnt"]) if row else 0
+        return jsonify({"ok": True, "message": "Added to cart", "cart_count": count})
     return redirect(url_for("shop", team_member_id=team_member_id))
-
 
 @app.route("/cart")
 def view_cart():
@@ -563,11 +531,12 @@ def view_cart():
     session["cart_id"] = cart["id"]
 
     cursor.execute("""
-        SELECT p.name, p.article_number, ps.size,
+        SELECT p.name, p.article_number, ps.size, ps.id AS size_id,
                oi.quantity, oi.price_at_time,
                (oi.quantity * oi.price_at_time) AS subtotal,
                tm.full_name AS worker_name,
-               oi.id AS item_id
+               oi.id AS item_id,
+               ps.product_id
         FROM order_items oi
         JOIN product_sizes ps ON oi.product_size_id = ps.id
         JOIN products p ON ps.product_id = p.id
@@ -575,9 +544,14 @@ def view_cart():
         WHERE oi.cart_id = %s
     """, (cart["id"],))
     items = cursor.fetchall()
+
+    for item in items:
+        c2 = get_cursor()
+        c2.execute("SELECT id, size, stock FROM product_sizes WHERE product_id=%s ORDER BY size", (item["product_id"],))
+        item["all_sizes"] = c2.fetchall()
+
     total = sum(float(item["subtotal"]) for item in items)
 
-    # Load team members so cart page can assign order to a member
     c = get_cursor()
     c.execute("""
         SELECT id, full_name, employee_number FROM team_members
@@ -588,20 +562,63 @@ def view_cart():
 
     return render_template("cart.html", items=items, total=total, cart=cart, team=team)
 
-
 @app.route("/cart/remove/<int:item_id>", methods=["POST"])
 def remove_cart_item(item_id):
     cursor = get_cursor()
-    # Verify ownership
     cart_id = session.get("cart_id")
     cursor.execute("SELECT cart_id FROM order_items WHERE id = %s", (item_id,))
     row = cursor.fetchone()
     if row and row["cart_id"] == cart_id:
         cursor.execute("DELETE FROM order_items WHERE id = %s", (item_id,))
         db.commit()
-        flash("Item removed.", "success")
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"ok": True})
     return redirect(url_for("view_cart"))
 
+@app.route("/cart/update/<int:item_id>", methods=["POST"])
+def update_cart_item(item_id):
+    if "user_id" not in session:
+        return jsonify({"ok": False}), 403
+    cursor = get_cursor()
+    cart_id = session.get("cart_id")
+    cursor.execute("SELECT cart_id, price_at_time FROM order_items WHERE id = %s", (item_id,))
+    row = cursor.fetchone()
+    if not row or row["cart_id"] != cart_id:
+        return jsonify({"ok": False, "error": "Not found"}), 404
+
+    quantity = request.form.get("quantity", type=int)
+    size_id = request.form.get("product_size_id", type=int)
+
+    if quantity is not None:
+        if quantity <= 0:
+            cursor.execute("DELETE FROM order_items WHERE id = %s", (item_id,))
+        else:
+            cursor.execute("UPDATE order_items SET quantity=%s WHERE id=%s", (quantity, item_id))
+
+    if size_id is not None:
+        cursor.execute("SELECT size FROM product_sizes WHERE id=%s", (size_id,))
+        size_row = cursor.fetchone()
+        if size_row:
+            cursor.execute("UPDATE order_items SET product_size_id=%s WHERE id=%s", (size_id, item_id))
+
+    db.commit()
+
+    cursor.execute("""
+        SELECT COALESCE(SUM(oi.quantity * oi.price_at_time), 0) as total
+        FROM order_items oi WHERE oi.cart_id = %s
+    """, (cart_id,))
+    total_row = cursor.fetchone()
+    new_total = float(total_row["total"]) if total_row else 0
+
+    cursor.execute("""
+        SELECT COALESCE(SUM(oi.quantity),0) as cnt
+        FROM order_items oi WHERE oi.cart_id = %s
+    """, (cart_id,))
+    count_row = cursor.fetchone()
+    cart_count = int(count_row["cnt"]) if count_row else 0
+
+    new_size = size_row["size"] if size_id and size_row else None
+    return jsonify({"ok": True, "total": f"{new_total:.2f}", "cart_count": cart_count, "new_size": new_size})
 
 @app.route("/checkout", methods=["POST"])
 def checkout():
@@ -611,7 +628,6 @@ def checkout():
     cart_id = session["cart_id"]
     cursor = get_cursor()
 
-    # Get cart
     cursor.execute("SELECT * FROM order_carts WHERE id = %s", (cart_id,))
     cart_data = cursor.fetchone()
     if not cart_data:
@@ -620,17 +636,14 @@ def checkout():
 
     supervisor_id = cart_data["supervisor_id"]
 
-    # Get cart items
     cursor.execute("SELECT product_size_id, quantity, price_at_time FROM order_items WHERE cart_id = %s", (cart_id,))
     items = cursor.fetchall()
     if not items:
         flash("Cart is empty.", "error")
         return redirect(url_for("shop"))
 
-    # Calculate total
     total = sum(float(i["quantity"]) * float(i["price_at_time"]) for i in items)
 
-    # Check budget
     cursor.execute("SELECT monthly_budget FROM users WHERE id = %s", (supervisor_id,))
     budget_row = cursor.fetchone()
     if budget_row and budget_row["monthly_budget"]:
@@ -640,7 +653,6 @@ def checkout():
             flash(f"Monthly budget exceeded. Used: {used:.2f}, Order: {total:.2f}, Budget: {budget:.2f}", "error")
             return redirect(url_for("view_cart"))
 
-    # Deduct stock
     for item in items:
         cursor.execute("""
             UPDATE product_sizes SET stock = stock - %s
@@ -654,7 +666,6 @@ def checkout():
     comment = request.form.get("comment") or None
 
     team_member_id = request.form.get("team_member_id") or None
-    # If not passed in form, derive from the items (first worker in cart)
     if not team_member_id:
         cursor.execute("""
             SELECT DISTINCT team_member_id FROM order_items
@@ -678,10 +689,6 @@ def checkout():
     flash("Order submitted successfully.", "success")
     return redirect(url_for("view_orders"))
 
-
-# ─────────────────────────────────────────────
-# ORDERS
-# ─────────────────────────────────────────────
 @app.route("/orders")
 def view_orders():
     if "user_id" not in session:
@@ -722,6 +729,10 @@ def view_orders():
         filters.append("oc.status = %s")
         values.append(status)
 
+    hide_sent = request.args.get("hide_sent", "1")
+    if hide_sent == "1" and not status:
+        filters.append("oc.status != 'completed'")
+
     start_date = request.args.get("start")
     if start_date:
         filters.append("oc.created_at >= %s")
@@ -734,20 +745,36 @@ def view_orders():
 
     if filters:
         query += " WHERE " + " AND ".join(filters)
-    query += " ORDER BY oc.created_at DESC"
+
+    sort_col = request.args.get("sort", "date")
+    sort_dir = request.args.get("dir", "desc").upper()
+    if sort_dir not in ("ASC", "DESC"):
+        sort_dir = "DESC"
+    sort_map = {
+        "id": "oc.id",
+        "worker": "worker_name",
+        "supervisor": "supervisor_name",
+        "total": "oc.total_price",
+        "date": "oc.created_at",
+        "status": "oc.status",
+    }
+    order_by = sort_map.get(sort_col, "oc.created_at")
+    query += f" ORDER BY {order_by} {sort_dir}"
 
     cursor.execute(query, values)
     carts = cursor.fetchall()
 
-    # For admin filter dropdowns
     supervisors = []
     if role == "admin":
         cursor.execute("SELECT id, full_name FROM users WHERE system_role='supervisor' ORDER BY full_name")
         supervisors = cursor.fetchall()
 
-    return render_template("orders.html", carts=carts, supervisors=supervisors,
-                           current_filters=request.args)
+    current_filters = dict(request.args)
+    if "hide_sent" not in current_filters:
+        current_filters["hide_sent"] = "1"
 
+    return render_template("orders.html", carts=carts, supervisors=supervisors,
+                           current_filters=current_filters)
 
 @app.route("/order/<int:cart_id>")
 def order_detail(cart_id):
@@ -781,7 +808,6 @@ def order_detail(cart_id):
 
     return render_template("order_detail.html", cart=cart, items=items, total=total)
 
-
 @app.route("/pack_order/<int:cart_id>", methods=["POST"])
 def pack_order(cart_id):
     if session.get("system_role") != "packer":
@@ -789,7 +815,6 @@ def pack_order(cart_id):
     cursor = get_cursor()
     cursor.execute("UPDATE order_carts SET status='packed' WHERE id=%s", (cart_id,))
     db.commit()
-    # Notify supervisor
     cursor.execute("""
         SELECT oc.id, u.email, u.full_name
         FROM order_carts oc JOIN users u ON oc.supervisor_id = u.id
@@ -801,15 +826,13 @@ def pack_order(cart_id):
     flash("Order marked as packed.", "success")
     return redirect(url_for("order_detail", cart_id=cart_id))
 
-
 @app.route("/complete_order/<int:cart_id>", methods=["POST"])
 def complete_order(cart_id):
-    if session.get("system_role") not in ("packer", "admin"):
+    if session.get("system_role") != "packer":
         return redirect(url_for("view_orders"))
     cursor = get_cursor()
     cursor.execute("UPDATE order_carts SET status='completed' WHERE id=%s", (cart_id,))
     db.commit()
-    # Notify supervisor
     cursor.execute("""
         SELECT oc.id, u.email, u.full_name
         FROM order_carts oc JOIN users u ON oc.supervisor_id = u.id
@@ -821,7 +844,6 @@ def complete_order(cart_id):
     flash("Order completed.", "success")
     return redirect(url_for("order_detail", cart_id=cart_id))
 
-
 @app.route("/cancel_order/<int:cart_id>", methods=["POST"])
 def cancel_order(cart_id):
     if "user_id" not in session:
@@ -832,22 +854,20 @@ def cancel_order(cart_id):
     if not cart:
         flash("Order not found.", "error")
         return redirect(url_for("view_orders"))
-    # Only supervisor who owns it (or admin) can cancel, and only if not yet packed
     if session.get("system_role") == "supervisor" and cart["supervisor_id"] != session["user_id"]:
         flash("Not authorised.", "error")
         return redirect(url_for("view_orders"))
     if cart["status"] in ("packed", "completed"):
         flash("Cannot cancel an order that is already packed or completed.", "error")
         return redirect(url_for("view_orders"))
-    cursor.execute("UPDATE order_carts SET status='cancelled' WHERE id=%s", (cart_id,))
+    cursor.execute("DELETE FROM order_items WHERE cart_id=%s", (cart_id,))
+    cursor.execute("DELETE FROM order_carts WHERE id=%s", (cart_id,))
     db.commit()
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"ok": True})
     flash("Order cancelled.", "success")
     return redirect(url_for("view_orders"))
 
-
-# ─────────────────────────────────────────────
-# ORDER EXPORTS
-# ─────────────────────────────────────────────
 @app.route("/orders/export/excel")
 def export_orders_excel():
     if session.get("system_role") not in ("admin", "supervisor", "packer"):
@@ -883,6 +903,10 @@ def export_orders_excel():
         filters.append("oc.status = %s")
         values.append(status)
 
+    hide_sent = request.args.get("hide_sent", "0")
+    if hide_sent == "1" and not status:
+        filters.append("oc.status != 'completed'")
+
     start_date = request.args.get("start")
     if start_date:
         filters.append("oc.created_at >= %s")
@@ -898,8 +922,11 @@ def export_orders_excel():
 
     cursor.execute(query, values)
     data = cursor.fetchall()
+    if "status" in data[0] if data else False:
+        for row in data:
+            if row.get("status") == "completed":
+                row["status"] = "Sent"
     df = pd.DataFrame(data)
-    # Format datetime columns
     for col in df.columns:
         if df[col].dtype == "object":
             try:
@@ -916,7 +943,6 @@ def export_orders_excel():
     output.seek(0)
     return send_file(output, as_attachment=True, download_name="orders_export.xlsx",
                      mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-
 
 @app.route("/orders/export/pdf")
 def export_orders_pdf():
@@ -951,6 +977,10 @@ def export_orders_pdf():
         filters.append("oc.status = %s")
         values.append(status)
 
+    hide_sent = request.args.get("hide_sent", "0")
+    if hide_sent == "1" and not status:
+        filters.append("oc.status != 'completed'")
+
     start_date = request.args.get("start")
     if start_date:
         filters.append("oc.created_at >= %s")
@@ -967,8 +997,12 @@ def export_orders_pdf():
     rows = cursor.fetchall()
 
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=40, rightMargin=40, topMargin=40, bottomMargin=40)
+    from reportlab.lib.units import mm
+    from reportlab.lib.styles import ParagraphStyle
+
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=20*mm, rightMargin=20*mm, topMargin=20*mm, bottomMargin=20*mm)
     styles = getSampleStyleSheet()
+    cell_style = ParagraphStyle('cell', parent=styles['Normal'], fontSize=7, leading=9)
     elements = []
 
     elements.append(Paragraph("Order Report", styles["Title"]))
@@ -979,23 +1013,29 @@ def export_orders_pdf():
     table_data = [headers]
     for r in rows:
         table_data.append([
-            str(r["id"]), r["status"],
+            str(r["id"]), "Sent" if r["status"] == "completed" else r["status"],
             str(r["created_at"])[:10],
-            r["supervisor"], r["product"],
+            Paragraph(r["supervisor"] or "-", cell_style),
+            Paragraph(r["product"] or "-", cell_style),
             r["size"], str(r["quantity"]),
             f'{float(r["price_at_time"]):.2f}',
-            r["worker"] or "-"
+            Paragraph(r["worker"] or "-", cell_style)
         ])
 
-    t = Table(table_data, repeatRows=1)
+    col_widths = [16*mm, 18*mm, 22*mm, 25*mm, 50*mm, 14*mm, 10*mm, 16*mm, 25*mm]
+    t = Table(table_data, colWidths=col_widths, repeatRows=1)
     t.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#FFCC00")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.black),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("FONTSIZE", (0, 0), (-1, 0), 8),
+        ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+        ("FONTSIZE", (0, 1), (-1, -1), 7),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F9F9F9")]),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
     ]))
     elements.append(t)
     doc.build(elements)
@@ -1003,10 +1043,6 @@ def export_orders_pdf():
     return send_file(buffer, as_attachment=True, download_name="orders.pdf",
                      mimetype="application/pdf")
 
-
-# ─────────────────────────────────────────────
-# TEAM MANAGEMENT (Supervisor)
-# ─────────────────────────────────────────────
 @app.route("/team")
 def view_team():
     if session.get("system_role") != "supervisor":
@@ -1027,7 +1063,6 @@ def view_team():
     """, (uid,))
     team = cursor.fetchall()
 
-    # Delegated teams (read-only)
     cursor.execute("""
         SELECT sd.id AS delegation_id, u.full_name AS supervisor_name,
                tm.id, tm.full_name, tm.employee_number, jr.name AS role_name,
@@ -1045,7 +1080,6 @@ def view_team():
         ORDER BY u.full_name, tm.full_name
     """, (uid,))
     delegated_rows = cursor.fetchall()
-    # Group by supervisor
     from collections import defaultdict
     delegated = defaultdict(list)
     for row in delegated_rows:
@@ -1055,7 +1089,6 @@ def view_team():
     cursor.execute("SELECT id, name FROM job_roles ORDER BY name")
     job_roles = cursor.fetchall()
     return render_template("team.html", team=team, job_roles=job_roles, delegated=delegated)
-
 
 @app.route("/team/add", methods=["GET", "POST"])
 def add_team_member():
@@ -1074,13 +1107,20 @@ def add_team_member():
         db.commit()
         team_member_id = cursor.lastrowid
 
-        for size_type in [("shirt_size", "SHIRT"), ("pants_size", "PANTS"), ("shoe_size", "SHOES")]:
-            val = request.form.get(size_type[0])
+        SIZE_GROUPS = {
+            "shirt_size": ["SHIRT","JACKET","SWEATSHIRT","VEST"],
+            "pants_size": ["PANTS","TROUSER","SHORTS"],
+            "shoe_size":  ["SHOES"],
+        }
+        for field, types in SIZE_GROUPS.items():
+            val = request.form.get(field)
             if val:
-                cursor.execute("""
-                    INSERT INTO worker_sizes (team_member_id, product_type, size)
-                    VALUES (%s, %s, %s)
-                """, (team_member_id, size_type[1], val))
+                for pt in types:
+                    cursor.execute("""
+                        INSERT INTO worker_sizes (team_member_id, product_type, size)
+                        VALUES (%s, %s, %s)
+                        ON DUPLICATE KEY UPDATE size=%s
+                    """, (team_member_id, pt, val, val))
         db.commit()
         flash("Team member added.", "success")
         return redirect(url_for("view_team"))
@@ -1088,7 +1128,6 @@ def add_team_member():
     cursor.execute("SELECT id, name FROM job_roles")
     roles = cursor.fetchall()
     return render_template("add_team_member.html", roles=roles)
-
 
 @app.route("/team/<int:member_id>/edit", methods=["POST"])
 def edit_team_member(member_id):
@@ -1104,22 +1143,26 @@ def edit_team_member(member_id):
     if full_name:
         cursor.execute("UPDATE team_members SET full_name=%s, employee_number=%s WHERE id=%s",
                        (full_name, employee_number or None, member_id))
-    # Update sizes
-    for field, product_type in [("shirt_size","SHIRT"), ("pants_size","PANTS"), ("shoe_size","SHOES")]:
+    SIZE_GROUPS = {
+        "shirt_size": ["SHIRT","JACKET","SWEATSHIRT","VEST"],
+        "pants_size": ["PANTS","TROUSER","SHORTS"],
+        "shoe_size":  ["SHOES"],
+    }
+    for field, types in SIZE_GROUPS.items():
         val = request.form.get(field, "").strip()
-        if val:
-            cursor.execute("""
-                INSERT INTO worker_sizes (team_member_id, product_type, size)
-                VALUES (%s, %s, %s)
-                ON DUPLICATE KEY UPDATE size=%s
-            """, (member_id, product_type, val, val))
-        else:
-            cursor.execute("DELETE FROM worker_sizes WHERE team_member_id=%s AND product_type=%s",
-                           (member_id, product_type))
+        for pt in types:
+            if val:
+                cursor.execute("""
+                    INSERT INTO worker_sizes (team_member_id, product_type, size)
+                    VALUES (%s, %s, %s)
+                    ON DUPLICATE KEY UPDATE size=%s
+                """, (member_id, pt, val, val))
+            else:
+                cursor.execute("DELETE FROM worker_sizes WHERE team_member_id=%s AND product_type=%s",
+                               (member_id, pt))
     db.commit()
     flash("Member updated.", "success")
     return redirect(url_for("view_team"))
-
 
 @app.route("/delete_team_member/<int:member_id>", methods=["POST"])
 def delete_team_member(member_id):
@@ -1131,7 +1174,6 @@ def delete_team_member(member_id):
     db.commit()
     flash("Team member removed.", "success")
     return redirect(url_for("view_team"))
-
 
 @app.route("/team/<int:member_id>/sizes", methods=["GET", "POST"])
 def manage_worker_sizes(member_id):
@@ -1152,7 +1194,6 @@ def manage_worker_sizes(member_id):
     sizes = cursor.fetchall()
     return render_template("worker_sizes.html", sizes=sizes, member_id=member_id)
 
-
 @app.route("/my-team")
 def my_team():
     if session.get("system_role") != "supervisor":
@@ -1167,10 +1208,6 @@ def my_team():
     workers = cursor.fetchall()
     return render_template("my_team.html", workers=workers)
 
-
-# ─────────────────────────────────────────────
-# SUPERVISOR DELEGATION
-# ─────────────────────────────────────────────
 @app.route("/supervisor/delegation", methods=["GET", "POST"])
 def supervisor_delegation():
     if session.get("system_role") != "supervisor":
@@ -1211,14 +1248,12 @@ def supervisor_delegation():
         db.commit()
         return redirect(url_for("supervisor_delegation"))
 
-    # Supervisors I can delegate TO
     cursor.execute("""
         SELECT id, full_name FROM users
         WHERE system_role = 'supervisor' AND id != %s
     """, (uid,))
     supervisors = cursor.fetchall()
 
-    # My outgoing delegations
     cursor.execute("""
         SELECT sd.*, u.full_name AS delegate_name
         FROM supervisor_delegations sd
@@ -1227,7 +1262,6 @@ def supervisor_delegation():
     """, (uid,))
     delegations = cursor.fetchall()
 
-    # Incoming delegations — teams I'm currently covering
     cursor.execute("""
         SELECT sd.id, sd.start_date, sd.end_date,
                u.full_name AS owner_name, u.id AS owner_id
@@ -1255,10 +1289,6 @@ def supervisor_delegation():
                            incoming_delegations=incoming_delegations,
                            now_date=date.today())
 
-
-# ─────────────────────────────────────────────
-# SUPERVISOR DASHBOARD
-# ─────────────────────────────────────────────
 @app.route("/dashboard")
 def supervisor_dashboard():
     if session.get("system_role") != "supervisor":
@@ -1280,7 +1310,6 @@ def supervisor_dashboard():
     budget = float(budget_row["monthly_budget"]) if budget_row and budget_row["monthly_budget"] else None
     used = get_supervisor_month_usage(uid) if budget else 0
 
-    # Team uniforms
     cursor.execute("""
         SELECT uu.id, uu.status, uu.issued_at, uu.returned_at,
                p.name AS product_name, ps.size,
@@ -1295,7 +1324,6 @@ def supervisor_dashboard():
     """, (uid,))
     recent_uniforms = cursor.fetchall()
 
-    # Recent orders
     cursor.execute("""
         SELECT oc.id, oc.status, oc.created_at, oc.total_price,
                tm.full_name AS worker_name
@@ -1306,7 +1334,6 @@ def supervisor_dashboard():
     """, (uid,))
     recent_orders = cursor.fetchall()
 
-    # Low stock items relevant to team
     cursor.execute("""
         SELECT p.name, ps.size, ps.stock
         FROM product_sizes ps
@@ -1323,10 +1350,6 @@ def supervisor_dashboard():
                            recent_orders=recent_orders,
                            low_stock=low_stock)
 
-
-# ─────────────────────────────────────────────
-# PRODUCTS (Admin)
-# ─────────────────────────────────────────────
 @app.route("/admin/products")
 def admin_products():
     if session.get("system_role") != "admin":
@@ -1339,7 +1362,6 @@ def admin_products():
         sc.execute("SELECT id, size, stock FROM product_sizes WHERE product_id=%s", (p["id"],))
         p["sizes"] = sc.fetchall()
     return render_template("admin_products.html", products=products)
-
 
 @app.route("/add-product", methods=["GET", "POST"])
 def add_product():
@@ -1356,7 +1378,6 @@ def add_product():
         max_quantity = request.form.get("max_quantity", "").strip() or None
         job_role_ids = request.form.getlist("job_role_ids")
 
-        # Duplicate checks
         cursor.execute("SELECT id FROM products WHERE name = %s", (name,))
         if cursor.fetchone():
             flash("A product with this name already exists.", "error")
@@ -1401,12 +1422,11 @@ def add_product():
 
         db.commit()
         flash("Product added successfully.", "success")
-        return redirect(url_for("admin_products"))
+        return redirect(url_for("shop"))
 
     cursor.execute("SELECT id, name FROM job_roles ORDER BY name")
     job_roles = cursor.fetchall()
     return render_template("add_product.html", job_roles=job_roles)
-
 
 @app.route("/admin/products/edit/<int:product_id>", methods=["GET", "POST"])
 def edit_product(product_id):
@@ -1420,6 +1440,7 @@ def edit_product(product_id):
 
     if request.method == "POST":
         name = request.form["name"]
+        article_number = request.form.get("article_number", "").strip() or product["article_number"]
         description = request.form["description"]
         price = request.form["price"].strip() or None
         max_quantity = request.form["max_quantity"].strip() or None
@@ -1431,30 +1452,40 @@ def edit_product(product_id):
             image_path = filename
 
         gender = request.form.get("gender") or None
+        product_type = request.form.get("type") or None
 
         cursor.execute("""
-                    UPDATE products SET name=%s, description=%s, price=%s, max_quantity=%s, image=%s, gender=%s
+                    UPDATE products SET article_number=%s, name=%s, description=%s, price=%s, max_quantity=%s, image=%s, gender=%s, type=%s
                     WHERE id=%s
-                """, (name, description, price, max_quantity, image_path, gender, product_id))
+                """, (article_number, name, description, price, max_quantity, image_path, gender, product_type, product_id))
+
+        job_role_ids = request.form.getlist("job_role_ids")
+        cursor.execute("DELETE FROM product_job_roles WHERE product_id=%s", (product_id,))
+        for role_id in job_role_ids:
+            cursor.execute("INSERT INTO product_job_roles (product_id, job_role_id) VALUES (%s, %s)", (product_id, role_id))
+
         db.commit()
         flash("Product updated.", "success")
         return redirect(url_for("shop"))
 
-    # Sizes
     cursor.execute("SELECT id, size, stock FROM product_sizes WHERE product_id=%s", (product_id,))
     sizes = cursor.fetchall()
-    return render_template("edit_product.html", product=product, sizes=sizes)
+    cursor.execute("SELECT job_role_id FROM product_job_roles WHERE product_id=%s", (product_id,))
+    assigned_role_ids = {row["job_role_id"] for row in cursor.fetchall()}
+    cursor.execute("SELECT id, name FROM job_roles ORDER BY name")
+    job_roles = cursor.fetchall()
+    return render_template("edit_product.html", product=product, sizes=sizes,
+                           job_roles=job_roles, assigned_role_ids=assigned_role_ids)
 
 @app.route("/stock")
 def view_stock():
-    return redirect(url_for("admin_products"))
+    return redirect(url_for("shop"))
 
 @app.route("/delete-product/<int:product_id>", methods=["POST"])
 def delete_product(product_id):
     if session.get("system_role") != "admin":
         return redirect(url_for("shop"))
     cursor = get_cursor()
-    # Delete order_items referencing this product's sizes first
     cursor.execute("""
         DELETE oi FROM order_items oi
         JOIN product_sizes ps ON oi.product_size_id = ps.id
@@ -1465,8 +1496,7 @@ def delete_product(product_id):
     cursor.execute("DELETE FROM products WHERE id=%s", (product_id,))
     db.commit()
     flash("Product removed.", "success")
-    return redirect(url_for("admin_products"))
-
+    return redirect(url_for("shop"))
 
 @app.route("/admin/products/<int:product_id>/sizes", methods=["GET", "POST"])
 def manage_product_sizes(product_id):
@@ -1491,7 +1521,6 @@ def manage_product_sizes(product_id):
     product = cursor.fetchone()
     return render_template("manage_product_sizes.html", sizes=sizes, product_id=product_id, product=product)
 
-
 @app.route("/update-stock/<int:product_id>", methods=["POST"])
 def update_stock(product_id):
     if session.get("system_role") != "admin":
@@ -1508,7 +1537,6 @@ def update_stock(product_id):
     flash("Stock updated.", "success")
     return redirect(url_for("shop"))
 
-
 @app.route("/add-stock/<int:size_id>", methods=["POST"])
 def add_stock(size_id):
     if session.get("system_role") != "admin":
@@ -1518,8 +1546,7 @@ def add_stock(size_id):
     cursor.execute("UPDATE product_sizes SET stock = stock + %s WHERE id=%s", (amount, size_id))
     db.commit()
     flash("Stock updated.", "success")
-    return redirect(url_for("admin_products"))
-
+    return redirect(url_for("shop"))
 
 @app.route("/get-sizes/<int:product_id>")
 def get_sizes(product_id):
@@ -1527,67 +1554,93 @@ def get_sizes(product_id):
     cursor.execute("SELECT id, size, stock FROM product_sizes WHERE product_id=%s", (product_id,))
     return jsonify(cursor.fetchall())
 
-
-# ─────────────────────────────────────────────
-# UNIFORM RETURNS
-# ─────────────────────────────────────────────
 @app.route("/my-uniforms")
 def my_uniforms():
     if "user_id" not in session:
         return redirect(url_for("login"))
     cursor = get_cursor()
-    # Show uniforms for all team members under this supervisor
     if session["system_role"] == "supervisor":
         cursor.execute("""
-            SELECT uu.id, uu.status, uu.issued_at, uu.returned_at,
+            SELECT oi.id, oi.returned, oi.return_reason, oi.return_note, oi.returned_at,
+                   oc.created_at AS issued_at,
                    p.name AS product_name, ps.size,
                    tm.full_name AS worker_name
-            FROM user_uniforms uu
-            JOIN product_sizes ps ON uu.product_size_id = ps.id
+            FROM order_items oi
+            JOIN order_carts oc ON oi.cart_id = oc.id
+            JOIN product_sizes ps ON oi.product_size_id = ps.id
             JOIN products p ON ps.product_id = p.id
-            JOIN team_members tm ON uu.team_member_id = tm.id
-            WHERE tm.supervisor_id = %s
-            ORDER BY uu.issued_at DESC
+            LEFT JOIN team_members tm ON oi.team_member_id = tm.id
+            WHERE oc.supervisor_id = %s AND oc.status = 'completed'
+            ORDER BY oc.created_at DESC
         """, (session["user_id"],))
     else:
         cursor.execute("""
-            SELECT uu.id, uu.status, uu.issued_at, uu.returned_at,
+            SELECT oi.id, oi.returned, oi.return_reason, oi.return_note, oi.returned_at,
+                   oc.created_at AS issued_at,
                    p.name AS product_name, ps.size
-            FROM user_uniforms uu
-            JOIN product_sizes ps ON uu.product_size_id = ps.id
+            FROM order_items oi
+            JOIN order_carts oc ON oi.cart_id = oc.id
+            JOIN product_sizes ps ON oi.product_size_id = ps.id
             JOIN products p ON ps.product_id = p.id
-            WHERE uu.user_id = %s
-            ORDER BY uu.issued_at DESC
+            WHERE oc.supervisor_id = %s AND oc.status = 'completed'
+            ORDER BY oc.created_at DESC
         """, (session["user_id"],))
     uniforms = cursor.fetchall()
     return render_template("my_uniforms.html", uniforms=uniforms)
 
-
-@app.route("/return-uniform/<int:uniform_id>", methods=["POST"])
-def return_uniform(uniform_id):
+@app.route("/return-uniform/<int:item_id>", methods=["POST"])
+def return_uniform(item_id):
     if "user_id" not in session:
         return redirect(url_for("login"))
-    reason = request.form.get("reason", "worn_out")  # worn_out | damaged | lost
+    reason = request.form.get("reason", "worn_out")
+    note = request.form.get("note", "").strip() or None
     cursor = get_cursor()
     cursor.execute("""
-        UPDATE user_uniforms SET status=%s, returned_at=NOW()
+        UPDATE order_items SET returned=1, return_reason=%s, return_note=%s, returned_at=NOW()
         WHERE id=%s
-    """, (f"returned_{reason}", uniform_id))
-    # Restore stock if not lost
-    if reason != "lost":
+    """, (reason, note, item_id))
+    if reason not in ("lost", "stolen"):
         cursor.execute("""
             UPDATE product_sizes ps
-            JOIN user_uniforms uu ON uu.product_size_id = ps.id
+            JOIN order_items oi ON oi.product_size_id = ps.id
             SET ps.stock = ps.stock + 1
-            WHERE uu.id = %s
-        """, (uniform_id,))
-    if reason == "lost":
-        flash("⚠️ Glöm inte att polisanmäla plagg som försvunnit innan ersättning begärs!", "warning")
+            WHERE oi.id = %s
+        """, (item_id,))
+    if reason == "stolen":
+        flash("stolen", "stolen")
+    elif reason == "lost":
+        flash("⚠️ Uniform marked as lost. Stock has not been restored.", "warning")
     else:
         flash("Uniform return recorded. Stock has been updated.", "success")
     db.commit()
     return redirect(url_for("my_uniforms"))
 
+@app.route("/return-uniform-worker/<int:member_id>/<int:item_id>", methods=["POST"])
+def return_uniform_worker(member_id, item_id):
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    reason = request.form.get("reason", "worn_out")
+    note = request.form.get("note", "").strip() or None
+    cursor = get_cursor()
+    cursor.execute("""
+        UPDATE order_items SET returned=1, return_reason=%s, return_note=%s, returned_at=NOW()
+        WHERE id=%s
+    """, (reason, note, item_id))
+    if reason not in ("lost", "stolen"):
+        cursor.execute("""
+            UPDATE product_sizes ps
+            JOIN order_items oi ON oi.product_size_id = ps.id
+            SET ps.stock = ps.stock + 1
+            WHERE oi.id = %s
+        """, (item_id,))
+    if reason == "stolen":
+        flash("stolen", "stolen")
+    elif reason == "lost":
+        flash("⚠️ Uniform marked as lost. Stock has not been restored.", "warning")
+    else:
+        flash("Uniform return recorded. Stock has been updated.", "success")
+    db.commit()
+    return redirect(url_for("worker_history", member_id=member_id))
 
 @app.route("/request-replacement/<int:uniform_id>", methods=["POST"])
 def request_replacement(uniform_id):
@@ -1599,10 +1652,6 @@ def request_replacement(uniform_id):
     db.commit()
     return redirect(url_for("my_uniforms"))
 
-
-# ─────────────────────────────────────────────
-# ADMIN — USERS
-# ─────────────────────────────────────────────
 @app.route("/admin/users")
 def admin_users():
     if session.get("system_role") != "admin":
@@ -1631,7 +1680,6 @@ def admin_users():
     sites = cursor.fetchall()
     return render_template("admin_users.html", users=users, job_roles=job_roles,
                            supervisors=supervisors, facilities=facilities, sites=sites)
-
 
 @app.route("/admin/create-user", methods=["POST"])
 def create_user():
@@ -1667,13 +1715,11 @@ def create_user():
         db.commit()
         new_user_id = cursor.lastrowid
 
-        # Link sites
         for site_id in site_ids:
             cursor.execute("INSERT IGNORE INTO user_sites (user_id, site_id) VALUES (%s, %s)",
                            (new_user_id, site_id))
         db.commit()
 
-        # Send welcome email
         send_welcome_email(email, full_name, system_role)
 
         flash(f"User '{full_name}' created successfully. A confirmation email has been sent.", "success")
@@ -1685,7 +1731,6 @@ def create_user():
             flash("Database error: " + str(e), "error")
 
     return redirect(url_for("admin_users"))
-
 
 @app.route("/admin/delete-user/<int:user_id>", methods=["POST"])
 def delete_user(user_id):
@@ -1705,8 +1750,6 @@ def delete_user(user_id):
         if cursor.fetchone()["cnt"] <= 1:
             flash("Cannot delete the last admin.", "error")
             return redirect(url_for("admin_users"))
-    # Delete related data first to avoid FK constraint errors
-    # If supervisor, remove their team members' data
     cursor.execute("SELECT id FROM team_members WHERE supervisor_id=%s", (user_id,))
     member_ids = [r["id"] for r in cursor.fetchall()]
     for mid in member_ids:
@@ -1715,14 +1758,12 @@ def delete_user(user_id):
         cursor.execute("DELETE FROM user_uniforms WHERE team_member_id=%s", (mid,))
     if member_ids:
         cursor.execute("DELETE FROM team_members WHERE supervisor_id=%s", (user_id,))
-    # Remove order carts owned by this user
     cursor.execute("DELETE FROM order_items WHERE cart_id IN (SELECT id FROM order_carts WHERE supervisor_id=%s)", (user_id,))
     cursor.execute("DELETE FROM order_carts WHERE supervisor_id=%s", (user_id,))
     cursor.execute("DELETE FROM users WHERE id=%s", (user_id,))
     db.commit()
     flash("User deleted.", "success")
     return redirect(url_for("admin_users"))
-
 
 @app.route("/admin/edit-user/<int:user_id>", methods=["POST"])
 def edit_user(user_id):
@@ -1751,7 +1792,6 @@ def edit_user(user_id):
     flash("User updated.", "success")
     return redirect(url_for("admin_users"))
 
-
 def admin_view_supervisor_team(supervisor_id):
     if session.get("system_role") != "admin":
         return redirect(url_for("shop"))
@@ -1770,10 +1810,6 @@ def admin_view_supervisor_team(supervisor_id):
     workers = cursor.fetchall()
     return render_template("admin_supervisor_team.html", supervisor=supervisor, workers=workers)
 
-
-# ─────────────────────────────────────────────
-# ADMIN — SITES & FACILITIES
-# ─────────────────────────────────────────────
 @app.route("/admin/sites", methods=["GET", "POST"])
 def admin_sites():
     if session.get("system_role") != "admin":
@@ -1797,7 +1833,6 @@ def admin_sites():
     cursor.execute("SELECT * FROM sites ORDER BY name")
     sites = cursor.fetchall()
     return render_template("admin_sites.html", sites=sites)
-
 
 @app.route("/admin/facilities", methods=["GET", "POST"])
 def admin_facilities():
@@ -1823,10 +1858,6 @@ def admin_facilities():
     facilities = cursor.fetchall()
     return render_template("admin_facilities.html", facilities=facilities)
 
-
-# ─────────────────────────────────────────────
-# ADMIN — JOB ROLES
-# ─────────────────────────────────────────────
 @app.route("/admin/job-roles", methods=["GET", "POST"])
 def admin_job_roles():
     if session.get("system_role") != "admin":
@@ -1841,7 +1872,6 @@ def admin_job_roles():
     roles = cursor.fetchall()
     return render_template("admin_job_roles.html", roles=roles)
 
-
 @app.route("/admin/job-roles/delete/<int:role_id>", methods=["POST"])
 def delete_job_role(role_id):
     if session.get("system_role") != "admin":
@@ -1855,10 +1885,6 @@ def delete_job_role(role_id):
         flash("Cannot delete role (it may be in use).", "error")
     return redirect(url_for("admin_job_roles"))
 
-
-# ─────────────────────────────────────────────
-# ADMIN — ANALYTICS & STOCK
-# ─────────────────────────────────────────────
 @app.route("/admin/analytics")
 def admin_analytics():
     if session.get("system_role") != "admin":
@@ -1903,7 +1929,6 @@ def admin_analytics():
                            size_distribution=size_distribution, low_stock=low_stock,
                            supervisor_ranking=supervisor_ranking)
 
-
 @app.route("/admin/reorder-engine")
 def admin_reorder_engine():
     if session.get("system_role") != "admin":
@@ -1928,7 +1953,6 @@ def admin_reorder_engine():
             suggestions.append({**product, "monthly_usage": monthly_usage, "suggested_reorder": suggested})
     return render_template("admin_reorder_engine.html", suggestions=suggestions)
 
-
 @app.route("/admin/stock-risk")
 def admin_stock_risk():
     if session.get("system_role") != "admin":
@@ -1941,7 +1965,6 @@ def admin_stock_risk():
         WHERE ps.stock <= 2 ORDER BY ps.stock ASC
     """)
     return render_template("admin_stock_risk.html", risk_items=cursor.fetchall())
-
 
 @app.route("/admin")
 def admin_dashboard():
@@ -1971,7 +1994,6 @@ def admin_dashboard():
                            product_count=product_count, orders_count=orders_count,
                            pending_orders=pending_orders, supervisor_count=supervisor_count)
 
-
 @app.route("/admin/stats")
 def admin_stats():
     if session.get("system_role") != "admin":
@@ -1988,7 +2010,6 @@ def admin_stats():
     supervisor_stats = cursor.fetchall()
     return render_template("admin_stats.html", status_stats=status_stats, supervisor_stats=supervisor_stats)
 
-
 @app.route("/admin/export-orders")
 def export_orders():
     if session.get("system_role") != "admin":
@@ -2003,10 +2024,6 @@ def export_orders():
     df.to_excel(file_path, index=False)
     return send_from_directory("static/reports", "orders_export.xlsx", as_attachment=True)
 
-
-# ─────────────────────────────────────────────
-# ADMIN — SIZE GUIDES
-# ─────────────────────────────────────────────
 @app.route("/admin/size-guides", methods=["GET", "POST"])
 def admin_size_guides():
     if session.get("system_role") != "admin":
@@ -2030,13 +2047,11 @@ def admin_size_guides():
     guides = cursor.fetchall()
     return render_template("admin_size_guides.html", guides=guides)
 
-
 @app.route("/size-guide")
 def size_guide():
     cursor = get_cursor()
     cursor.execute("SELECT * FROM size_guides ORDER BY created_at DESC")
     return render_template("size_guide.html", guides=cursor.fetchall())
-
 
 @app.route("/admin/size-analytics")
 def size_analytics():
@@ -2058,10 +2073,6 @@ def size_analytics():
     return render_template("size_analytics.html", distribution=distribution,
                            facility_distribution=facility_distribution)
 
-
-# ─────────────────────────────────────────────
-# NEWS
-# ─────────────────────────────────────────────
 @app.route("/news", methods=["GET", "POST"])
 def news():
     if "user_id" not in session:
@@ -2120,7 +2131,6 @@ def news():
 
     return render_template("news.html", posts=posts)
 
-
 @app.route("/news/comment/delete/<int:comment_id>", methods=["POST"])
 def delete_comment(comment_id):
     if session.get("system_role") != "admin":
@@ -2129,7 +2139,6 @@ def delete_comment(comment_id):
     cursor.execute("DELETE FROM news_comments WHERE id=%s", (comment_id,))
     db.commit()
     return jsonify({"ok": True})
-
 
 @app.route("/news/comment/<int:post_id>", methods=["POST"])
 def add_comment(post_id):
@@ -2181,7 +2190,6 @@ def edit_size_guide(guide_id):
         flash("Size guide updated.", "success")
     return redirect(url_for("admin_size_guides"))
 
-
 @app.route("/admin/size-guides/delete/<int:guide_id>", methods=["POST"])
 def delete_size_guide(guide_id):
     if session.get("system_role") != "admin":
@@ -2197,18 +2205,15 @@ def delete_news(post_id):
     if session.get("system_role") != "admin":
         return "Unauthorized", 403
     cursor = get_cursor()
-    # Delete comments and likes first
     cursor.execute("DELETE FROM news_comments WHERE post_id=%s", (post_id,))
     cursor.execute("DELETE FROM news_likes WHERE post_id=%s", (post_id,))
     cursor.execute("DELETE FROM news_reads WHERE post_id=%s", (post_id,))
     cursor.execute("DELETE FROM news_posts WHERE id=%s", (post_id,))
     db.commit()
-    # Stay on whichever page triggered the delete
     ref = request.referrer or ''
     if 'admin/news' in ref:
         return redirect(url_for("admin_news"))
     return redirect(url_for("news"))
-
 
 @app.route("/news/edit/<int:post_id>", methods=["POST"])
 def edit_news(post_id):
@@ -2248,7 +2253,6 @@ def edit_news(post_id):
     flash("Post updated.", "success")
     return redirect(url_for("admin_news"))
 
-
 @app.route("/news/read/<int:post_id>", methods=["GET","POST"])
 def mark_news_read(post_id):
     cursor = get_cursor()
@@ -2259,10 +2263,6 @@ def mark_news_read(post_id):
         return jsonify({"ok": True})
     return redirect(url_for("news"))
 
-
-# ─────────────────────────────────────────────
-# ADMIN — NEWS
-# ─────────────────────────────────────────────
 @app.route("/admin/news", methods=["GET", "POST"])
 def admin_news():
     if session.get("system_role") != "admin":
@@ -2290,24 +2290,17 @@ def admin_news():
     posts = cursor.fetchall()
     return render_template("admin_news.html", posts=posts)
 
-
-# ─────────────────────────────────────────────
-# MISC / STATIC
-# ─────────────────────────────────────────────
 @app.route("/measurements")
 def measurements():
     return render_template("placeholder.html", title="Size Guide", message="Under development...")
-
 
 @app.route("/my-uniforms-legacy")
 def my_uniforms_legacy():
     return redirect(url_for("my_uniforms"))
 
-
 @app.route('/static/<path:filename>')
 def custom_static(filename):
     return send_from_directory('static', filename)
-
 
 @app.after_request
 def add_cache_headers(response):
@@ -2332,17 +2325,12 @@ def currency_api():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 @app.route("/products")
 def get_products():
     cursor = get_cursor()
     cursor.execute("SELECT * FROM products")
     return jsonify(cursor.fetchall())
 
-
-# ─────────────────────────────────────────────
-# BULK ORDER
-# ─────────────────────────────────────────────
 @app.route("/bulk-order", methods=["GET", "POST"])
 def bulk_order():
     if session.get("system_role") not in ("supervisor", "admin"):
@@ -2350,14 +2338,12 @@ def bulk_order():
     cursor = get_cursor()
     uid = session["user_id"]
 
-    # Get team members
     if session["system_role"] == "supervisor":
         cursor.execute("SELECT id, full_name, employee_number FROM team_members WHERE supervisor_id=%s ORDER BY full_name", (uid,))
     else:
         cursor.execute("SELECT id, full_name, employee_number FROM team_members ORDER BY full_name")
     team = cursor.fetchall()
 
-    # Get products with sizes
     cursor.execute("SELECT * FROM products ORDER BY name")
     products = cursor.fetchall()
     for p in products:
@@ -2365,7 +2351,6 @@ def bulk_order():
         p["sizes"] = cursor.fetchall()
 
     if request.method == "POST":
-        # Format: member_id[], product_size_id[], quantity[]
         member_ids = request.form.getlist("member_id")
         size_ids = request.form.getlist("product_size_id")
         quantities = request.form.getlist("quantity")
@@ -2374,7 +2359,6 @@ def bulk_order():
             flash("Please select at least one worker and one item.", "error")
             return redirect(url_for("bulk_order"))
 
-        # Create one cart
         cursor.execute("INSERT INTO order_carts (supervisor_id, status) VALUES (%s, 'created')", (uid,))
         db.commit()
         cart_id = cursor.lastrowid
@@ -2392,7 +2376,6 @@ def bulk_order():
                     VALUES (%s, %s, %s, %s, %s)
                 """, (cart_id, size_id, qty, price, member_id))
 
-        # Update cart total
         cursor.execute("""
             UPDATE order_carts SET total_price=(
                 SELECT COALESCE(SUM(quantity*price_at_time),0) FROM order_items WHERE cart_id=%s
@@ -2404,10 +2387,6 @@ def bulk_order():
 
     return render_template("bulk_order.html", team=team, products=products)
 
-
-# ─────────────────────────────────────────────
-# WORKER UNIFORM HISTORY
-# ─────────────────────────────────────────────
 @app.route("/worker/<int:member_id>/history")
 def worker_history(member_id):
     if session.get("system_role") not in ("supervisor", "admin"):
@@ -2420,7 +2399,8 @@ def worker_history(member_id):
         return redirect(url_for("view_team"))
 
     cursor.execute("""
-        SELECT oc.id AS order_id, oc.created_at AS order_date, oc.status,
+        SELECT oi.id AS item_id, oi.returned, oi.return_reason,
+               oc.id AS order_id, oc.created_at AS order_date, oc.status,
                p.name AS product_name, ps.size, oi.quantity
         FROM order_items oi
         JOIN order_carts oc ON oi.cart_id = oc.id
@@ -2431,12 +2411,49 @@ def worker_history(member_id):
     """, (member_id,))
     uniforms = cursor.fetchall()
 
-    return render_template("worker_history.html", member=member, uniforms=uniforms)
+    return render_template("worker_history.html", member=member, uniforms=uniforms, member_id=member_id)
 
+@app.route("/admin/returns")
+def admin_returns():
+    if session.get("system_role") != "admin":
+        return redirect(url_for("shop"))
+    cursor = get_cursor()
+    status_filter = request.args.get("status")
 
-# ─────────────────────────────────────────────
-# PROFILE
-# ─────────────────────────────────────────────
+    query = """
+        SELECT oi.id AS item_id, oi.return_reason, oi.return_note, oi.returned_at,
+               oc.id AS order_id,
+               p.name AS product_name, ps.size,
+               tm.full_name AS worker_name,
+               u.full_name AS supervisor_name
+        FROM order_items oi
+        JOIN order_carts oc ON oi.cart_id = oc.id
+        JOIN product_sizes ps ON oi.product_size_id = ps.id
+        JOIN products p ON ps.product_id = p.id
+        LEFT JOIN team_members tm ON oi.team_member_id = tm.id
+        LEFT JOIN users u ON oc.supervisor_id = u.id
+        WHERE oi.returned = 1
+    """
+    values = []
+    if status_filter:
+        query += " AND oi.return_reason = %s"
+        values.append(status_filter)
+    query += " ORDER BY oi.returned_at DESC"
+    cursor.execute(query, values)
+    returns = cursor.fetchall()
+
+    cursor.execute("""
+        SELECT return_reason, COUNT(*) as cnt
+        FROM order_items WHERE returned = 1
+        GROUP BY return_reason
+    """)
+    counts = {row["return_reason"]: row["cnt"] for row in cursor.fetchall()}
+    cursor.execute("SELECT COUNT(*) as total FROM order_items WHERE returned = 1")
+    total = cursor.fetchone()["total"]
+
+    return render_template("admin_returns.html", returns=returns, counts=counts,
+                           total=total, status_filter=status_filter)
+
 @app.route("/profile", methods=["GET", "POST"])
 def profile():
     if "user_id" not in session:
@@ -2459,7 +2476,6 @@ def profile():
                 return redirect(url_for("profile"))
             cursor.execute("UPDATE users SET password=%s WHERE id=%s", (new_password, uid))
 
-        # Handle photo upload
         photo = request.files.get("photo")
         photo_path = None
         if photo and photo.filename:
@@ -2478,10 +2494,6 @@ def profile():
     user = cursor.fetchone()
     return render_template("profile.html", user=user)
 
-
-# ─────────────────────────────────────────────
-# PASSWORD RESET
-# ─────────────────────────────────────────────
 @app.route("/forgot-password", methods=["GET", "POST"])
 def forgot_password():
     if request.method == "POST":
@@ -2498,11 +2510,9 @@ def forgot_password():
             site_url = os.environ.get("SITE_URL", "http://localhost:5000")
             reset_link = f"{site_url}/reset-password/{token}"
             send_reset_email(email, user["full_name"], reset_link)
-        # Always show same message to prevent email enumeration
         flash("If that email exists, a reset link has been sent.", "success")
         return redirect(url_for("login"))
     return render_template("forgot_password.html")
-
 
 @app.route("/reset-password/<token>", methods=["GET", "POST"])
 def reset_password(token):
@@ -2523,7 +2533,6 @@ def reset_password(token):
 
     return render_template("reset_password.html", token=token)
 
-
 def send_reset_email(to_email, full_name, reset_link):
     import ssl, threading
     smtp_host = os.environ.get("SMTP_HOST")
@@ -2532,7 +2541,6 @@ def send_reset_email(to_email, full_name, reset_link):
     smtp_port = int(os.environ.get("SMTP_PORT", 465))
     from_addr = os.environ.get("SMTP_FROM", smtp_user)
     if not smtp_host or not smtp_user:
-        # No SMTP configured — print link to console for local dev
         print(f"[PASSWORD RESET] Link for {to_email}: {reset_link}")
         return
     subject = "Reset your DHL Corporate Wear password"
@@ -2566,10 +2574,6 @@ DHL Corporate Wear Team"""
             print(f"[PASSWORD RESET] Fallback link for {to_email}: {reset_link}")
     threading.Thread(target=_send, daemon=True).start()
 
-
-# ─────────────────────────────────────────────
-# PIN NEWS
-# ─────────────────────────────────────────────
 @app.route("/news/pin/<int:post_id>", methods=["POST"])
 def pin_news(post_id):
     if session.get("system_role") != "admin":
@@ -2582,9 +2586,6 @@ def pin_news(post_id):
         cursor.execute("UPDATE news_posts SET pinned=%s WHERE id=%s", (new_val, post_id))
         db.commit()
     return redirect(url_for("news"))
-
-
-
 
 if __name__ == "__main__":
     app.run(debug=True)

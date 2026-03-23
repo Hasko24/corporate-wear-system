@@ -33,7 +33,7 @@
             <option value="created"   {% if current_filters.get('status')=='created'   %}selected{% endif %}>Created</option>
             <option value="submitted" {% if current_filters.get('status')=='submitted' %}selected{% endif %}>Submitted</option>
             <option value="packed"    {% if current_filters.get('status')=='packed'    %}selected{% endif %}>Packed</option>
-            <option value="completed" {% if current_filters.get('status')=='completed' %}selected{% endif %}>Completed</option>
+            <option value="completed" {% if current_filters.get('status')=='completed' %}selected{% endif %}>Sent</option>
             <option value="rejected"  {% if current_filters.get('status')=='rejected'  %}selected{% endif %}>Rejected</option>
         </select>
     </div>
@@ -48,21 +48,31 @@
         </select>
     </div>
     {% endif %}
+    <div class="filter-group">
+        <label>Sent Orders</label>
+        <select name="hide_sent">
+            <option value="1" {% if current_filters.get('hide_sent','1') == '1' %}selected{% endif %}>Hide Sent</option>
+            <option value="0" {% if current_filters.get('hide_sent') == '0' %}selected{% endif %}>Show All</option>
+        </select>
+    </div>
     <button type="submit" class="btn btn-primary">Filter</button>
     <a href="{{ url_for('view_orders') }}" class="btn btn-ghost">Clear</a>
 </form>
+
+{% set sort = current_filters.get('sort', 'date') %}
+{% set dir = current_filters.get('dir', 'desc') %}
 
 <div class="data-table-wrap">
     <table>
         <thead>
             <tr>
-                <th>#</th>
-                <th>Order For</th>
-                <th>Created By</th>
+                <th><a href="?{% for k,v in current_filters.items() %}{% if k not in ('sort','dir') %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=id&dir={{ 'asc' if sort=='id' and dir=='desc' else 'desc' }}" style="color:inherit;text-decoration:none;"># {% if sort=='id' %}{{ '▲' if dir=='asc' else '▼' }}{% endif %}</a></th>
+                <th><a href="?{% for k,v in current_filters.items() %}{% if k not in ('sort','dir') %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=worker&dir={{ 'asc' if sort=='worker' and dir=='desc' else 'desc' }}" style="color:inherit;text-decoration:none;">Order For {% if sort=='worker' %}{{ '▲' if dir=='asc' else '▼' }}{% endif %}</a></th>
+                <th><a href="?{% for k,v in current_filters.items() %}{% if k not in ('sort','dir') %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=supervisor&dir={{ 'asc' if sort=='supervisor' and dir=='desc' else 'desc' }}" style="color:inherit;text-decoration:none;">Created By {% if sort=='supervisor' %}{{ '▲' if dir=='asc' else '▼' }}{% endif %}</a></th>
                 <th>Items</th>
-                <th>Total</th>
-                <th>Date</th>
-                <th>Status</th>
+                <th><a href="?{% for k,v in current_filters.items() %}{% if k not in ('sort','dir') %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=total&dir={{ 'asc' if sort=='total' and dir=='desc' else 'desc' }}" style="color:inherit;text-decoration:none;">Total {% if sort=='total' %}{{ '▲' if dir=='asc' else '▼' }}{% endif %}</a></th>
+                <th><a href="?{% for k,v in current_filters.items() %}{% if k not in ('sort','dir') %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=date&dir={{ 'asc' if sort=='date' and dir=='desc' else 'desc' }}" style="color:inherit;text-decoration:none;">Date {% if sort=='date' %}{{ '▲' if dir=='asc' else '▼' }}{% endif %}</a></th>
+                <th><a href="?{% for k,v in current_filters.items() %}{% if k not in ('sort','dir') %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=status&dir={{ 'asc' if sort=='status' and dir=='desc' else 'desc' }}" style="color:inherit;text-decoration:none;">Status {% if sort=='status' %}{{ '▲' if dir=='asc' else '▼' }}{% endif %}</a></th>
                 <th></th>
             </tr>
         </thead>
@@ -80,13 +90,11 @@
                 <td>{{ order.item_count }}</td>
                 <td class="text-bold">{{ "%.2f"|format(order.total_price) if order.total_price else '—' }} SEK</td>
                 <td class="text-muted">{{ order.created_at.strftime('%d %b %Y') if order.created_at else '—' }}</td>
-                <td><span class="status-pill status-{{ order.status }}">{{ order.status }}</span></td>
+                <td><span class="status-pill status-{{ order.status }}">{{ 'Sent' if order.status == 'completed' else order.status|title }}</span></td>
                 <td style="display:flex;gap:6px;align-items:center;">
                     <a href="{{ url_for('order_detail', cart_id=order.id) }}" class="btn btn-ghost btn-sm">View →</a>
                     {% if order.status in ('created', 'submitted') and (session.system_role == 'admin' or session.system_role == 'supervisor') %}
-                    <form method="POST" action="{{ url_for('cancel_order', cart_id=order.id) }}" style="margin:0;">
-                        <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="showConfirm(this.closest('form'),'Cancel this order?','The order will be cancelled.','Cancel Order');return false;">Cancel</button>
-                    </form>
+                    <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="cancelOrder(event, {{ order.id }}, this)">Cancel</button>
                     {% endif %}
                 </td>
             </tr>
@@ -96,5 +104,27 @@
         </tbody>
     </table>
 </div>
+
+<script>
+function cancelOrder(e, orderId, btn) {
+    e.preventDefault();
+    const modal = document.getElementById('confirmModal');
+    document.getElementById('confirmModalMsg').textContent = 'Cancel this order?';
+    document.getElementById('confirmModalSub').textContent = 'It will be permanently deleted.';
+    document.getElementById('confirmModalOk').textContent = 'Cancel Order';
+    modal.style.display = 'flex';
+    const okBtn = document.getElementById('confirmModalOk');
+    const newOk = okBtn.cloneNode(true);
+    okBtn.parentNode.replaceChild(newOk, okBtn);
+    newOk.addEventListener('click', () => {
+        modal.style.display = 'none';
+        fetch('/cancel_order/' + orderId, { method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'} })
+            .then(() => {
+                const row = btn.closest('tr');
+                if (row) { row.style.transition = 'opacity .2s'; row.style.opacity = '0'; setTimeout(() => row.remove(), 200); }
+            });
+    });
+}
+</script>
 
 {% endblock %}

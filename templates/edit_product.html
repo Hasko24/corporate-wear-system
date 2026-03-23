@@ -23,7 +23,7 @@
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
                 <div class="form-group">
                     <label>Article Number</label>
-                    <input type="text" value="{{ product.article_number }}" disabled style="background:#f5f5f5;color:var(--text-3);">
+                    <input type="text" name="article_number" value="{{ product.article_number }}" required>
                 </div>
                 <div class="form-group">
                     <label>Product Name</label>
@@ -53,6 +53,25 @@
                     </select>
                 </div>
             </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;">
+                <div class="form-group">
+                    <label>Clothing Type</label>
+                    {% set known_types = ['SHIRT','PANTS','JACKET','SWEATSHIRT','VEST','TROUSER','SHORTS','SHOES','HAT','GLOVES','BELT','SCARF','BALACLAVA','ACCESSORIES'] %}
+                    {% set current_type = (product.type or '')|upper %}
+                    <select id="ep_type_select" onchange="epTypeChange()">
+                        <option value="">— Select type —</option>
+                        {% for t in known_types %}
+                        <option value="{{ t }}" {% if current_type == t %}selected{% endif %}>{{ t|title }}</option>
+                        {% endfor %}
+                        <option value="CUSTOM" {% if current_type and current_type not in known_types %}selected{% endif %}>Custom type…</option>
+                    </select>
+                    <input type="hidden" name="type" id="ep_type_hidden" value="{{ current_type }}">
+                </div>
+                <div class="form-group" id="ep_custom_wrap" style="display:{% if current_type and current_type not in known_types %}block{% else %}none{% endif %};">
+                    <label>Custom Type</label>
+                    <input type="text" id="ep_custom_input" value="{{ current_type if current_type and current_type not in known_types else '' }}" placeholder="e.g. RAINCOAT" oninput="document.getElementById('ep_type_hidden').value=this.value.toUpperCase().trim()">
+                </div>
+            </div>
         </div>
 
         <!-- Sizes (view + manage link) -->
@@ -73,6 +92,33 @@
             {% else %}
             <p style="color:var(--text-3);font-size:0.88em;margin-top:4px;">No sizes added yet. <a href="{{ url_for('manage_product_sizes', product_id=product.id) }}">Add sizes →</a></p>
             {% endif %}
+        </div>
+
+        <!-- Job Roles -->
+        <div class="surface">
+            <div class="section-label">Job Roles</div>
+            <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;">
+                <select id="role_select" style="flex:1;">
+                    <option value="">— Select role to add —</option>
+                    {% for role in job_roles %}
+                    <option value="{{ role.id }}" data-name="{{ role.name }}">{{ role.name }}</option>
+                    {% endfor %}
+                </select>
+                <button type="button" id="add_role_btn" class="btn btn-ghost">Add</button>
+                <button type="button" id="add_all_roles_btn" class="btn btn-ghost">All</button>
+            </div>
+            <div id="selected_roles" style="display:flex;flex-direction:column;gap:6px;">
+                {% for role in job_roles %}
+                {% if role.id in assigned_role_ids %}
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#f8f8f8;border-radius:var(--r-md);border:1px solid var(--border);">
+                    <span style="font-size:0.88em;font-weight:600;">{{ role.name }}</span>
+                    <input type="hidden" name="job_role_ids" value="{{ role.id }}">
+                    <button type="button" onclick="this.closest('div').remove()" style="background:none;border:none;color:var(--red);cursor:pointer;font-weight:700;padding:0 4px;">x</button>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+            <p style="color:var(--text-3);font-size:0.82em;margin-top:8px;">Leave empty to show to all roles.</p>
         </div>
 
     </div>
@@ -113,6 +159,18 @@
 </form>
 
 <script>
+function epTypeChange() {
+    const sel = document.getElementById('ep_type_select');
+    const wrap = document.getElementById('ep_custom_wrap');
+    const hidden = document.getElementById('ep_type_hidden');
+    if (sel.value === 'CUSTOM') {
+        wrap.style.display = 'block';
+        hidden.value = document.getElementById('ep_custom_input').value.toUpperCase().trim();
+    } else {
+        wrap.style.display = 'none';
+        hidden.value = sel.value;
+    }
+}
 function previewImg(input) {
     if (input.files && input.files[0]) {
         const reader = new FileReader();
@@ -123,6 +181,25 @@ function previewImg(input) {
         reader.readAsDataURL(input.files[0]);
     }
 }
+function addRole(id, name) {
+    if (!id || document.getElementById('selected_roles').querySelector(`input[value="${id}"]`)) return;
+    const div = document.createElement('div');
+    div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#f8f8f8;border-radius:var(--r-md);border:1px solid var(--border);';
+    div.innerHTML = `<span style="font-size:0.88em;font-weight:600;">${name}</span>
+        <input type="hidden" name="job_role_ids" value="${id}">
+        <button type="button" onclick="this.closest('div').remove()" style="background:none;border:none;color:var(--red);cursor:pointer;font-weight:700;padding:0 4px;">x</button>`;
+    document.getElementById('selected_roles').appendChild(div);
+}
+document.getElementById('add_role_btn').addEventListener('click', () => {
+    const sel = document.getElementById('role_select');
+    addRole(sel.value, sel.options[sel.selectedIndex].text);
+    sel.value = '';
+});
+document.getElementById('add_all_roles_btn').addEventListener('click', () => {
+    document.getElementById('selected_roles').innerHTML = '';
+    const sel = document.getElementById('role_select');
+    Array.from(sel.options).forEach(opt => { if (opt.value) addRole(opt.value, opt.text); });
+});
 </script>
 
 {% endblock %}

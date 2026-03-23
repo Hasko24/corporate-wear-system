@@ -1,6 +1,46 @@
 {% extends "base.html" %}
 {% block content %}
 
+<style>
+.modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.45); z-index: 1000;
+    align-items: center; justify-content: center;
+    backdrop-filter: blur(2px);
+}
+.modal-box {
+    background: var(--white); border-radius: 16px;
+    padding: 32px; max-width: 480px; width: 92%;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.18);
+    animation: modalIn .18s ease;
+}
+@keyframes modalIn { from { transform: scale(.95); opacity:0; } to { transform: scale(1); opacity:1; } }
+.reason-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+.reason-card {
+    border: 2px solid var(--border); border-radius: 10px;
+    padding: 12px 14px; cursor: pointer; transition: all .12s;
+    display: flex; align-items: center; gap: 10px;
+}
+.reason-card:hover { border-color: var(--text-2); background: #fafafa; }
+.reason-card.selected { border-color: var(--yellow-dark); background: #fffbeb; }
+.reason-card input[type=radio] { display: none; }
+.reason-label { font-size: 0.88em; font-weight: 800; color: #000; line-height: 1.3; }
+.reason-sub { font-size: 0.75em; color: var(--text-3); margin-top: 1px; }
+.stolen-banner {
+    background: #fff8e1; border: 1px solid #f0c040;
+    border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; display: none;
+}
+.stolen-banner-title { font-weight: 700; font-size: 0.88em; color: #7c5a00; margin-bottom: 5px; }
+.stolen-banner-body { font-size: 0.83em; color: #7c5a00; line-height: 1.5; }
+.pdf-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-top: 10px; padding: 7px 14px;
+    background: #7c5a00; color: white; border-radius: 8px;
+    font-size: 0.82em; font-weight: 700; text-decoration: none;
+}
+.pdf-btn:hover { background: #5a4000; color: white; }
+</style>
+
 <div class="page-header-band">
     <div class="header-row">
         <div>
@@ -10,6 +50,27 @@
         </div>
     </div>
 </div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% for category, message in messages %}
+{% if category == 'stolen' %}
+<div style="background:#fff8e1;border:1px solid #f0c040;border-radius:12px;padding:20px 24px;margin-bottom:24px;">
+    <div style="font-weight:800;font-size:1em;color:#7c5a00;margin-bottom:4px;">Uniform reported as stolen</div>
+    <div style="font-size:0.88em;color:#7c5a00;line-height:1.55;">
+        A police report (polisanmälan) is required before a replacement can be issued.
+        Fill in the <strong>Förlust av uniform</strong> form and hand it to your nearest manager.
+    </div>
+    <a href="{{ url_for('static', filename='uploads/Forlust_av_uniform.pdf') }}" download class="pdf-btn" style="margin-top:10px;">
+        Download Förlust av uniform (PDF)
+    </a>
+</div>
+{% elif category == 'warning' %}
+<div class="surface" style="border-left:3px solid #f59e0b;padding:14px 20px;margin-bottom:20px;font-size:0.9em;color:#7c5a00;">{{ message }}</div>
+{% elif category == 'success' %}
+<div class="surface" style="border-left:3px solid #22c55e;padding:14px 20px;margin-bottom:20px;font-size:0.9em;color:#166534;">{{ message }}</div>
+{% endif %}
+{% endfor %}
+{% endwith %}
 
 {% if uniforms|length == 0 %}
 <div class="surface" style="text-align:center;padding:60px 40px;color:var(--text-3);">
@@ -21,12 +82,7 @@
     <table>
         <thead>
             <tr>
-                <th>Order</th>
-                <th>Product</th>
-                <th>Size</th>
-                <th>Qty</th>
-                <th>Date</th>
-                <th>Status</th>
+                <th>Order</th><th>Product</th><th>Size</th><th>Qty</th><th>Date</th><th>Status</th><th></th>
             </tr>
         </thead>
         <tbody>
@@ -37,7 +93,22 @@
                 <td>{{ u.size }}</td>
                 <td>{{ u.quantity }}</td>
                 <td class="text-muted">{{ u.order_date.strftime('%d %b %Y') if u.order_date else '—' }}</td>
-                <td><span class="status-pill status-{{ u.status }}">{{ u.status|title }}</span></td>
+                <td>
+                    {% if u.returned %}
+                        {% if u.return_reason in ('stolen', 'lost') %}
+                        <span class="status-pill" style="background:#fee2e2;color:#dc2626;">{{ u.return_reason|title }}</span>
+                        {% else %}
+                        <span class="status-pill" style="background:#fff0e6;color:#ea580c;border:1px solid #fdba8c;">Returned</span>
+                        {% endif %}
+                    {% else %}
+                        <span class="status-pill status-{{ u.status }}">{{ u.status|title }}</span>
+                    {% endif %}
+                </td>
+                <td style="text-align:right;">
+                    {% if u.status == 'completed' and not u.returned %}
+                    <button onclick="openReturnModal({{ u.item_id }}, '{{ u.product_name }} ({{ u.size }})')" class="btn btn-ghost btn-sm">Return / Report</button>
+                    {% endif %}
+                </td>
             </tr>
             {% endfor %}
         </tbody>
@@ -46,7 +117,85 @@
 {% endif %}
 
 <div style="margin-top:20px;">
-    <a href="{{ url_for('view_team') }}" class="btn-ghost">← Back to Team</a>
+    <a href="{{ url_for('view_team') }}" class="btn btn-ghost">Back to Team</a>
 </div>
 
+<!-- Return Modal -->
+<div id="returnModal" class="modal-overlay">
+    <div class="modal-box">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
+            <div>
+                <h3 style="margin:0 0 3px;font-size:1.1em;">Return Uniform</h3>
+                <div id="modalItemName" style="font-size:0.83em;color:var(--text-3);"></div>
+            </div>
+            <button onclick="closeReturnModal()" style="background:none;border:none;cursor:pointer;font-size:1.2em;color:var(--text-3);padding:0 4px;">x</button>
+        </div>
+        <form id="returnForm" method="POST">
+            <div style="font-weight:700;font-size:0.8em;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:10px;">Reason</div>
+            <div class="reason-grid">
+                <label class="reason-card selected" onclick="selectReason(this,'worn_out')">
+                    <input type="radio" name="reason" value="worn_out" checked>
+                    <div><div class="reason-label">Worn out</div><div class="reason-sub">End of life</div></div>
+                </label>
+                <label class="reason-card" onclick="selectReason(this,'damaged')">
+                    <input type="radio" name="reason" value="damaged">
+                    <div><div class="reason-label">Damaged</div><div class="reason-sub">Broken / torn</div></div>
+                </label>
+                <label class="reason-card" onclick="selectReason(this,'size_exchange')">
+                    <input type="radio" name="reason" value="size_exchange">
+                    <div><div class="reason-label">Size exchange</div><div class="reason-sub">Wrong fit</div></div>
+                </label>
+                <label class="reason-card" onclick="selectReason(this,'stolen')">
+                    <input type="radio" name="reason" value="stolen">
+                    <div><div class="reason-label">Stolen</div><div class="reason-sub">Requires report</div></div>
+                </label>
+                <label class="reason-card" onclick="selectReason(this,'other')" style="grid-column:span 2;">
+                    <input type="radio" name="reason" value="other">
+                    <div><div class="reason-label">Other</div><div class="reason-sub">Describe in the notes below</div></div>
+                </label>
+            </div>
+            <div class="stolen-banner" id="stolenBanner">
+                <div class="stolen-banner-title">Police report required</div>
+                <div class="stolen-banner-body">A polisanmälan must be filed and the Förlust av uniform form completed before a replacement can be issued.</div>
+                <a href="{{ url_for('static', filename='uploads/Forlust_av_uniform.pdf') }}" download class="pdf-btn">Download Förlust av uniform (PDF)</a>
+            </div>
+            <div class="form-group" style="margin-bottom:20px;">
+                <label style="font-weight:700;font-size:0.8em;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);">
+                    Notes <span id="notesHint" style="font-weight:400;text-transform:none;">(optional)</span>
+                </label>
+                <textarea name="note" id="returnNote" rows="2" placeholder="Any extra details..." style="resize:vertical;"></textarea>
+            </div>
+            <div style="display:flex;gap:10px;justify-content:flex-end;">
+                <button type="button" onclick="closeReturnModal()" class="btn btn-ghost">Cancel</button>
+                <button type="submit" class="btn btn-primary">Confirm Return</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openReturnModal(id, name) {
+    document.getElementById('returnForm').action = `/return-uniform-worker/{{ member_id }}/${id}`;
+    document.getElementById('modalItemName').textContent = name;
+    document.getElementById('returnModal').style.display = 'flex';
+    document.querySelectorAll('.reason-card').forEach(c => c.classList.remove('selected'));
+    document.querySelector('.reason-card').classList.add('selected');
+    document.querySelector('input[value="worn_out"]').checked = true;
+    document.getElementById('stolenBanner').style.display = 'none';
+    document.getElementById('notesHint').textContent = '(optional)';
+    document.getElementById('returnNote').required = false;
+}
+function closeReturnModal() { document.getElementById('returnModal').style.display = 'none'; }
+function selectReason(card, value) {
+    document.querySelectorAll('.reason-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    card.querySelector('input[type=radio]').checked = true;
+    document.getElementById('stolenBanner').style.display = value === 'stolen' ? 'block' : 'none';
+    const isOther = value === 'other';
+    document.getElementById('notesHint').textContent = isOther ? '— required' : '(optional)';
+    document.getElementById('returnNote').required = isOther;
+    if (isOther) document.getElementById('returnNote').focus();
+}
+document.getElementById('returnModal').addEventListener('click', function(e) { if (e.target === this) closeReturnModal(); });
+</script>
 {% endblock %}
