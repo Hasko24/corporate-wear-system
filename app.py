@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 load_dotenv()
 
-LOW_STOCK_THRESHOLD = 5
+LOW_STOCK_THRESHOLD = 2
 import os
 import io
 import uuid
@@ -563,7 +563,23 @@ def add_to_cart():
             VALUES (%s, %s, %s, %s, %s)
         """, (cart_id, product_size_id, team_member_id, quantity, price))
     db.commit()
+
+    # Count cart items for badge update
+    c2 = get_cursor()
+    c2.execute("""
+        SELECT COALESCE(SUM(oi.quantity),0) as cnt
+        FROM order_items oi
+        JOIN order_carts oc ON oi.cart_id = oc.id
+        WHERE oc.supervisor_id = %s AND oc.status = 'created'
+    """, (session["user_id"],))
+    row = c2.fetchone()
+    cart_count = int(row["cnt"]) if row else 0
+    c2.close()
     cursor.close()
+
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"ok": True, "cart_count": cart_count})
+
     flash("Added to cart.", "success")
     return redirect(url_for("shop", team_member_id=team_member_id))
 
@@ -1604,7 +1620,13 @@ def my_uniforms():
             WHERE uu.user_id = %s
             ORDER BY uu.issued_at DESC
         """, (session["user_id"],))
-    uniforms = cursor.fetchall()
+    raw = cursor.fetchall()
+    uniforms = []
+    for u in raw:
+        status = u["status"] or ""
+        u["returned"] = status.startswith("returned_") or status in ("lost", "stolen")
+        u["return_reason"] = status.replace("returned_", "") if status.startswith("returned_") else status
+        uniforms.append(u)
     return render_template("my_uniforms.html", uniforms=uniforms)
 
 
@@ -1940,7 +1962,7 @@ def admin_analytics():
         SELECT shoe_size, COUNT(*) as count FROM user_measurements GROUP BY shoe_size
     """)
     size_distribution = cursor.fetchall()
-    cursor.execute("SELECT COUNT(*) as low_stock FROM product_sizes WHERE stock <= 5")
+    cursor.execute("SELECT COUNT(*) as low_stock FROM product_sizes WHERE stock <= 2")
     low_stock = cursor.fetchone()["low_stock"]
     return render_template("admin_analytics.html",
                            total_users=total_users, total_orders=total_orders,
@@ -1983,7 +2005,7 @@ def admin_stock_risk():
         SELECT p.name, ps.size, ps.stock
         FROM product_sizes ps
         JOIN products p ON ps.product_id = p.id
-        WHERE ps.stock <= 5 ORDER BY ps.stock ASC
+        WHERE ps.stock <= 2 ORDER BY ps.stock ASC
     """)
     return render_template("admin_stock_risk.html", risk_items=cursor.fetchall())
 
@@ -2008,7 +2030,7 @@ def admin_dashboard():
     cursor.execute("""
         SELECT p.name, ps.size, ps.stock FROM product_sizes ps
         JOIN products p ON ps.product_id = p.id
-        WHERE ps.stock <= 5 ORDER BY ps.stock ASC
+        WHERE ps.stock <= 2 ORDER BY ps.stock ASC
     """)
     low_stock = cursor.fetchall()
     return render_template("admin_dashboard.html", low_stock=low_stock,
