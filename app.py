@@ -1624,7 +1624,8 @@ def my_uniforms():
     uniforms = []
     for u in raw:
         status = u["status"] or ""
-        u["returned"] = status.startswith("returned_") or status in ("lost", "stolen")
+        # Active uniforms have status 'active' or 'issued' — anything else is considered returned
+        u["returned"] = status not in ("active", "issued", "") and status != "active"
         u["return_reason"] = status.replace("returned_", "") if status.startswith("returned_") else status
         uniforms.append(u)
     return render_template("my_uniforms.html", uniforms=uniforms)
