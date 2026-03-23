@@ -2581,8 +2581,12 @@ def pin_news(post_id):
         db.commit()
     return redirect(url_for("news"))
 
-
-
+@app.route('/debug-db')
+def debug_db():
+    import os
+    db_url = os.getenv('DATABASE_URL', 'NOT SET')
+    # Mask the password for safety
+    return f"DB URL set: {'YES' if db_url != 'NOT SET' else 'NO'}"
 
 if __name__ == "__main__":
     app.run(debug=True)
