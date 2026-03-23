@@ -991,7 +991,7 @@ def export_orders_pdf():
     rows = cursor.fetchall()
 
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=30, rightMargin=30)
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=40, rightMargin=40, topMargin=40, bottomMargin=40)
     styles = getSampleStyleSheet()
     elements = []
 
