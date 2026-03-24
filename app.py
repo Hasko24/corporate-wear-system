@@ -52,6 +52,17 @@ def get_db_config():
     return config
 
 db = None
+_pool = None
+
+def get_pool():
+    global _pool
+    if _pool is None:
+        _pool = mysql.connector.pooling.MySQLConnectionPool(
+            pool_name="apppool",
+            pool_size=5,
+            **get_db_config()
+        )
+    return _pool
 
 def get_db():
     global db
@@ -63,12 +74,19 @@ def get_db():
     return db
 
 def get_cursor():
-    global db
     try:
-        conn = get_db()
-        conn.ping(reconnect=True, attempts=3, delay=1)
-        return conn.cursor(dictionary=True)
+        conn = get_pool().get_connection()
+        cursor = conn.cursor(dictionary=True)
+        # Wrap cursor so connection is returned to pool on close
+        original_close = cursor.close
+        def close_and_return():
+            original_close()
+            conn.close()
+        cursor.close = close_and_return
+        return cursor
     except Exception:
+        # Fallback to global connection
+        global db
         db = mysql.connector.connect(**get_db_config())
         return db.cursor(dictionary=True)
 
@@ -471,23 +489,29 @@ def shop():
     if search:
         products = [p for p in products if search.lower() in p["name"].lower() or search.lower() in (p.get("article_number") or "").lower()]
 
-    # --- Sizes per product ---
-    for product in products:
+    # --- Sizes + roles in bulk (avoids N+1 queries) ---
+    if products:
+        product_ids = [p["id"] for p in products]
+        placeholders = ",".join(["%s"] * len(product_ids))
+
         c = get_cursor()
-        c.execute("""
-            SELECT id, size, stock FROM product_sizes WHERE product_id = %s
-        """, (product["id"],))
-        product["sizes"] = c.fetchall()
-        product["recommended_size"] = recommended_sizes.get(product.get("type", "").upper())
+        c.execute(f"SELECT id, product_id, size, stock FROM product_sizes WHERE product_id IN ({placeholders})", product_ids)
+        sizes_map = {}
+        for row in c.fetchall():
+            sizes_map.setdefault(row["product_id"], []).append(row)
         c.close()
 
-        # Fetch assigned job role IDs for the edit modal
         c = get_cursor()
-        c.execute("""
-            SELECT job_role_id FROM product_job_roles WHERE product_id = %s
-        """, (product["id"],))
-        product["role_ids"] = [row["job_role_id"] for row in c.fetchall()]
+        c.execute(f"SELECT product_id, job_role_id FROM product_job_roles WHERE product_id IN ({placeholders})", product_ids)
+        roles_map = {}
+        for row in c.fetchall():
+            roles_map.setdefault(row["product_id"], []).append(row["job_role_id"])
         c.close()
+
+        for product in products:
+            product["sizes"] = sizes_map.get(product["id"], [])
+            product["role_ids"] = roles_map.get(product["id"], [])
+            product["recommended_size"] = recommended_sizes.get(product.get("type", "").upper())
 
     return render_template(
         "shop.html",
@@ -771,6 +795,13 @@ def view_orders():
     if end_date:
         filters.append("oc.created_at <= %s")
         values.append(end_date)
+
+    hide_sent = request.args.get("hide_sent", "1")
+    if hide_sent == "1" and not status:
+        filters.append("oc.status != 'completed'")
+    elif hide_sent == "1" and status == "completed":
+        # User explicitly selected "completed/sent" status, so show them
+        pass
 
     if filters:
         query += " WHERE " + " AND ".join(filters)
@@ -1638,8 +1669,7 @@ def my_uniforms():
     uniforms = []
     for u in raw:
         status = u["status"] or ""
-        # Active uniforms have status 'active' or 'issued' — anything else is considered returned
-        u["returned"] = status not in ("active", "issued", "") and status != "active"
+        u["returned"] = status != "active"
         u["return_reason"] = status.replace("returned_", "") if status.startswith("returned_") else status
         uniforms.append(u)
     return render_template("my_uniforms.html", uniforms=uniforms)
