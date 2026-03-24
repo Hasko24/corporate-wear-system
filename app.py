@@ -295,7 +295,21 @@ def inject_global_counts():
 
 @app.context_processor
 def inject_cart_count():
-    return dict(cart_count=0)  # cart_count handled per-page via selected_member
+    if "user_id" not in session:
+        return dict(cart_count=0)
+    try:
+        cursor = get_cursor()
+        cursor.execute("""
+            SELECT COALESCE(SUM(oi.quantity), 0) as cnt
+            FROM order_items oi
+            JOIN order_carts oc ON oi.cart_id = oc.id
+            WHERE oc.supervisor_id = %s AND oc.status = 'created'
+        """, (session["user_id"],))
+        row = cursor.fetchone()
+        cursor.close()
+        return dict(cart_count=int(row["cnt"]) if row else 0)
+    except Exception:
+        return dict(cart_count=0)
 
 
 # ─────────────────────────────────────────────
