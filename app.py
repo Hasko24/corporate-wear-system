@@ -52,17 +52,6 @@ def get_db_config():
     return config
 
 db = None
-_pool = None
-
-def get_pool():
-    global _pool
-    if _pool is None:
-        _pool = mysql.connector.pooling.MySQLConnectionPool(
-            pool_name="apppool",
-            pool_size=5,
-            **get_db_config()
-        )
-    return _pool
 
 def get_db():
     global db
@@ -74,19 +63,12 @@ def get_db():
     return db
 
 def get_cursor():
+    global db
     try:
-        conn = get_pool().get_connection()
-        cursor = conn.cursor(dictionary=True)
-        # Wrap cursor so connection is returned to pool on close
-        original_close = cursor.close
-        def close_and_return():
-            original_close()
-            conn.close()
-        cursor.close = close_and_return
-        return cursor
+        conn = get_db()
+        conn.ping(reconnect=True, attempts=3, delay=1)
+        return conn.cursor(dictionary=True)
     except Exception:
-        # Fallback to global connection
-        global db
         db = mysql.connector.connect(**get_db_config())
         return db.cursor(dictionary=True)
 
