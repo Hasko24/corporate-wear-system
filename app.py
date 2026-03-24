@@ -2500,15 +2500,24 @@ def worker_history(member_id):
 
     cursor.execute("""
         SELECT oc.id AS order_id, oc.created_at AS order_date, oc.status,
-               p.name AS product_name, ps.size, oi.quantity
+               p.name AS product_name, ps.size, oi.quantity,
+               uu.id AS item_id, uu.status AS uniform_status
         FROM order_items oi
         JOIN order_carts oc ON oi.cart_id = oc.id
         JOIN product_sizes ps ON oi.product_size_id = ps.id
         JOIN products p ON ps.product_id = p.id
+        LEFT JOIN user_uniforms uu ON uu.product_size_id = oi.product_size_id
+            AND uu.team_member_id = oi.team_member_id
         WHERE oi.team_member_id = %s
         ORDER BY oc.created_at DESC
     """, (member_id,))
-    uniforms = cursor.fetchall()
+    raw = cursor.fetchall()
+    uniforms = []
+    for u in raw:
+        uniform_status = u["uniform_status"] or ""
+        u["returned"] = uniform_status not in ("active", "issued", "")
+        u["return_reason"] = uniform_status.replace("returned_", "") if uniform_status.startswith("returned_") else uniform_status
+        uniforms.append(u)
 
     return render_template("worker_history.html", member=member, uniforms=uniforms)
 
