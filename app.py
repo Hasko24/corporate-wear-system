@@ -308,6 +308,17 @@ def home():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    # Already logged in → redirect to appropriate page
+    if "user_id" in session:
+        role = session.get("system_role")
+        if role == "admin":
+            return redirect(url_for("admin_dashboard"))
+        elif role == "supervisor":
+            return redirect(url_for("news"))
+        elif role == "packer":
+            return redirect(url_for("view_orders"))
+        else:
+            return redirect(url_for("shop"))
     if request.method == "POST":
         email = request.form["email"]
         password = request.form["password"]
