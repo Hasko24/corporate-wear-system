@@ -1719,6 +1719,30 @@ def request_replacement(uniform_id):
     return redirect(url_for("my_uniforms"))
 
 
+@app.route("/return-uniform-worker/<int:member_id>/<int:uniform_id>", methods=["POST"])
+def return_uniform_worker(member_id, uniform_id):
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    reason = request.form.get("reason", "worn_out")
+    cursor = get_cursor()
+    cursor.execute("""
+        UPDATE user_uniforms SET status=%s, returned_at=NOW()
+        WHERE id=%s
+    """, (f"returned_{reason}", uniform_id))
+    if reason != "lost" and reason != "stolen":
+        cursor.execute("""
+            UPDATE product_sizes ps
+            JOIN user_uniforms uu ON uu.product_size_id = ps.id
+            SET ps.stock = ps.stock + 1
+            WHERE uu.id = %s
+        """, (uniform_id,))
+    db.commit()
+    if reason in ("lost", "stolen"):
+        flash("⚠️ Glöm inte att polisanmäla plagget!", "warning")
+    else:
+        flash("Uniform return recorded.", "success")
+    return redirect(url_for("worker_history", member_id=member_id))
+
 # ─────────────────────────────────────────────
 # ADMIN — USERS
 # ─────────────────────────────────────────────
@@ -2544,7 +2568,7 @@ def worker_history(member_id):
         u["return_reason"] = uniform_status.replace("returned_", "") if uniform_status.startswith("returned_") else uniform_status
         uniforms.append(u)
 
-    return render_template("worker_history.html", member=member, uniforms=uniforms)
+    return render_template("worker_history.html", member=member, uniforms=uniforms, member_id=member_id)
 
 
 # ─────────────────────────────────────────────
