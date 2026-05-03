@@ -31,13 +31,17 @@
                 </div>
             </div>
             <div class="form-group">
-                <label>Description</label>
+                <label>Description <span style="color:var(--text-3);font-weight:400;">(optional)</span></label>
                 <textarea name="description" rows="3">{{ product.description or '' }}</textarea>
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px;">
                 <div class="form-group">
                     <label>Price (SEK)</label>
                     <input type="number" name="price" min="0" step="0.01" value="{{ product.price or 0 }}" required>
+                </div>
+                <div class="form-group">
+                    <label>Price (EUR) <span style="color:var(--text-3);font-weight:400;">optional</span></label>
+                    <input type="number" name="price_eur" min="0" step="0.01" value="{{ product.price_eur or '' }}" placeholder="0.00">
                 </div>
                 <div class="form-group">
                     <label>Max Qty per Order</label>
@@ -53,48 +57,57 @@
                     </select>
                 </div>
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;">
+            <!-- Flags -->
+            <div style="display:flex;gap:24px;margin-top:8px;flex-wrap:wrap;">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.9em;font-weight:600;">
+                    <input type="checkbox" name="return_required" style="width:auto;margin:0;" {% if product.return_required %}checked{% endif %}>
+                    Return required when leaving
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;font-size:0.9em;font-weight:600;">
+                    Stock risk threshold
+                    <input type="number" name="stock_risk" min="1"
+                           value="{{ product.stock_risk if product.stock_risk else '' }}"
+                           placeholder="e.g. 5"
+                           style="width:70px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:0.9em;">
+                    <span style="font-weight:400;color:var(--text-3);">units (leave blank = off)</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.9em;font-weight:600;">
+                    <input type="checkbox" name="facility_only" id="facilityOnlyCheck" style="width:auto;margin:0;" {% if product.facility_only %}checked{% endif %}>
+                    Facility order only (no worker assignment)
+                </label>
+            </div>
+        </div>
+
+        <div class="surface">
+            <div class="section-label">Type &amp; Sizes</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
                 <div class="form-group">
                     <label>Clothing Type</label>
                     {% set known_types = ['SHIRT','PANTS','JACKET','SWEATSHIRT','VEST','TROUSER','SHORTS','SHOES','HAT','GLOVES','BELT','SCARF','BALACLAVA','ACCESSORIES'] %}
                     {% set current_type = (product.type or '')|upper %}
-                    <select id="ep_type_select" onchange="epTypeChange()">
+                    <select id="product_type" required onchange="onTypeChange()">
                         <option value="">— Select type —</option>
                         {% for t in known_types %}
                         <option value="{{ t }}" {% if current_type == t %}selected{% endif %}>{{ t|title }}</option>
                         {% endfor %}
                         <option value="CUSTOM" {% if current_type and current_type not in known_types %}selected{% endif %}>Custom type…</option>
                     </select>
-                    <input type="hidden" name="type" id="ep_type_hidden" value="{{ current_type }}">
+                    <input type="hidden" name="type" id="type_hidden" value="{{ current_type }}">
                 </div>
-                <div class="form-group" id="ep_custom_wrap" style="display:{% if current_type and current_type not in known_types %}block{% else %}none{% endif %};">
-                    <label>Custom Type</label>
-                    <input type="text" id="ep_custom_input" value="{{ current_type if current_type and current_type not in known_types else '' }}" placeholder="e.g. RAINCOAT" oninput="document.getElementById('ep_type_hidden').value=this.value.toUpperCase().trim()">
+                <div class="form-group" id="custom_type_wrap" style="display:{% if current_type and current_type not in known_types %}block{% else %}none{% endif %};">
+                    <label>Custom Type Name</label>
+                    <input type="text" id="custom_type_input" value="{{ current_type if current_type and current_type not in known_types else '' }}" placeholder="e.g. RAINCOAT" oninput="syncCustomType()">
                 </div>
             </div>
+            <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:16px;">
+                <input type="checkbox" id="one_size_toggle" onchange="updateSizes()" style="width:auto;margin:0;">
+                <span style="font-weight:600;font-size:0.9em;">One Size Only</span>
+            </label>
+            <div id="size_container" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:10px;"></div>
+            <p id="size_hint" style="color:var(--text-3);font-size:0.85em;margin-top:8px;">Select a type above to see size options.</p>
+            <p style="color:var(--text-3);font-size:0.82em;margin-top:8px;">Existing stock values are pre-filled. Changes here will update stock.</p>
         </div>
 
-        <!-- Sizes (view + manage link) -->
-        <div class="surface">
-            <div class="section-label" style="display:flex;justify-content:space-between;align-items:center;">
-                Sizes
-                <a href="{{ url_for('manage_product_sizes', product_id=product.id) }}" class="btn btn-ghost btn-sm">Manage Sizes →</a>
-            </div>
-            {% if sizes %}
-            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;">
-                {% for s in sizes %}
-                <div style="background:#f5f5f5;border-radius:var(--r-md);padding:8px 14px;text-align:center;border:1px solid var(--border);">
-                    <div style="font-weight:700;font-size:0.85em;">{{ s.size }}</div>
-                    <div style="font-size:0.75em;color:{% if s.stock <= 5 %}var(--red){% elif s.stock <= 15 %}#f57c00{% else %}#2e7d32{% endif %};">{{ s.stock }} left</div>
-                </div>
-                {% endfor %}
-            </div>
-            {% else %}
-            <p style="color:var(--text-3);font-size:0.88em;margin-top:4px;">No sizes added yet. <a href="{{ url_for('manage_product_sizes', product_id=product.id) }}">Add sizes →</a></p>
-            {% endif %}
-        </div>
-
-        <!-- Job Roles -->
         <div class="surface">
             <div class="section-label">Job Roles</div>
             <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;">
@@ -113,7 +126,7 @@
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#f8f8f8;border-radius:var(--r-md);border:1px solid var(--border);">
                     <span style="font-size:0.88em;font-weight:600;">{{ role.name }}</span>
                     <input type="hidden" name="job_role_ids" value="{{ role.id }}">
-                    <button type="button" onclick="this.closest('div').remove()" style="background:none;border:none;color:var(--red);cursor:pointer;font-weight:700;padding:0 4px;">x</button>
+                    <button type="button" onclick="this.closest('div').remove()" style="background:none;border:none;color:var(--red);cursor:pointer;font-weight:700;padding:0 4px;">✕</button>
                 </div>
                 {% endif %}
                 {% endfor %}
@@ -159,17 +172,52 @@
 </form>
 
 <script>
-function epTypeChange() {
-    const sel = document.getElementById('ep_type_select');
-    const wrap = document.getElementById('ep_custom_wrap');
-    const hidden = document.getElementById('ep_type_hidden');
+const existingSizes = {
+    {% for s in sizes %}"{{ s.size }}": {{ s.stock }},{% endfor %}
+};
+
+function onTypeChange() {
+    const sel = document.getElementById('product_type');
+    const wrap = document.getElementById('custom_type_wrap');
     if (sel.value === 'CUSTOM') {
         wrap.style.display = 'block';
-        hidden.value = document.getElementById('ep_custom_input').value.toUpperCase().trim();
+        document.getElementById('type_hidden').value = '';
     } else {
         wrap.style.display = 'none';
-        hidden.value = sel.value;
+        document.getElementById('type_hidden').value = sel.value;
     }
+    updateSizes();
+}
+function syncCustomType() {
+    document.getElementById('type_hidden').value = document.getElementById('custom_type_input').value.toUpperCase().trim();
+}
+function updateSizes() {
+    const sel = document.getElementById('product_type');
+    const type = sel.value;
+    const toggle = document.getElementById('one_size_toggle');
+    const container = document.getElementById('size_container');
+    const hint = document.getElementById('size_hint');
+    container.innerHTML = '';
+    const forcedOneSize = ['BALACLAVA','ACCESSORIES','SCARF','CUSTOM'];
+    toggle.disabled = forcedOneSize.includes(type);
+    if (forcedOneSize.includes(type)) toggle.checked = true;
+    let sizes = [];
+    if (toggle.checked) { sizes = ['OneSize']; }
+    else if (['SHIRT','JACKET','SWEATSHIRT','VEST'].includes(type)) { sizes = ['XS','S','M','L','XL','XXL','XXXL']; }
+    else if (['PANTS','TROUSER'].includes(type)) { sizes = ['28','30','32','34','36','38','40','42','44','46']; }
+    else if (type === 'SHORTS') { sizes = ['XS','S','M','L','XL','XXL']; }
+    else if (type === 'SHOES') { sizes = ['36','37','38','39','40','41','42','43','44','45','46','47','48']; }
+    else if (type === 'GLOVES') { sizes = ['XS','S','M','L','XL','XXL']; }
+    else if (type === 'HAT') { sizes = ['S','M','L','XL']; }
+    else if (type === 'BELT') { sizes = ['80','85','90','95','100','105','110','115']; }
+    else if (type === 'CUSTOM') { sizes = ['OneSize']; }
+    hint.style.display = sizes.length ? 'none' : 'block';
+    sizes.forEach(size => {
+        const stock = existingSizes[size] !== undefined ? existingSizes[size] : 0;
+        container.innerHTML += `<div style="background:#f8f8f8;border-radius:var(--r-md);padding:10px 12px;border:1px solid var(--border);">
+            <div style="font-weight:700;font-size:0.8em;color:var(--text-2);margin-bottom:6px;">${size}</div>
+            <input type="number" name="size_${size}" min="0" value="${stock}" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:0.9em;"></div>`;
+    });
 }
 function previewImg(input) {
     if (input.files && input.files[0]) {
@@ -187,7 +235,7 @@ function addRole(id, name) {
     div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#f8f8f8;border-radius:var(--r-md);border:1px solid var(--border);';
     div.innerHTML = `<span style="font-size:0.88em;font-weight:600;">${name}</span>
         <input type="hidden" name="job_role_ids" value="${id}">
-        <button type="button" onclick="this.closest('div').remove()" style="background:none;border:none;color:var(--red);cursor:pointer;font-weight:700;padding:0 4px;">x</button>`;
+        <button type="button" onclick="this.closest('div').remove()" style="background:none;border:none;color:var(--red);cursor:pointer;font-weight:700;padding:0 4px;">✕</button>`;
     document.getElementById('selected_roles').appendChild(div);
 }
 document.getElementById('add_role_btn').addEventListener('click', () => {
@@ -199,6 +247,15 @@ document.getElementById('add_all_roles_btn').addEventListener('click', () => {
     document.getElementById('selected_roles').innerHTML = '';
     const sel = document.getElementById('role_select');
     Array.from(sel.options).forEach(opt => { if (opt.value) addRole(opt.value, opt.text); });
+});
+
+window.addEventListener('DOMContentLoaded', function() {
+    const currentType = document.getElementById('type_hidden').value;
+    if (currentType) {
+        const isOneSize = Object.keys(existingSizes).includes('OneSize');
+        if (isOneSize) document.getElementById('one_size_toggle').checked = true;
+        onTypeChange();
+    }
 });
 </script>
 

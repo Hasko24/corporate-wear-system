@@ -117,17 +117,8 @@ DHL Corporate Wear Team"""
 
 
 def send_status_email(to_email, full_name, cart_id, status):
-    import ssl, threading
-    smtp_host = os.environ.get("SMTP_HOST")
-    smtp_user = os.environ.get("SMTP_USER")
-    smtp_pass = os.environ.get("SMTP_PASS")
-    smtp_port = int(os.environ.get("SMTP_PORT", 465))
-    from_addr = os.environ.get("SMTP_FROM", smtp_user)
-    site_url = os.environ.get("SITE_URL", "http://localhost:5000")
-    if not smtp_host or not smtp_user:
-        return
-    status_label = "packed and ready for delivery" if status == "packed" else "completed and delivered"
-    subject = f"Order #{cart_id} has been {status}"
+    # Status emails disabled — only account-creation emails are sent
+    return
     body = f"""Hi {full_name},
 
 Your order #{cart_id} has been {status_label}.
@@ -238,6 +229,8 @@ def get_effective_supervisors(user_id):
     return supervisors
 
 def notify_packers_new_order(cart_id, supervisor_name, total):
+    # Packer notifications disabled — only account-creation emails are sent
+    return
     import ssl, threading
     smtp_host = os.environ.get("SMTP_HOST")
     smtp_user = os.environ.get("SMTP_USER")
@@ -518,7 +511,27 @@ def shop():
         for product in products:
             product["sizes"] = sizes_map.get(product["id"], [])
             product["role_ids"] = roles_map.get(product["id"], [])
-            product["recommended_size"] = recommended_sizes.get(product.get("type", "").upper())
+            product["recommended_size"] = recommended_sizes.get((product.get("type") or "").upper())
+
+    # Detect if selected_member belongs to a delegated supervisor's team
+    delegated_supervisor_name = None
+    if selected_member and role == "supervisor":
+        c = get_cursor()
+        c.execute("""
+            SELECT u.full_name FROM team_members tm
+            JOIN users u ON tm.supervisor_id = u.id
+            WHERE tm.id = %s AND tm.supervisor_id != %s
+        """, (selected_member, session["user_id"]))
+        row = c.fetchone()
+        if row:
+            delegated_supervisor_name = row["full_name"]
+        c.close()
+
+    # Load facilities for facility-only ordering
+    fc = get_cursor()
+    fc.execute("SELECT id, name FROM facilities ORDER BY name")
+    facilities = fc.fetchall()
+    fc.close()
 
     return render_template(
         "shop.html",
@@ -531,6 +544,8 @@ def shop():
         require_selection=require_selection,
         cart_count=cart_count,
         worker_eligible_ids=worker_eligible_ids,
+        delegated_supervisor_name=delegated_supervisor_name,
+        facilities=facilities,
     )
 
 # ─────────────────────────────────────────────
@@ -635,10 +650,11 @@ def view_cart():
 
     cursor.execute("""
         SELECT p.name, p.article_number, ps.size,
-               oi.quantity, oi.price_at_time,
+               oi.quantity, oi.price_at_time, oi.product_size_id AS size_id,
                (oi.quantity * oi.price_at_time) AS subtotal,
                tm.full_name AS worker_name,
-               oi.id AS item_id
+               oi.id AS item_id,
+               p.id AS product_id
         FROM order_items oi
         JOIN product_sizes ps ON oi.product_size_id = ps.id
         JOIN products p ON ps.product_id = p.id
@@ -647,6 +663,11 @@ def view_cart():
     """, (cart["id"],))
     items = cursor.fetchall()
     total = sum(float(item["subtotal"]) for item in items)
+    # Load all sizes for each product so cart can switch size
+    for item in items:
+        sc = get_cursor()
+        sc.execute("SELECT id, size, stock FROM product_sizes WHERE product_id=%s", (item["product_id"],))
+        item["all_sizes"] = sc.fetchall()
 
     # Load team members so cart page can assign order to a member
     c = get_cursor()
@@ -657,7 +678,85 @@ def view_cart():
     team = c.fetchall()
     c.close()
 
-    return render_template("cart.html", items=items, total=total, cart=cart, team=team)
+    # Load facilities for the cart order form
+    fc = get_cursor()
+    fc.execute("SELECT id, name FROM facilities ORDER BY name")
+    facilities = fc.fetchall()
+    fc.close()
+
+    # Pre-fill facility/department/site from the first worker in the cart
+    worker_facility_id = None
+    worker_department = None
+    worker_site_id = None
+    if items:
+        wc = get_cursor()
+        wc.execute("""
+            SELECT tm.facility_id, tm.department, tm.site_id
+            FROM order_items oi
+            JOIN team_members tm ON oi.team_member_id = tm.id
+            WHERE oi.cart_id = %s AND oi.team_member_id IS NOT NULL LIMIT 1
+        """, (cart["id"],))
+        wrow = wc.fetchone()
+        if wrow:
+            worker_facility_id = wrow["facility_id"]
+            worker_department = wrow["department"]
+            worker_site_id = wrow["site_id"]
+        wc.close()
+
+    # Load sites for cart form
+    sc = get_cursor()
+    sc.execute("SELECT id, name FROM sites ORDER BY name")
+    sites = sc.fetchall()
+    sc.close()
+
+    return render_template("cart.html", items=items, total=total, cart=cart, team=team,
+                           facilities=facilities, sites=sites,
+                           worker_facility_id=worker_facility_id,
+                           worker_department=worker_department,
+                           worker_site_id=worker_site_id)
+
+
+@app.route("/cart/update/<int:item_id>", methods=["POST"])
+def update_cart_item(item_id):
+    if "user_id" not in session:
+        return jsonify({"ok": False}), 401
+    cursor = get_cursor()
+    quantity = int(request.form.get("quantity", 0))
+    new_size_id = request.form.get("product_size_id")
+
+    # Verify ownership
+    cursor.execute("""
+        SELECT oi.cart_id, oi.product_size_id, oi.quantity
+        FROM order_items oi
+        JOIN order_carts oc ON oi.cart_id = oc.id
+        WHERE oi.id = %s AND oc.supervisor_id = %s AND oc.status = 'created'
+    """, (item_id, session["user_id"]))
+    item = cursor.fetchone()
+    if not item:
+        return jsonify({"ok": False}), 403
+
+    if new_size_id:
+        cursor.execute("UPDATE order_items SET product_size_id=%s WHERE id=%s", (new_size_id, item_id))
+        db.commit()
+        return jsonify({"ok": True})
+
+    if quantity <= 0:
+        cursor.execute("DELETE FROM order_items WHERE id=%s", (item_id,))
+    else:
+        cursor.execute("UPDATE order_items SET quantity=%s WHERE id=%s", (quantity, item_id))
+    db.commit()
+
+    # Recalculate total
+    cursor.execute("""
+        SELECT COALESCE(SUM(oi.quantity * oi.price_at_time), 0) as total,
+               COALESCE(SUM(oi.quantity), 0) as cnt
+        FROM order_items oi JOIN order_carts oc ON oi.cart_id = oc.id
+        WHERE oc.supervisor_id = %s AND oc.status = 'created'
+    """, (session["user_id"],))
+    row = cursor.fetchone()
+    total = float(row["total"]) if row else 0
+    cart_count = int(row["cnt"]) if row else 0
+    return jsonify({"ok": True, "total": f"{total:.2f}", "cart_count": cart_count})
 
 
 @app.route("/cart/remove/<int:item_id>", methods=["POST"])
@@ -724,6 +823,12 @@ def checkout():
 
     comment = request.form.get("comment") or None
 
+    # Always inherit facility and site from the supervisor's profile
+    cursor.execute("SELECT u.facility_id, (SELECT us.site_id FROM user_sites us WHERE us.user_id = u.id LIMIT 1) AS site_id FROM users u WHERE u.id=%s", (supervisor_id,))
+    sup_profile = cursor.fetchone()
+    facility_id = sup_profile["facility_id"] if sup_profile else None
+    site_id = sup_profile["site_id"] if sup_profile else None
+
     team_member_id = request.form.get("team_member_id") or None
     # If not passed in form, derive from the items (first worker in cart)
     if not team_member_id:
@@ -736,9 +841,10 @@ def checkout():
             team_member_id = row["team_member_id"]
 
     cursor.execute("""
-            UPDATE order_carts SET total_price = %s, status = 'submitted', comment = %s, team_member_id = %s
+            UPDATE order_carts SET total_price = %s, status = 'submitted', comment = %s, team_member_id = %s,
+            facility_id = %s, site_id = %s
             WHERE id = %s
-        """, (total, comment, team_member_id, cart_id))
+        """, (total, comment, team_member_id, facility_id, site_id, cart_id))
     db.commit()
 
     cursor.execute("SELECT full_name FROM users WHERE id=%s", (supervisor_id,))
@@ -772,10 +878,15 @@ def view_orders():
                     WHERE oi2.cart_id = oc.id)
                ) AS worker_name,
                tm.employee_number,
+               f.name AS facility_name,
+               s.name AS site_name,
+               oc.department,
                (SELECT COUNT(*) FROM order_items oi WHERE oi.cart_id = oc.id) AS item_count
         FROM order_carts oc
         JOIN users u ON oc.supervisor_id = u.id
         LEFT JOIN team_members tm ON oc.team_member_id = tm.id
+        LEFT JOIN facilities f ON oc.facility_id = f.id
+        LEFT JOIN sites s ON oc.site_id = s.id
     """
     filters, values = [], []
 
@@ -835,16 +946,19 @@ def order_detail(cart_id):
     cursor = get_cursor()
     cursor.execute("""
         SELECT oc.*, u.full_name AS supervisor_name,
-               tm.full_name AS worker_name, tm.employee_number
+               tm.full_name AS worker_name, tm.employee_number,
+               f.name AS facility_name, s.name AS site_name
         FROM order_carts oc
         JOIN users u ON oc.supervisor_id = u.id
         LEFT JOIN team_members tm ON oc.team_member_id = tm.id
+        LEFT JOIN facilities f ON oc.facility_id = f.id
+        LEFT JOIN sites s ON oc.site_id = s.id
         WHERE oc.id = %s
     """, (cart_id,))
     cart = cursor.fetchone()
 
     cursor.execute("""
-        SELECT oi.quantity, oi.price_at_time,
+        SELECT oi.id AS item_id, oi.quantity, oi.price_at_time, oi.out_of_stock,
                (oi.quantity * oi.price_at_time) AS subtotal,
                ps.size, p.name, p.article_number,
                tm.full_name AS worker_name, tm.employee_number
@@ -914,6 +1028,79 @@ def complete_order(cart_id):
     return redirect(url_for("order_detail", cart_id=cart_id))
 
 
+@app.route("/quick_pack/<int:cart_id>", methods=["POST"])
+def quick_pack(cart_id):
+    if session.get("system_role") != "packer":
+        return jsonify({"ok": False}), 403
+    cursor = get_cursor()
+    cursor.execute("UPDATE order_carts SET status='packed' WHERE id=%s AND status='submitted'", (cart_id,))
+    db.commit()
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"ok": True, "new_status": "packed"})
+    return redirect(url_for("view_orders"))
+
+
+@app.route("/quick_complete/<int:cart_id>", methods=["POST"])
+def quick_complete(cart_id):
+    if session.get("system_role") not in ("packer", "admin"):
+        return jsonify({"ok": False}), 403
+    cursor = get_cursor()
+    cursor.execute("UPDATE order_carts SET status='completed' WHERE id=%s AND status='packed'", (cart_id,))
+    cursor.execute("""
+        SELECT oi.product_size_id, oi.team_member_id FROM order_items oi WHERE oi.cart_id = %s AND oi.out_of_stock=0
+    """, (cart_id,))
+    items = cursor.fetchall()
+    for item in items:
+        cursor.execute("""INSERT INTO user_uniforms (product_size_id, team_member_id, status, issued_at) VALUES (%s, %s, 'active', NOW())""",
+                       (item["product_size_id"], item["team_member_id"]))
+    db.commit()
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"ok": True, "new_status": "completed"})
+    return redirect(url_for("view_orders"))
+
+
+@app.route("/mark_item_out_of_stock/<int:item_id>", methods=["POST"])
+def mark_item_out_of_stock(item_id):
+    if session.get("system_role") not in ("packer", "admin"):
+        return jsonify({"ok": False}), 403
+    cursor = get_cursor()
+    cursor.execute("""
+        SELECT oi.out_of_stock, oi.product_size_id, oi.quantity
+        FROM order_items oi WHERE oi.id=%s
+    """, (item_id,))
+    row = cursor.fetchone()
+    if not row:
+        return jsonify({"ok": False}), 404
+
+    new_val = 0 if row["out_of_stock"] else 1
+    cursor.execute("UPDATE order_items SET out_of_stock=%s WHERE id=%s", (new_val, item_id))
+
+    if new_val == 1:
+        # Marking OUT OF STOCK:
+        # Stock was already deducted at checkout — set remaining stock to 0
+        # and refund the quantity back so the total goes to 0
+        cursor.execute("""
+            UPDATE product_sizes SET stock = 0
+            WHERE id = %s
+        """, (row["product_size_id"],))
+    else:
+        # Un-marking (back to in stock):
+        # Restore the quantity that was deducted at checkout
+        cursor.execute("""
+            UPDATE product_sizes SET stock = stock + %s
+            WHERE id = %s
+        """, (row["quantity"], row["product_size_id"]))
+
+    db.commit()
+
+    # Return current stock so UI can update
+    cursor.execute("SELECT stock FROM product_sizes WHERE id=%s", (row["product_size_id"],))
+    stock_row = cursor.fetchone()
+    new_stock = stock_row["stock"] if stock_row else 0
+
+    return jsonify({"ok": True, "out_of_stock": bool(new_val), "new_stock": new_stock})
+
+
 @app.route("/cancel_order/<int:cart_id>", methods=["POST"])
 def cancel_order(cart_id):
     if "user_id" not in session:
@@ -951,14 +1138,18 @@ def export_orders_excel():
                u.full_name AS supervisor,
                p.name AS product, p.article_number, ps.size,
                oi.quantity, oi.price_at_time,
-               (oi.quantity * oi.price_at_time) AS subtotal,
-               tm.full_name AS worker, tm.employee_number
+               p.price_eur,
+               (oi.quantity * oi.price_at_time) AS subtotal_sek,
+               COALESCE(p.price_eur * oi.quantity, NULL) AS subtotal_eur,
+               tm.full_name AS worker, tm.employee_number,
+               f.name AS facility, oc.department
         FROM order_carts oc
         JOIN users u ON oc.supervisor_id = u.id
         JOIN order_items oi ON oi.cart_id = oc.id
         JOIN product_sizes ps ON oi.product_size_id = ps.id
         JOIN products p ON ps.product_id = p.id
         LEFT JOIN team_members tm ON oi.team_member_id = tm.id
+        LEFT JOIN facilities f ON oc.facility_id = f.id
     """
     filters, values = [], []
     if session["system_role"] == "supervisor":
@@ -987,6 +1178,8 @@ def export_orders_excel():
 
     if filters:
         query += " WHERE " + " AND ".join(filters)
+
+    query += " ORDER BY oc.created_at DESC"
 
     cursor.execute(query, values)
     data = cursor.fetchall()
@@ -1020,13 +1213,16 @@ def export_orders_pdf():
         SELECT oc.id, oc.status, oc.created_at, oc.total_price,
                u.full_name AS supervisor,
                p.name AS product, ps.size, oi.quantity, oi.price_at_time,
-               tm.full_name AS worker
+               tm.full_name AS worker,
+               f.name AS facility, s.name AS site
         FROM order_carts oc
         JOIN users u ON oc.supervisor_id = u.id
         JOIN order_items oi ON oi.cart_id = oc.id
         JOIN product_sizes ps ON oi.product_size_id = ps.id
         JOIN products p ON ps.product_id = p.id
         LEFT JOIN team_members tm ON oi.team_member_id = tm.id
+        LEFT JOIN facilities f ON oc.facility_id = f.id
+        LEFT JOIN sites s ON oc.site_id = s.id
     """
     filters, values = [], []
     if session["system_role"] == "supervisor":
@@ -1070,31 +1266,42 @@ def export_orders_pdf():
     elements.append(Paragraph(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}", styles["Normal"]))
     elements.append(Spacer(1, 12))
 
-    headers = ["Order ID", "Status", "Date", "Supervisor", "Product", "Size", "Qty", "Price", "Worker"]
-    table_data = [headers]
+    from reportlab.platypus import Paragraph as RLParagraph
+    from reportlab.lib.styles import ParagraphStyle
+    cell_style = ParagraphStyle('cell', fontSize=7, leading=9, wordWrap='CJK')
+    header_style = ParagraphStyle('hdr', fontSize=7, leading=9, fontName='Helvetica-Bold')
+
+    headers = ["Order ID", "Status", "Date", "Supervisor", "Facility", "Site", "Product", "Size", "Qty", "Price", "Worker"]
+    table_data = [[RLParagraph(h, header_style) for h in headers]]
     for r in rows:
         table_data.append([
-            str(r["id"]), r["status"],
-            str(r["created_at"])[:10],
-            r["supervisor"], r["product"],
-            r["size"], str(r["quantity"]),
-            f'{float(r["price_at_time"]):.2f}',
-            r["worker"] or "-"
+            RLParagraph(str(r["id"]), cell_style),
+            RLParagraph(r["status"], cell_style),
+            RLParagraph(str(r["created_at"])[:10], cell_style),
+            RLParagraph(r["supervisor"], cell_style),
+            RLParagraph(r["facility"] or "—", cell_style),
+            RLParagraph(r["site"] or "—", cell_style),
+            RLParagraph(r["product"], cell_style),
+            RLParagraph(r["size"], cell_style),
+            RLParagraph(str(r["quantity"]), cell_style),
+            RLParagraph(f'{float(r["price_at_time"]):.2f}', cell_style),
+            RLParagraph(r["worker"] or "-", cell_style),
         ])
 
     usable_width = 210*mm - left_margin - right_margin
     col_widths = [
-        0.07 * usable_width,
-        0.08 * usable_width,
-        0.09 * usable_width,
-        0.11 * usable_width,
-        0.28 * usable_width,
-        0.06 * usable_width,
-        0.05 * usable_width,
-        0.08 * usable_width,
-        0.18 * usable_width,
+        0.06 * usable_width,  # Order ID
+        0.07 * usable_width,  # Status
+        0.08 * usable_width,  # Date
+        0.09 * usable_width,  # Supervisor
+        0.10 * usable_width,  # Facility
+        0.08 * usable_width,  # Site
+        0.24 * usable_width,  # Product
+        0.05 * usable_width,  # Size
+        0.04 * usable_width,  # Qty
+        0.07 * usable_width,  # Price
+        0.12 * usable_width,  # Worker
     ]
-
     t = Table(table_data, colWidths=col_widths, repeatRows=1)
     t.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#FFCC00")),
@@ -1117,6 +1324,106 @@ def export_orders_pdf():
                      mimetype="application/pdf")
 
 
+@app.route("/order/<int:cart_id>/download")
+def download_order_pdf(cart_id):
+    """Download a single order as PDF."""
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    cursor = get_cursor()
+    cursor.execute("""
+        SELECT oc.*, u.full_name AS supervisor_name,
+               tm.full_name AS worker_name, tm.employee_number,
+               f.name AS facility_name, s.name AS site_name
+        FROM order_carts oc
+        JOIN users u ON oc.supervisor_id = u.id
+        LEFT JOIN team_members tm ON oc.team_member_id = tm.id
+        LEFT JOIN facilities f ON oc.facility_id = f.id
+        LEFT JOIN sites s ON oc.site_id = s.id
+        WHERE oc.id = %s
+    """, (cart_id,))
+    cart = cursor.fetchone()
+    if not cart:
+        flash("Order not found.", "error")
+        return redirect(url_for("view_orders"))
+    cursor.execute("""
+        SELECT oi.quantity, oi.price_at_time, oi.out_of_stock,
+               (oi.quantity * oi.price_at_time) AS subtotal,
+               ps.size, p.name, p.article_number,
+               tm.full_name AS worker_name
+        FROM order_items oi
+        JOIN product_sizes ps ON oi.product_size_id = ps.id
+        JOIN products p ON ps.product_id = p.id
+        LEFT JOIN team_members tm ON oi.team_member_id = tm.id
+        WHERE oi.cart_id = %s
+    """, (cart_id,))
+    items = cursor.fetchall()
+    total = sum(float(i["subtotal"]) for i in items)
+    from reportlab.lib.units import mm
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=15*mm, rightMargin=15*mm, topMargin=15*mm, bottomMargin=15*mm)
+    styles = getSampleStyleSheet()
+    elements = []
+    elements.append(Paragraph(f"Order #{cart_id}", styles["Title"]))
+    elements.append(Paragraph(f"Status: {cart['status'].title()} | Date: {str(cart['created_at'])[:10]}", styles["Normal"]))
+    elements.append(Paragraph(f"Supervisor: {cart['supervisor_name']} | Worker: {cart['worker_name'] or '—'}", styles["Normal"]))
+    if cart.get("facility_name") or cart.get("site_name"):
+        parts = []
+        if cart.get("facility_name"): parts.append(f"Facility: {cart['facility_name']}")
+        if cart.get("site_name"): parts.append(f"Site: {cart['site_name']}")
+        elements.append(Paragraph(" | ".join(parts), styles["Normal"]))
+    elements.append(Spacer(1, 12))
+
+    # Small style for table cells — wraps properly
+    from reportlab.lib.styles import ParagraphStyle
+    cell_style = ParagraphStyle('cell', fontName='Helvetica', fontSize=8, leading=11, wordWrap='LTR')
+    cell_bold  = ParagraphStyle('cellb', fontName='Helvetica-Bold', fontSize=8, leading=11, wordWrap='LTR')
+
+    def P(text, bold=False):
+        return Paragraph(str(text) if text else '', cell_bold if bold else cell_style)
+
+    headers = ["Product", "Article #", "Size", "Qty", "Unit Price", "Subtotal"]
+    table_data = [[ P(h, bold=True) for h in headers ]]
+    for item in items:
+        table_data.append([
+            P(item["name"]),
+            P(item["article_number"]),
+            P(item["size"]),
+            P(str(item["quantity"])),
+            P(f'{float(item["price_at_time"]):.2f} SEK'),
+            P(f'{float(item["subtotal"]):.2f} SEK'),
+        ])
+    table_data.append([P(""), P(""), P(""), P(""), P("TOTAL", bold=True), P(f"{total:.2f} SEK", bold=True)])
+
+    # Column widths — Article # gets more room (was too narrow causing overflow)
+    usable_width = 180*mm
+    col_widths = [
+        0.32 * usable_width,   # Product
+        0.22 * usable_width,   # Article # — wide enough for "126517-940 (Herr)"
+        0.08 * usable_width,   # Size
+        0.05 * usable_width,   # Qty
+        0.16 * usable_width,   # Unit Price
+        0.17 * usable_width,   # Subtotal
+    ]
+    t = Table(table_data, colWidths=col_widths, repeatRows=1)
+    last = len(table_data) - 1
+    t.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#FFCC00")),
+        ("GRID", (0, 0), (-1, -2), 0.5, colors.grey),
+        ("LINEABOVE", (0, last), (-1, last), 1, colors.black),
+        ("LINEBELOW", (0, last), (-1, last), 1, colors.black),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -2), [colors.white, colors.HexColor("#F9F9F9")]),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    elements.append(t)
+    doc.build(elements)
+    buffer.seek(0)
+    return send_file(buffer, as_attachment=True, download_name=f"order_{cart_id}.pdf", mimetype="application/pdf")
+
+
 # ─────────────────────────────────────────────
 # TEAM MANAGEMENT (Supervisor)
 # ─────────────────────────────────────────────
@@ -1128,14 +1435,20 @@ def view_team():
     uid = session["user_id"]
     cursor.execute("""
         SELECT tm.id, tm.full_name, tm.employee_number, jr.name AS role_name,
+               tm.facility_id, tm.department, tm.site_id, f.name AS facility_name, s.name AS site_name,
                MAX(CASE WHEN ws.product_type='SHIRT' THEN ws.size END) AS shirt_size,
                MAX(CASE WHEN ws.product_type='PANTS' THEN ws.size END) AS pants_size,
-               MAX(CASE WHEN ws.product_type='SHOES' THEN ws.size END) AS shoe_size
+               MAX(CASE WHEN ws.product_type='SHOES' THEN ws.size END) AS shoe_size,
+               MAX(CASE WHEN ws.product_type='SWEATSHIRT' THEN ws.size END) AS sweatshirt_size,
+               MAX(CASE WHEN ws.product_type='GLOVES' THEN ws.size END) AS gloves_size,
+               MAX(CASE WHEN ws.product_type='HAT' THEN ws.size END) AS hat_size
         FROM team_members tm
         LEFT JOIN job_roles jr ON tm.job_role_id = jr.id
         LEFT JOIN worker_sizes ws ON ws.team_member_id = tm.id
-        WHERE tm.supervisor_id = %s
-        GROUP BY tm.id, tm.full_name, tm.employee_number, jr.name
+        LEFT JOIN facilities f ON tm.facility_id = f.id
+        LEFT JOIN sites s ON tm.site_id = s.id
+        WHERE tm.supervisor_id = %s AND (tm.is_archived = 0 OR tm.is_archived IS NULL)
+        GROUP BY tm.id, tm.full_name, tm.employee_number, jr.name, tm.facility_id, tm.department, tm.site_id, f.name, s.name
         ORDER BY tm.full_name
     """, (uid,))
     team = cursor.fetchall()
@@ -1167,7 +1480,11 @@ def view_team():
 
     cursor.execute("SELECT id, name FROM job_roles ORDER BY name")
     job_roles = cursor.fetchall()
-    return render_template("team.html", team=team, job_roles=job_roles, delegated=delegated)
+    cursor.execute("SELECT id, name FROM facilities ORDER BY name")
+    facilities = cursor.fetchall()
+    cursor.execute("SELECT id, name FROM sites ORDER BY name")
+    sites = cursor.fetchall()
+    return render_template("team.html", team=team, job_roles=job_roles, delegated=delegated, facilities=facilities, sites=sites)
 
 
 @app.route("/team/add", methods=["GET", "POST"])
@@ -1176,31 +1493,46 @@ def add_team_member():
         return redirect(url_for("shop"))
     cursor = get_cursor()
     if request.method == "POST":
-        full_name = request.form["full_name"]
-        employee_number = request.form["employee_number"]
+        first_name = request.form.get("first_name", "").strip()
+        last_name = request.form.get("last_name", "").strip()
+        full_name = f"{first_name} {last_name}".strip()
+        employee_number = request.form.get("employee_number", "").strip()
         job_role_id = request.form["job_role_id"]
+        # Always inherit facility and site from the supervisor's profile
+        cursor.execute("SELECT u.facility_id, (SELECT us.site_id FROM user_sites us WHERE us.user_id = u.id LIMIT 1) AS site_id FROM users u WHERE u.id=%s", (session["user_id"],))
+        sup_profile = cursor.fetchone()
+        facility_id = sup_profile["facility_id"] if sup_profile else None
+        site_id = sup_profile["site_id"] if sup_profile else None
 
         cursor.execute("""
-                    INSERT INTO team_members (supervisor_id, full_name, employee_number, job_role_id)
-                    VALUES (%s, %s, %s, %s)
-                """, (session["user_id"], full_name, employee_number, job_role_id))
+                    INSERT INTO team_members (supervisor_id, full_name, employee_number, job_role_id, facility_id, site_id)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (session["user_id"], full_name, employee_number, job_role_id, facility_id, site_id))
         db.commit()
         team_member_id = cursor.lastrowid
 
-        for size_type in [("shirt_size", "SHIRT"), ("pants_size", "PANTS"), ("shoe_size", "SHOES")]:
-            val = request.form.get(size_type[0])
+        size_fields = [
+            ("shirt_size", "SHIRT"), ("pants_size", "PANTS"), ("shoe_size", "SHOES"),
+            ("sweatshirt_size", "SWEATSHIRT"), ("gloves_size", "GLOVES"), ("hat_size", "HAT")
+        ]
+        for field, product_type in size_fields:
+            val = request.form.get(field)
             if val:
                 cursor.execute("""
                     INSERT INTO worker_sizes (team_member_id, product_type, size)
                     VALUES (%s, %s, %s)
-                """, (team_member_id, size_type[1], val))
+                """, (team_member_id, product_type, val))
         db.commit()
         flash("Team member added.", "success")
         return redirect(url_for("view_team"))
 
     cursor.execute("SELECT id, name FROM job_roles")
     roles = cursor.fetchall()
-    return render_template("add_team_member.html", roles=roles)
+    cursor.execute("SELECT id, name FROM facilities ORDER BY name")
+    facilities = cursor.fetchall()
+    cursor.execute("SELECT id, name FROM sites ORDER BY name")
+    sites = cursor.fetchall()
+    return render_template("add_team_member.html", roles=roles, facilities=facilities, sites=sites)
 
 
 @app.route("/team/<int:member_id>/edit", methods=["POST"])
@@ -1214,11 +1546,18 @@ def edit_team_member(member_id):
         return redirect(url_for("view_team"))
     full_name = request.form.get("full_name", "").strip()
     employee_number = request.form.get("employee_number", "").strip()
+    # Always inherit facility and site from the supervisor
+    cursor.execute("SELECT u.facility_id, (SELECT us.site_id FROM user_sites us WHERE us.user_id = u.id LIMIT 1) AS site_id FROM users u WHERE u.id=%s", (session["user_id"],))
+    sup = cursor.fetchone()
+    facility_id = sup["facility_id"] if sup else None
+    site_id = sup["site_id"] if sup else None
     if full_name:
-        cursor.execute("UPDATE team_members SET full_name=%s, employee_number=%s WHERE id=%s",
-                       (full_name, employee_number or None, member_id))
+        cursor.execute("UPDATE team_members SET full_name=%s, employee_number=%s, facility_id=%s, site_id=%s WHERE id=%s",
+                       (full_name, employee_number or None, facility_id, site_id, member_id))
     # Update sizes
-    for field, product_type in [("shirt_size","SHIRT"), ("pants_size","PANTS"), ("shoe_size","SHOES")]:
+    size_fields = [("shirt_size","SHIRT"), ("pants_size","PANTS"), ("shoe_size","SHOES"),
+                   ("sweatshirt_size","SWEATSHIRT"), ("gloves_size","GLOVES"), ("hat_size","HAT")]
+    for field, product_type in size_fields:
         val = request.form.get(field, "").strip()
         if val:
             cursor.execute("""
@@ -1239,11 +1578,80 @@ def delete_team_member(member_id):
     if session.get("system_role") != "supervisor":
         return redirect(url_for("shop"))
     cursor = get_cursor()
-    cursor.execute("DELETE FROM team_members WHERE id = %s AND supervisor_id = %s",
-                   (member_id, session["user_id"]))
+    # Soft-archive instead of hard delete — visible for 6 months
+    cursor.execute("""
+        UPDATE team_members SET is_archived=1, archived_at=NOW()
+        WHERE id = %s AND supervisor_id = %s
+    """, (member_id, session["user_id"]))
     db.commit()
-    flash("Team member removed.", "success")
+    flash("Team member archived (visible for 6 months).", "success")
     return redirect(url_for("view_team"))
+
+
+@app.route("/admin/archived-workers")
+def admin_archived_workers():
+    if session.get("system_role") not in ("admin", "supervisor"):
+        return redirect(url_for("shop"))
+    cursor = get_cursor()
+
+    supervisor_filter = request.args.get("supervisor_id") or None
+    date_from = request.args.get("date_from") or None
+    date_to = request.args.get("date_to") or None
+    search = request.args.get("search", "").strip()
+
+    params = []
+    conditions = ["tm.is_archived = 1", "tm.archived_at > DATE_SUB(NOW(), INTERVAL 6 MONTH)"]
+
+    if session.get("system_role") == "supervisor":
+        conditions.append("tm.supervisor_id = %s")
+        params.append(session["user_id"])
+    elif supervisor_filter:
+        conditions.append("tm.supervisor_id = %s")
+        params.append(supervisor_filter)
+
+    if date_from:
+        conditions.append("tm.archived_at >= %s")
+        params.append(date_from)
+    if date_to:
+        conditions.append("tm.archived_at <= %s")
+        params.append(date_to + " 23:59:59")
+    if search:
+        conditions.append("(tm.full_name LIKE %s OR tm.employee_number LIKE %s)")
+        params += [f"%{search}%", f"%{search}%"]
+
+    where = " AND ".join(conditions)
+    cursor.execute(f"""
+        SELECT tm.*, u.full_name AS supervisor_name, jr.name AS role_name
+        FROM team_members tm
+        LEFT JOIN users u ON tm.supervisor_id = u.id
+        LEFT JOIN job_roles jr ON tm.job_role_id = jr.id
+        WHERE {where}
+        ORDER BY tm.archived_at DESC
+    """, params)
+    workers = cursor.fetchall()
+
+    # Load uniforms for each archived worker
+    for w in workers:
+        uc = get_cursor()
+        uc.execute("""
+            SELECT p.name AS product_name, ps.size, uu.status,
+                   uu.issued_at, uu.returned_at
+            FROM user_uniforms uu
+            JOIN product_sizes ps ON uu.product_size_id = ps.id
+            JOIN products p ON ps.product_id = p.id
+            WHERE uu.team_member_id = %s
+            ORDER BY uu.issued_at DESC
+        """, (w["id"],))
+        w["uniforms"] = uc.fetchall()
+
+    # For the supervisor filter dropdown (admin only)
+    supervisors = []
+    if session.get("system_role") == "admin":
+        cursor.execute("SELECT id, full_name FROM users WHERE system_role='supervisor' ORDER BY full_name")
+        supervisors = cursor.fetchall()
+
+    return render_template("admin_archived_workers.html", workers=workers, supervisors=supervisors,
+                           supervisor_filter=supervisor_filter, date_from=date_from, date_to=date_to, search=search)
 
 
 @app.route("/team/<int:member_id>/sizes", methods=["GET", "POST"])
@@ -1421,12 +1829,12 @@ def supervisor_dashboard():
 
     # Low stock items relevant to team
     cursor.execute("""
-        SELECT p.name, ps.size, ps.stock
+        SELECT p.name, ps.size, ps.stock, COALESCE(p.stock_risk, %s) AS threshold
         FROM product_sizes ps
         JOIN products p ON ps.product_id = p.id
-        WHERE ps.stock <= %s AND ps.stock > 0
+        WHERE ps.stock <= COALESCE(p.stock_risk, %s) AND ps.stock > 0
         ORDER BY ps.stock ASC LIMIT 5
-    """, (LOW_STOCK_THRESHOLD,))
+    """, (LOW_STOCK_THRESHOLD, LOW_STOCK_THRESHOLD))
     low_stock = cursor.fetchall()
 
     return render_template("supervisor_dashboard.html",
@@ -1489,11 +1897,18 @@ def add_product():
 
         try:
             gender = request.form.get("gender") or None
+            return_required = 1 if request.form.get("return_required") else 0
+            stock_risk = request.form.get("stock_risk", "").strip() or None
+            if stock_risk:
+                try: stock_risk = int(stock_risk)
+                except ValueError: stock_risk = None
+            price_eur = request.form.get("price_eur", "").strip() or None
+            facility_only = 1 if (request.form.get("facility_only") and product_type == "GLOVES") else 0
 
             cursor.execute("""
-                            INSERT INTO products (article_number, name, type, image, description, price, max_quantity, gender)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                        """, (article_number, name, product_type, image, description, price, max_quantity, gender))
+                            INSERT INTO products (article_number, name, type, image, description, price, price_eur, max_quantity, gender, return_required, stock_risk, facility_only)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """, (article_number, name, product_type, image, description, price, price_eur, max_quantity, gender, return_required, stock_risk, facility_only))
             db.commit()
         except IntegrityError:
             flash("Article number already exists.", "error")
@@ -1533,9 +1948,20 @@ def edit_product(product_id):
 
     if request.method == "POST":
         name = request.form["name"]
-        description = request.form["description"]
-        price = request.form["price"].strip() or None
-        max_quantity = request.form["max_quantity"].strip() or None
+        article_number = request.form.get("article_number", "").strip() or None
+        description = request.form.get("description", "")
+        price = request.form.get("price", "").strip() or None
+        price_eur = request.form.get("price_eur", "").strip() or None
+        max_quantity = request.form.get("max_quantity", "").strip() or None
+        gender = request.form.get("gender") or None
+        product_type = request.form.get("type", "").strip().upper() or None
+        return_required = 1 if request.form.get("return_required") else 0
+        facility_only = 1 if (request.form.get("facility_only") and product_type == "GLOVES") else 0
+        stock_risk = request.form.get("stock_risk", "").strip() or None
+        if stock_risk:
+            try: stock_risk = int(stock_risk)
+            except ValueError: stock_risk = None
+
         image = request.files.get("image")
         image_path = product["image"]
         if image and image.filename != "":
@@ -1543,20 +1969,49 @@ def edit_product(product_id):
             image.save(os.path.join("static", "uploads", filename))
             image_path = filename
 
-        gender = request.form.get("gender") or None
-
         cursor.execute("""
-                    UPDATE products SET name=%s, description=%s, price=%s, max_quantity=%s, image=%s, gender=%s
-                    WHERE id=%s
-                """, (name, description, price, max_quantity, image_path, gender, product_id))
+            UPDATE products SET name=%s, article_number=%s, description=%s, price=%s, price_eur=%s,
+            max_quantity=%s, image=%s, gender=%s, type=%s, return_required=%s, stock_risk=%s, facility_only=%s
+            WHERE id=%s
+        """, (name, article_number, description, price, price_eur, max_quantity, image_path,
+              gender, product_type, return_required, stock_risk, facility_only, product_id))
+
+        # Update job roles
+        role_ids = request.form.getlist("job_role_ids")
+        cursor.execute("DELETE FROM product_job_roles WHERE product_id=%s", (product_id,))
+        for rid in role_ids:
+            cursor.execute("INSERT INTO product_job_roles (product_id, job_role_id) VALUES (%s,%s)", (product_id, rid))
+
+        # Update sizes — any field named size_<sizename> sets that size's stock directly
+        cursor.execute("SELECT id, size FROM product_sizes WHERE product_id=%s", (product_id,))
+        existing_sizes = {row["size"]: row["id"] for row in cursor.fetchall()}
+        for key, val in request.form.items():
+            if key.startswith("size_") and val.strip().isdigit():
+                size_name = key[5:]  # strip "size_"
+                stock = int(val.strip())
+                if size_name in existing_sizes:
+                    cursor.execute("UPDATE product_sizes SET stock=%s WHERE id=%s",
+                                   (stock, existing_sizes[size_name]))
+                else:
+                    cursor.execute("INSERT INTO product_sizes (product_id, size, stock) VALUES (%s,%s,%s)",
+                                   (product_id, size_name, stock))
+
         db.commit()
+
+        # Return JSON if called via fetch (XHR), redirect otherwise
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"ok": True})
         flash("Product updated.", "success")
         return redirect(url_for("shop"))
 
-    # Sizes
+    # GET
     cursor.execute("SELECT id, size, stock FROM product_sizes WHERE product_id=%s", (product_id,))
     sizes = cursor.fetchall()
-    return render_template("edit_product.html", product=product, sizes=sizes)
+    cursor.execute("SELECT * FROM job_roles ORDER BY name")
+    job_roles = cursor.fetchall()
+    cursor.execute("SELECT job_role_id FROM product_job_roles WHERE product_id=%s", (product_id,))
+    assigned_role_ids = [r["job_role_id"] for r in cursor.fetchall()]
+    return render_template("edit_product.html", product=product, sizes=sizes, job_roles=job_roles, assigned_role_ids=assigned_role_ids)
 
 @app.route("/stock")
 def view_stock():
@@ -1610,14 +2065,20 @@ def update_stock(product_id):
     if session.get("system_role") != "admin":
         return redirect(url_for("shop"))
     cursor = get_cursor()
-    cursor.execute("SELECT id FROM product_sizes WHERE product_id=%s", (product_id,))
-    for size in cursor.fetchall():
+    cursor.execute("SELECT id, size FROM product_sizes WHERE product_id=%s", (product_id,))
+    sizes = cursor.fetchall()
+    for size in sizes:
         field_name = f"size_{size['id']}"
         add_amount = request.form.get(field_name)
-        if add_amount and str(add_amount).isdigit():
+        if add_amount and str(add_amount).isdigit() and int(add_amount) > 0:
             cursor.execute("UPDATE product_sizes SET stock = stock + %s WHERE id=%s",
                            (int(add_amount), size["id"]))
     db.commit()
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        # Return updated stock values so the frontend can patch the UI without reload
+        cursor.execute("SELECT id, size, stock FROM product_sizes WHERE product_id=%s", (product_id,))
+        updated = {row["id"]: {"size": row["size"], "stock": row["stock"]} for row in cursor.fetchall()}
+        return jsonify({"ok": True, "sizes": updated})
     flash("Stock updated.", "success")
     return redirect(url_for("shop"))
 
@@ -1626,10 +2087,33 @@ def update_stock(product_id):
 def add_stock(size_id):
     if session.get("system_role") != "admin":
         return redirect(url_for("shop"))
-    amount = request.form.get("amount", 0)
+    amount = int(request.form.get("amount", 0))
     cursor = get_cursor()
     cursor.execute("UPDATE product_sizes SET stock = stock + %s WHERE id=%s", (amount, size_id))
     db.commit()
+    cursor.execute("SELECT stock FROM product_sizes WHERE id=%s", (size_id,))
+    row = cursor.fetchone()
+    new_stock = row["stock"] if row else 0
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"ok": True, "new_stock": new_stock, "size_id": size_id})
+    flash("Stock updated.", "success")
+    return redirect(url_for("admin_products"))
+
+
+@app.route("/remove-stock/<int:size_id>", methods=["POST"])
+def remove_stock(size_id):
+    if session.get("system_role") != "admin":
+        return redirect(url_for("shop"))
+    amount = int(request.form.get("amount", 0))
+    cursor = get_cursor()
+    # Never go below 0
+    cursor.execute("UPDATE product_sizes SET stock = GREATEST(0, stock - %s) WHERE id=%s", (amount, size_id))
+    db.commit()
+    cursor.execute("SELECT stock FROM product_sizes WHERE id=%s", (size_id,))
+    row = cursor.fetchone()
+    new_stock = row["stock"] if row else 0
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"ok": True, "new_stock": new_stock, "size_id": size_id})
     flash("Stock updated.", "success")
     return redirect(url_for("admin_products"))
 
@@ -1654,6 +2138,7 @@ def my_uniforms():
         cursor.execute("""
             SELECT uu.id, uu.status, uu.issued_at, uu.returned_at,
                    p.name AS product_name, ps.size,
+                   p.return_required,
                    tm.full_name AS worker_name
             FROM user_uniforms uu
             JOIN product_sizes ps ON uu.product_size_id = ps.id
@@ -1665,7 +2150,8 @@ def my_uniforms():
     else:
         cursor.execute("""
             SELECT uu.id, uu.status, uu.issued_at, uu.returned_at,
-                   p.name AS product_name, ps.size
+                   p.name AS product_name, ps.size,
+                   p.return_required
             FROM user_uniforms uu
             JOIN product_sizes ps ON uu.product_size_id = ps.id
             JOIN products p ON ps.product_id = p.id
@@ -1688,22 +2174,16 @@ def return_uniform(uniform_id):
         return redirect(url_for("login"))
     reason = request.form.get("reason", "worn_out")  # worn_out | damaged | lost
     cursor = get_cursor()
+    note = request.form.get("note", "")
     cursor.execute("""
-        UPDATE user_uniforms SET status=%s, returned_at=NOW()
+        UPDATE user_uniforms SET status=%s, returned_at=NOW(), return_note=%s
         WHERE id=%s
-    """, (f"returned_{reason}", uniform_id))
-    # Restore stock if not lost
-    if reason != "lost":
-        cursor.execute("""
-            UPDATE product_sizes ps
-            JOIN user_uniforms uu ON uu.product_size_id = ps.id
-            SET ps.stock = ps.stock + 1
-            WHERE uu.id = %s
-        """, (uniform_id,))
-    if reason == "lost":
-        flash("⚠️ Glöm inte att polisanmäla plagg som försvunnit innan ersättning begärs!", "warning")
+    """, (f"returned_{reason}", note, uniform_id))
+    # Returns do NOT go back to stock — items are recycled/destroyed
+    if reason in ("lost", "stolen"):
+        flash("⚠️ Polisanmälan krävs! Plagget är markerat som borttappat/stulet och återförs inte till lager.", "warning")
     else:
-        flash("Uniform return recorded. Stock has been updated.", "success")
+        flash("Retur registrerad. Plagget återförs ej till lager.", "success")
     db.commit()
     return redirect(url_for("my_uniforms"))
 
@@ -1724,24 +2204,187 @@ def return_uniform_worker(member_id, uniform_id):
     if "user_id" not in session:
         return redirect(url_for("login"))
     reason = request.form.get("reason", "worn_out")
+    note = request.form.get("note", "")
     cursor = get_cursor()
     cursor.execute("""
-        UPDATE user_uniforms SET status=%s, returned_at=NOW()
+        UPDATE user_uniforms SET status=%s, returned_at=NOW(), return_note=%s
         WHERE id=%s
-    """, (f"returned_{reason}", uniform_id))
-    if reason != "lost" and reason != "stolen":
-        cursor.execute("""
-            UPDATE product_sizes ps
-            JOIN user_uniforms uu ON uu.product_size_id = ps.id
-            SET ps.stock = ps.stock + 1
-            WHERE uu.id = %s
-        """, (uniform_id,))
+    """, (f"returned_{reason}", note, uniform_id))
+    # Returns do NOT go back to stock — items are recycled/destroyed
     db.commit()
     if reason in ("lost", "stolen"):
-        flash("⚠️ Glöm inte att polisanmäla plagget!", "warning")
+        flash("⚠️ Polisanmälan krävs! Plagget återförs ej till lager.", "warning")
     else:
-        flash("Uniform return recorded.", "success")
+        flash("Retur registrerad. Plagget återförs ej till lager.", "success")
     return redirect(url_for("worker_history", member_id=member_id))
+
+@app.route("/exchange-uniform/<int:uniform_id>", methods=["POST"])
+def exchange_uniform(uniform_id):
+    """Log a uniform exchange for any product. No stock impact — just tracking."""
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    reason = request.form.get("reason", "other")
+    custom_reason = request.form.get("custom_reason", "").strip() or None
+    notes = request.form.get("notes", "").strip() or None
+    member_id = request.form.get("member_id") or None
+    redirect_to = request.form.get("redirect_to", "worker_history")
+
+    cursor = get_cursor()
+    # Fetch product name + size for denormalised storage (easier reporting)
+    cursor.execute("""
+        SELECT p.name AS product_name, ps.size, uu.team_member_id
+        FROM user_uniforms uu
+        JOIN product_sizes ps ON uu.product_size_id = ps.id
+        JOIN products p ON ps.product_id = p.id
+        WHERE uu.id = %s
+    """, (uniform_id,))
+    uni = cursor.fetchone()
+    if not uni:
+        flash("Uniform not found.", "error")
+        return redirect(url_for("my_uniforms"))
+
+    tm_id = uni["team_member_id"] or member_id
+    cursor.execute("""
+        INSERT INTO uniform_exchanges
+            (uniform_id, team_member_id, product_name, size, reason, custom_reason, notes, supervisor_id)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+    """, (uniform_id, tm_id, uni["product_name"], uni["size"],
+          reason, custom_reason, notes, session["user_id"]))
+
+    # Mark the uniform as exchanged so it can't be exchanged again
+    cursor.execute("""
+        UPDATE user_uniforms SET status='exchanged', returned_at=NOW() WHERE id=%s
+    """, (uniform_id,))
+
+    db.commit()
+    flash(f"Exchange logged for {uni['product_name']} ({uni['size']}).", "success")
+
+    if redirect_to == "worker_history" and member_id:
+        return redirect(url_for("worker_history", member_id=member_id))
+    return redirect(url_for("my_uniforms"))
+
+
+@app.route("/admin/exchanges")
+def admin_exchanges():
+    if session.get("system_role") != "admin":
+        return redirect(url_for("shop"))
+    cursor = get_cursor()
+    product_filter = request.args.get("product", "").strip()
+    reason_filter = request.args.get("reason", "").strip()
+
+    query = """
+        SELECT ue.id, ue.exchanged_at, ue.reason, ue.custom_reason, ue.notes,
+               ue.product_name, ue.size,
+               tm.full_name AS worker_name,
+               u.full_name AS supervisor_name,
+               ue.uniform_id
+        FROM uniform_exchanges ue
+        LEFT JOIN team_members tm ON ue.team_member_id = tm.id
+        LEFT JOIN users u ON ue.supervisor_id = u.id
+        WHERE 1=1
+    """
+    values = []
+    if product_filter:
+        query += " AND ue.product_name LIKE %s"
+        values.append(f"%{product_filter}%")
+    if reason_filter:
+        query += " AND ue.reason = %s"
+        values.append(reason_filter)
+    query += " ORDER BY ue.exchanged_at DESC"
+    cursor.execute(query, values)
+    exchanges = cursor.fetchall()
+
+    # Counts by reason
+    cursor.execute("""
+        SELECT reason, COUNT(*) AS cnt FROM uniform_exchanges GROUP BY reason
+    """)
+    counts = {r["reason"]: r["cnt"] for r in cursor.fetchall()}
+
+    # Most exchanged products
+    cursor.execute("""
+        SELECT product_name, COUNT(*) AS cnt
+        FROM uniform_exchanges
+        GROUP BY product_name ORDER BY cnt DESC LIMIT 10
+    """)
+    top_products = cursor.fetchall()
+
+    return render_template("admin_exchanges.html",
+                           exchanges=exchanges, counts=counts,
+                           top_products=top_products, total=len(exchanges),
+                           product_filter=product_filter, reason_filter=reason_filter)
+
+
+@app.route("/admin/exchanges/export/pdf")
+def export_exchanges_pdf():
+    if session.get("system_role") != "admin":
+        return redirect(url_for("shop"))
+    cursor = get_cursor()
+    cursor.execute("""
+        SELECT ue.exchanged_at, ue.product_name, ue.size, ue.reason, ue.custom_reason, ue.notes,
+               tm.full_name AS worker_name, u.full_name AS supervisor_name
+        FROM uniform_exchanges ue
+        LEFT JOIN team_members tm ON ue.team_member_id = tm.id
+        LEFT JOIN users u ON ue.supervisor_id = u.id
+        ORDER BY ue.exchanged_at DESC
+    """)
+    rows = cursor.fetchall()
+
+    buffer = io.BytesIO()
+    from reportlab.lib.units import mm
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.platypus import Paragraph as RLP
+    left_margin, right_margin = 15*mm, 15*mm
+    doc = SimpleDocTemplate(buffer, pagesize=A4,
+                            leftMargin=left_margin, rightMargin=right_margin,
+                            topMargin=15*mm, bottomMargin=15*mm)
+    styles = getSampleStyleSheet()
+    cell_style = ParagraphStyle('c', fontSize=7, leading=9, wordWrap='CJK')
+    hdr_style  = ParagraphStyle('h', fontSize=7, leading=9, fontName='Helvetica-Bold')
+
+    elements = [
+        Paragraph("Uniform Exchange Report", styles["Title"]),
+        Paragraph(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}", styles["Normal"]),
+        Spacer(1, 12),
+    ]
+
+    headers = ["Date", "Worker", "Supervisor", "Product", "Size", "Reason", "Notes"]
+    table_data = [[RLP(h, hdr_style) for h in headers]]
+    for r in rows:
+        displayed_reason = r["custom_reason"] or r["reason"].replace("_", " ").title()
+        table_data.append([
+            RLP(str(r["exchanged_at"])[:10], cell_style),
+            RLP(r["worker_name"] or "—", cell_style),
+            RLP(r["supervisor_name"] or "—", cell_style),
+            RLP(r["product_name"], cell_style),
+            RLP(r["size"], cell_style),
+            RLP(displayed_reason, cell_style),
+            RLP(r["notes"] or "—", cell_style),
+        ])
+
+    usable = 210*mm - left_margin - right_margin
+    col_widths = [0.09, 0.13, 0.13, 0.28, 0.06, 0.15, 0.16]
+    col_widths = [w * usable for w in col_widths]
+
+    t = Table(table_data, colWidths=col_widths, repeatRows=1)
+    t.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#FFCC00")),
+        ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
+        ("FONTSIZE", (0,0), (-1,-1), 7),
+        ("LEADING", (0,0), (-1,-1), 9),
+        ("GRID", (0,0), (-1,-1), 0.5, colors.grey),
+        ("ROWBACKGROUNDS", (0,1), (-1,-1), [colors.white, colors.HexColor("#F9F9F9")]),
+        ("VALIGN", (0,0), (-1,-1), "TOP"),
+        ("LEFTPADDING", (0,0), (-1,-1), 4),
+        ("RIGHTPADDING", (0,0), (-1,-1), 4),
+        ("TOPPADDING", (0,0), (-1,-1), 3),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 3),
+    ]))
+    elements.append(t)
+    doc.build(elements)
+    buffer.seek(0)
+    return send_file(buffer, as_attachment=True, download_name="exchange_report.pdf",
+                     mimetype="application/pdf")
+
 
 # ─────────────────────────────────────────────
 # ADMIN — USERS
@@ -1753,8 +2396,10 @@ def admin_users():
     cursor = get_cursor()
     cursor.execute("""
         SELECT u.id, u.email, u.system_role, u.full_name,
-               u.supervisor_id, u.country,
-               jr.name AS job_role,
+               u.supervisor_id, u.country, u.facility_id,
+               COALESCE((SELECT us2.site_id FROM user_sites us2 WHERE us2.user_id = u.id LIMIT 1), NULL) AS site_id,
+               COALESCE((SELECT si.name FROM user_sites us2 JOIN sites si ON us2.site_id = si.id WHERE us2.user_id = u.id LIMIT 1), NULL) AS site_name,
+               jr.name AS job_role, u.job_role_id,
                s.full_name AS supervisor_name,
                f.name AS facility_name
         FROM users u
@@ -1764,6 +2409,14 @@ def admin_users():
         ORDER BY u.id DESC
     """)
     users = cursor.fetchall()
+    # Load extra roles per user
+    for u in users:
+        cursor.execute("""
+            SELECT jr.id, jr.name FROM user_extra_roles uer
+            JOIN job_roles jr ON uer.job_role_id = jr.id
+            WHERE uer.user_id = %s
+        """, (u["id"],))
+        u["extra_roles"] = cursor.fetchall()
     cursor.execute("SELECT id, name FROM job_roles ORDER BY name")
     job_roles = cursor.fetchall()
     cursor.execute("SELECT id, full_name FROM users WHERE system_role='supervisor' ORDER BY full_name")
@@ -1788,8 +2441,8 @@ def create_user():
     job_role_id = request.form.get("job_role_id") or None
     supervisor_id = request.form.get("supervisor_id") or None
     facility_id = request.form.get("facility_id") or None
+    site_id = request.form.get("site_id") or None
     country = request.form.get("country") or None
-    site_ids = request.form.getlist("site_ids")
 
     cursor = get_cursor()
 
@@ -1810,8 +2463,8 @@ def create_user():
         db.commit()
         new_user_id = cursor.lastrowid
 
-        # Link sites
-        for site_id in site_ids:
+        # Link site
+        if site_id:
             cursor.execute("INSERT IGNORE INTO user_sites (user_id, site_id) VALUES (%s, %s)",
                            (new_user_id, site_id))
         db.commit()
@@ -1878,23 +2531,63 @@ def edit_user(user_id):
     job_role_id = request.form.get("job_role_id") or None
     country = request.form.get("country") or None
     monthly_budget = request.form.get("monthly_budget", "").strip() or None
+    facility_id = request.form.get("facility_id") or None
+    site_id = request.form.get("site_id") or None
     new_password = request.form.get("password", "").strip()
 
     if new_password:
         cursor.execute("""
             UPDATE users SET full_name=%s, email=%s, system_role=%s, job_role_id=%s,
-            country=%s, monthly_budget=%s, password=%s WHERE id=%s
-        """, (full_name, email, system_role, job_role_id, country, monthly_budget, new_password, user_id))
+            country=%s, monthly_budget=%s, facility_id=%s, password=%s WHERE id=%s
+        """, (full_name, email, system_role, job_role_id, country, monthly_budget, facility_id, new_password, user_id))
     else:
         cursor.execute("""
             UPDATE users SET full_name=%s, email=%s, system_role=%s, job_role_id=%s,
-            country=%s, monthly_budget=%s WHERE id=%s
-        """, (full_name, email, system_role, job_role_id, country, monthly_budget, user_id))
+            country=%s, monthly_budget=%s, facility_id=%s WHERE id=%s
+        """, (full_name, email, system_role, job_role_id, country, monthly_budget, facility_id, user_id))
     db.commit()
+
+    # Always update site — clear if not provided, set if provided
+    cursor.execute("DELETE FROM user_sites WHERE user_id=%s", (user_id,))
+    if site_id:
+        cursor.execute("INSERT INTO user_sites (user_id, site_id) VALUES (%s, %s)", (user_id, site_id))
+    db.commit()
+
     flash("User updated.", "success")
     return redirect(url_for("admin_users"))
 
 
+@app.route("/admin/user/<int:user_id>/roles", methods=["POST"])
+def update_user_roles(user_id):
+    """Add or remove a secondary job role for a user."""
+    if session.get("system_role") != "admin":
+        return jsonify({"ok": False, "error": "unauthorized"}), 403
+    action = request.form.get("action")
+    role_id = request.form.get("role_id")
+    if not role_id:
+        return jsonify({"ok": False, "error": "no role_id"}), 400
+    try:
+        conn = get_db()
+        cursor = conn.cursor(dictionary=True)
+        if action == "add":
+            cursor.execute(
+                "INSERT INTO user_extra_roles (user_id, job_role_id) VALUES (%s, %s) ON DUPLICATE KEY UPDATE job_role_id=VALUES(job_role_id)",
+                (user_id, role_id)
+            )
+        elif action == "remove":
+            cursor.execute(
+                "DELETE FROM user_extra_roles WHERE user_id=%s AND job_role_id=%s",
+                (user_id, role_id)
+            )
+        conn.commit()
+        cursor.close()
+        return jsonify({"ok": True})
+    except Exception as e:
+        print(f"[ROLES] Error: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/admin/supervisor/<int:supervisor_id>/team")
 def admin_view_supervisor_team(supervisor_id):
     if session.get("system_role") != "admin":
         return redirect(url_for("shop"))
@@ -1970,29 +2663,60 @@ def admin_facilities():
 # ─────────────────────────────────────────────
 # ADMIN — JOB ROLES
 # ─────────────────────────────────────────────
+def _job_roles_conn():
+    return mysql.connector.connect(**get_db_config())
+
 @app.route("/admin/job-roles", methods=["GET", "POST"])
 def admin_job_roles():
     if session.get("system_role") != "admin":
         return redirect(url_for("shop"))
-    cursor = get_cursor()
     if request.method == "POST":
-        name = request.form["name"]
-        cursor.execute("INSERT INTO job_roles (name) VALUES (%s)", (name,))
-        db.commit()
-        flash("Job role added.", "success")
-    cursor.execute("SELECT * FROM job_roles ORDER BY name")
-    roles = cursor.fetchall()
+        name = request.form.get("name", "").strip()
+        if name:
+            conn = _job_roles_conn()
+            cur = conn.cursor()
+            cur.execute("INSERT INTO job_roles (name) VALUES (%s)", (name,))
+            conn.commit()
+            cur.close()
+            conn.close()
+            flash("Job role added.", "success")
+        return redirect(url_for("admin_job_roles"))
+    conn = _job_roles_conn()
+    cur = conn.cursor(dictionary=True)
+    cur.execute("SELECT * FROM job_roles ORDER BY name")
+    roles = cur.fetchall()
+    cur.close()
+    conn.close()
     return render_template("admin_job_roles.html", roles=roles)
+
+
+@app.route("/admin/job-roles/edit/<int:role_id>", methods=["POST"])
+def edit_job_role(role_id):
+    if session.get("system_role") != "admin":
+        return redirect(url_for("shop"))
+    name = request.form.get("name", "").strip()
+    if name:
+        conn = _job_roles_conn()
+        cur = conn.cursor()
+        cur.execute("UPDATE job_roles SET name=%s WHERE id=%s", (name, role_id))
+        conn.commit()
+        cur.close()
+        conn.close()
+        flash("Job role updated.", "success")
+    return redirect(url_for("admin_job_roles"))
 
 
 @app.route("/admin/job-roles/delete/<int:role_id>", methods=["POST"])
 def delete_job_role(role_id):
     if session.get("system_role") != "admin":
         return redirect(url_for("shop"))
-    cursor = get_cursor()
     try:
-        cursor.execute("DELETE FROM job_roles WHERE id=%s", (role_id,))
-        db.commit()
+        conn = _job_roles_conn()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM job_roles WHERE id=%s", (role_id,))
+        conn.commit()
+        cur.close()
+        conn.close()
         flash("Job role deleted.", "success")
     except Exception:
         flash("Cannot delete role (it may be in use).", "error")
@@ -2076,14 +2800,40 @@ def admin_reorder_engine():
 def admin_stock_risk():
     if session.get("system_role") != "admin":
         return redirect(url_for("shop"))
-    cursor = get_cursor()
-    cursor.execute("""
-        SELECT p.name, ps.size, ps.stock
+    conn = mysql.connector.connect(**get_db_config())
+    cur = conn.cursor(dictionary=True)
+    cur.execute("""
+        SELECT p.id AS product_id, p.name, p.stock_risk AS threshold, ps.size, ps.stock
         FROM product_sizes ps
         JOIN products p ON ps.product_id = p.id
-        WHERE ps.stock <= 2 ORDER BY ps.stock ASC
+        WHERE (p.stock_risk IS NOT NULL AND ps.stock <= p.stock_risk)
+           OR (p.stock_risk IS NULL AND ps.stock <= 2)
+        ORDER BY (ps.stock - COALESCE(p.stock_risk, 2)) ASC, ps.stock ASC
     """)
-    return render_template("admin_stock_risk.html", risk_items=cursor.fetchall())
+    risk_items = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template("admin_stock_risk.html", risk_items=risk_items)
+
+
+@app.route("/admin/set-stock-risk/<int:product_id>", methods=["POST"])
+def set_stock_risk(product_id):
+    if session.get("system_role") != "admin":
+        return jsonify({"ok": False}), 403
+    threshold = request.form.get("threshold", "").strip()
+    try:
+        threshold = int(threshold) if threshold else None
+    except ValueError:
+        threshold = None
+    conn = mysql.connector.connect(**get_db_config())
+    cur = conn.cursor()
+    cur.execute("UPDATE products SET stock_risk=%s WHERE id=%s", (threshold, product_id))
+    conn.commit()
+    cur.close()
+    conn.close()
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"ok": True, "threshold": threshold})
+    return redirect(url_for("admin_stock_risk"))
 
 
 @app.route("/admin")
@@ -2104,9 +2854,11 @@ def admin_dashboard():
     cursor.execute("SELECT COUNT(*) as count FROM users WHERE system_role='supervisor'")
     supervisor_count = cursor.fetchone()["count"]
     cursor.execute("""
-        SELECT p.name, ps.size, ps.stock FROM product_sizes ps
+        SELECT p.name, ps.size, ps.stock, COALESCE(p.stock_risk, 2) AS threshold
+        FROM product_sizes ps
         JOIN products p ON ps.product_id = p.id
-        WHERE ps.stock <= 2 ORDER BY ps.stock ASC
+        WHERE ps.stock <= COALESCE(p.stock_risk, 2)
+        ORDER BY ps.stock ASC
     """)
     low_stock = cursor.fetchall()
     return render_template("admin_dashboard.html", low_stock=low_stock,
@@ -2140,6 +2892,7 @@ def export_orders():
     cursor.execute("""
         SELECT oc.id, u.full_name, oc.total_price, oc.status, oc.created_at
         FROM order_carts oc JOIN users u ON oc.supervisor_id = u.id
+        ORDER BY oc.created_at DESC
     """)
     df = pd.DataFrame(cursor.fetchall())
     file_path = "static/reports/orders_export.xlsx"
@@ -2179,6 +2932,36 @@ def size_guide():
     cursor = get_cursor()
     cursor.execute("SELECT * FROM size_guides ORDER BY created_at DESC")
     return render_template("size_guide.html", guides=cursor.fetchall())
+
+
+@app.route("/admin/size-analytics/export")
+def export_size_analytics_excel():
+    if session.get("system_role") != "admin":
+        return redirect(url_for("shop"))
+    cursor = get_cursor()
+    cursor.execute("""
+        SELECT ws.product_type, ws.size, COUNT(*) AS frequency,
+               f.name AS facility_name
+        FROM worker_sizes ws
+        JOIN team_members tm ON ws.team_member_id = tm.id
+        LEFT JOIN users u ON tm.supervisor_id = u.id
+        LEFT JOIN facilities f ON u.facility_id = f.id
+        GROUP BY ws.product_type, ws.size, f.name
+        ORDER BY ws.product_type, frequency DESC
+    """)
+    rows = cursor.fetchall()
+    df = pd.DataFrame(rows)
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        if not df.empty:
+            df.to_excel(writer, index=False, sheet_name="Size Distribution")
+            ws = writer.sheets["Size Distribution"]
+            for col in ws.columns:
+                max_len = max((len(str(cell.value)) if cell.value else 0) for cell in col)
+                ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 40)
+    output.seek(0)
+    return send_file(output, as_attachment=True, download_name="size_analytics.xlsx",
+                     mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
 @app.route("/admin/size-analytics")
@@ -2443,22 +3226,7 @@ def add_cache_headers(response):
         response.headers["Cache-Control"] = "public, max-age=31536000"
     return response
 
-@app.route("/api/currency")
-def currency_api():
-    """Proxy for currency conversion — uses frankfurter.app (free, no key needed)."""
-    from_currency = request.args.get("from", "SEK")
-    to_currency = request.args.get("to", "EUR")
-    try:
-        import urllib.request, json
-        url = f"https://api.frankfurter.app/latest?from={from_currency}&to={to_currency}"
-        with urllib.request.urlopen(url, timeout=5) as resp:
-            data = json.loads(resp.read())
-            rate = data.get("rates", {}).get(to_currency)
-            return jsonify({"rate": rate, "from": from_currency, "to": to_currency})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+
 
 
 @app.route("/products")
@@ -2550,6 +3318,7 @@ def worker_history(member_id):
     cursor.execute("""
         SELECT oc.id AS order_id, oc.created_at AS order_date, oc.status,
                p.name AS product_name, ps.size, oi.quantity,
+               p.return_required,
                uu.id AS item_id, uu.status AS uniform_status
         FROM order_items oi
         JOIN order_carts oc ON oi.cart_id = oc.id
@@ -2729,11 +3498,220 @@ def debug_db():
     except Exception as e:
         return f"DB Connection FAILED: {str(e)}"
 
+@app.route("/admin/returns/export/excel")
+def export_returns_excel():
+    if session.get("system_role") != "admin":
+        return redirect(url_for("admin_returns"))
+    cursor = get_cursor()
+    status_filter = request.args.get("status")
+    query = """
+        SELECT uu.returned_at AS date_returned,
+               tm.full_name AS worker, tm.employee_number,
+               u.full_name AS supervisor,
+               p.name AS product, p.article_number, ps.size,
+               CASE WHEN uu.status='exchanged' THEN 'exchanged'
+                    ELSE SUBSTRING_INDEX(uu.status,'returned_',-1) END AS reason,
+               ue.reason AS exchange_sub_reason,
+               ue.custom_reason AS exchange_custom_reason,
+               uu.return_note AS notes,
+               f.name AS facility, si.name AS site,
+               oc.id AS order_id
+        FROM user_uniforms uu
+        JOIN product_sizes ps ON uu.product_size_id = ps.id
+        JOIN products p ON ps.product_id = p.id
+        LEFT JOIN team_members tm ON uu.team_member_id = tm.id
+        LEFT JOIN users u ON tm.supervisor_id = u.id
+        LEFT JOIN order_items oi ON oi.product_size_id = uu.product_size_id AND oi.team_member_id = uu.team_member_id
+        LEFT JOIN order_carts oc ON oi.cart_id = oc.id
+        LEFT JOIN facilities f ON oc.facility_id = f.id
+        LEFT JOIN sites si ON oc.site_id = si.id
+        LEFT JOIN uniform_exchanges ue ON ue.uniform_id = uu.id
+        WHERE uu.status LIKE 'returned_%' OR uu.status IN ('lost','stolen','exchanged')
+    """
+    values = []
+    if status_filter == 'exchanged':
+        query = query.replace("WHERE uu.status LIKE 'returned_%' OR uu.status IN ('lost','stolen','exchanged')",
+                              "WHERE uu.status = 'exchanged'")
+    elif status_filter:
+        query += " AND uu.status LIKE %s"
+        values.append(f'returned_{status_filter}' if status_filter not in ('stolen','lost') else status_filter)
+    query += " ORDER BY uu.returned_at DESC"
+    cursor.execute(query, values)
+    data = cursor.fetchall()
+    df = pd.DataFrame(data)
+    for col in df.columns:
+        if df[col].dtype == "object":
+            try: df[col] = df[col].astype(str)
+            except: pass
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Returns")
+        ws = writer.sheets["Returns"]
+        for col in ws.columns:
+            max_len = max((len(str(cell.value)) if cell.value else 0) for cell in col)
+            ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 50)
+    output.seek(0)
+    return send_file(output, as_attachment=True, download_name="returns_export.xlsx",
+                     mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+
+@app.route("/admin/returns/export/pdf")
+def export_returns_pdf():
+    if session.get("system_role") != "admin":
+        return redirect(url_for("admin_returns"))
+    cursor = get_cursor()
+    status_filter = request.args.get("status")
+    query = """
+        SELECT uu.returned_at,
+               tm.full_name AS worker,
+               u.full_name AS supervisor,
+               p.name AS product, ps.size,
+               CASE WHEN uu.status='exchanged' THEN 'exchanged'
+                    ELSE SUBSTRING_INDEX(uu.status,'returned_',-1) END AS reason,
+               ue.reason AS exchange_sub_reason,
+               ue.custom_reason AS exchange_custom_reason,
+               uu.return_note AS notes
+        FROM user_uniforms uu
+        JOIN product_sizes ps ON uu.product_size_id = ps.id
+        JOIN products p ON ps.product_id = p.id
+        LEFT JOIN team_members tm ON uu.team_member_id = tm.id
+        LEFT JOIN users u ON tm.supervisor_id = u.id
+        LEFT JOIN uniform_exchanges ue ON ue.uniform_id = uu.id
+        WHERE uu.status LIKE 'returned_%' OR uu.status IN ('lost','stolen','exchanged')
+    """
+    values = []
+    if status_filter == 'exchanged':
+        query = query.replace("WHERE uu.status LIKE 'returned_%' OR uu.status IN ('lost','stolen','exchanged')",
+                              "WHERE uu.status = 'exchanged'")
+    elif status_filter:
+        query += " AND uu.status LIKE %s"
+        values.append(f'returned_{status_filter}' if status_filter not in ('stolen','lost') else status_filter)
+    query += " ORDER BY uu.returned_at DESC"
+    cursor.execute(query, values)
+    rows = cursor.fetchall()
+
+    buffer = io.BytesIO()
+    from reportlab.lib.units import mm
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.platypus import Paragraph as RLP
+    lm, rm = 15*mm, 15*mm
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=lm, rightMargin=rm,
+                            topMargin=15*mm, bottomMargin=15*mm)
+    styles = getSampleStyleSheet()
+    cs = ParagraphStyle('c', fontSize=7, leading=9, wordWrap='CJK')
+    hs = ParagraphStyle('h', fontSize=7, leading=9, fontName='Helvetica-Bold')
+
+    title = "Returns Report"
+    if status_filter:
+        title += f" — {status_filter.replace('_',' ').title()}"
+    elements = [
+        Paragraph(title, styles["Title"]),
+        Paragraph(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}", styles["Normal"]),
+        Spacer(1, 12),
+    ]
+
+    headers = ["Date", "Worker", "Supervisor", "Product", "Size", "Reason", "Notes"]
+    table_data = [[RLP(h, hs) for h in headers]]
+    for r in rows:
+        if r["reason"] == "exchanged":
+            displayed_reason = "Exchanged"
+            if r.get("exchange_custom_reason"):
+                displayed_reason += f"\n({r['exchange_custom_reason']})"
+            elif r.get("exchange_sub_reason"):
+                displayed_reason += f"\n({r['exchange_sub_reason'].replace('_',' ').title()})"
+        else:
+            displayed_reason = (r["reason"] or "other").replace("_", " ").title()
+
+        table_data.append([
+            RLP(str(r["returned_at"])[:10] if r["returned_at"] else "—", cs),
+            RLP(r["worker"] or "—", cs),
+            RLP(r["supervisor"] or "—", cs),
+            RLP(r["product"], cs),
+            RLP(r["size"], cs),
+            RLP(displayed_reason, cs),
+            RLP(r["notes"] or "—", cs),
+        ])
+
+    usable = 210*mm - lm - rm
+    col_widths = [w * usable for w in [0.09, 0.14, 0.14, 0.28, 0.06, 0.14, 0.15]]
+    t = Table(table_data, colWidths=col_widths, repeatRows=1)
+    t.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#FFCC00")),
+        ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
+        ("FONTSIZE", (0,0), (-1,-1), 7),
+        ("LEADING", (0,0), (-1,-1), 9),
+        ("GRID", (0,0), (-1,-1), 0.5, colors.grey),
+        ("ROWBACKGROUNDS", (0,1), (-1,-1), [colors.white, colors.HexColor("#F9F9F9")]),
+        ("VALIGN", (0,0), (-1,-1), "TOP"),
+        ("LEFTPADDING", (0,0), (-1,-1), 4),
+        ("RIGHTPADDING", (0,0), (-1,-1), 4),
+        ("TOPPADDING", (0,0), (-1,-1), 3),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 3),
+    ]))
+    elements.append(t)
+    doc.build(elements)
+    buffer.seek(0)
+    return send_file(buffer, as_attachment=True,
+                     download_name=f"returns_{status_filter or 'all'}.pdf",
+                     mimetype="application/pdf")
+
+
 @app.route("/admin/returns")
 def admin_returns():
     if session.get("system_role") != "admin":
         return redirect(url_for("shop"))
-    return render_template("admin_returns.html")
+    cursor = get_cursor()
+    status_filter = request.args.get("status")
+    query = """
+        SELECT uu.id, uu.returned_at, uu.return_note, uu.status AS uniform_status,
+               CASE
+                 WHEN uu.status = 'exchanged' THEN 'exchanged'
+                 ELSE SUBSTRING_INDEX(uu.status, 'returned_', -1)
+               END AS return_reason,
+               p.name AS product_name, ps.size,
+               tm.full_name AS worker_name,
+               u.full_name AS supervisor_name,
+               oc.id AS order_id
+        FROM user_uniforms uu
+        JOIN product_sizes ps ON uu.product_size_id = ps.id
+        JOIN products p ON ps.product_id = p.id
+        LEFT JOIN team_members tm ON uu.team_member_id = tm.id
+        LEFT JOIN users u ON tm.supervisor_id = u.id
+        LEFT JOIN order_items oi ON oi.product_size_id = uu.product_size_id AND oi.team_member_id = uu.team_member_id
+        LEFT JOIN order_carts oc ON oi.cart_id = oc.id
+        WHERE uu.status LIKE 'returned_%' OR uu.status IN ('lost','stolen','exchanged')
+    """
+    values = []
+    if status_filter == 'exchanged':
+        query = query.replace("WHERE uu.status LIKE 'returned_%' OR uu.status IN ('lost','stolen','exchanged')",
+                              "WHERE uu.status = 'exchanged'")
+    elif status_filter:
+        query += " AND uu.status LIKE %s"
+        values.append(f'returned_{status_filter}' if status_filter not in ('stolen','lost') else status_filter)
+    query += " ORDER BY uu.returned_at DESC"
+    cursor.execute(query, values)
+    returns = cursor.fetchall()
+    # Count by reason
+    cursor.execute("""
+        SELECT CASE WHEN status='exchanged' THEN 'exchanged'
+               ELSE SUBSTRING_INDEX(status,'returned_',-1) END AS reason,
+               COUNT(*) AS cnt
+        FROM user_uniforms
+        WHERE status LIKE 'returned_%' OR status IN ('lost','stolen','exchanged')
+        GROUP BY reason
+    """)
+    counts = {}
+    for r in cursor.fetchall():
+        counts[r["reason"]] = r["cnt"]
+    # Exchange details for exchanged items
+    cursor.execute("""
+        SELECT ue.reason, ue.custom_reason, ue.uniform_id
+        FROM uniform_exchanges ue
+    """)
+    exchange_details = {r["uniform_id"]: r for r in cursor.fetchall()}
+    return render_template("admin_returns.html", returns=returns, counts=counts,
+                           total=len(returns), status_filter=status_filter,
+                           exchange_details=exchange_details)
 
 
 if __name__ == "__main__":

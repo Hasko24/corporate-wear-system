@@ -827,6 +827,14 @@ tbody tr:hover td { background: var(--yellow-pale); }
     text-align: center; box-shadow: var(--shadow-lg);
     border-top: 5px solid var(--red);
 }
+/* Form variant — left-aligned, no red border */
+.form-modal-box {
+    background: var(--white); padding: 32px;
+    border-radius: var(--r-lg); width: 620px;
+    text-align: left; box-shadow: var(--shadow-lg);
+    border-top: 4px solid var(--yellow);
+    max-height: 90vh; overflow-y: auto;
+}
 .delete-box h3 { margin-bottom: 8px; font-size: 1.3em; }
 .delete-box p  { color: var(--text-2); margin-bottom: 0; }
 @keyframes popIn { from { transform: scale(.93); opacity: 0; } to { transform: scale(1); opacity: 1; } }
@@ -912,4 +920,42 @@ tbody tr:hover td { background: var(--yellow-pale); }
     .login-box-body    { padding: 24px 24px 28px; }
     .login-box-header  { padding: 24px 24px 20px; }
     .stat-value        { font-size: 2.2em; }
+}
+
+
+/* ── Sidebar alignment fix ── */
+.sw-sidebar-section {
+    padding: 14px 16px;
+    border-bottom: 1px solid #f0f0f0;
+}
+.sw-sidebar-section:last-child { border-bottom: none; }
+.role-link {
+    display: block;
+    padding: 7px 10px;
+    border-radius: 7px;
+    text-decoration: none;
+    color: #444;
+    font-size: 0.88em;
+    line-height: 1.4;
+    transition: background .12s;
+    box-sizing: border-box;
+}
+.sw-sidebar-title {
+    font-size: 0.7em;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: #aaa;
+    margin-bottom: 8px;
+    padding: 0;
+    line-height: 1;
+}
+/* Print styles */
+@media print {
+    .navbar, .filter-bar, .btn, .page-header-band .btn, form button { display: none !important; }
+    .page-container { padding: 0; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 6px 8px; font-size: 11px; }
+    .status-pill { border: 1px solid #ccc; }
+    .page-header-band { padding: 8px 0; margin-bottom: 16px; }
 }

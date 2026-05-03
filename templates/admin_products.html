@@ -18,8 +18,8 @@
     <table>
         <thead>
             <tr>
-                <th>Article #</th><th>Name</th><th>Type</th><th>Price</th>
-                <th>Max Qty</th><th>Stock</th><th></th>
+                <th>Article #</th><th>Name</th><th>Type</th><th>Price (SEK/EUR)</th>
+                <th>Flags</th><th>Stock</th><th></th>
             </tr>
         </thead>
         <tbody>
@@ -28,8 +28,16 @@
                 <td class="text-muted text-mono">{{ product.article_number }}</td>
                 <td class="text-bold">{{ product.name }}</td>
                 <td>{{ product.type or '—' }}</td>
-                <td>{{ "%.2f"|format(product.price) ~ " SEK" if product.price else '—' }}</td>
-                <td>{{ product.max_quantity or '—' }}</td>
+                <td>
+                    {% if product.price %}{{ "%.2f"|format(product.price) }} SEK{% endif %}
+                    {% if product.price_eur %}<br><span style="color:var(--text-3);font-size:0.85em;">{{ "%.2f"|format(product.price_eur) }} EUR</span>{% endif %}
+                    {% if not product.price %}—{% endif %}
+                </td>
+                <td>
+                    {% if product.return_required %}<span class="tag" style="background:#e3f2fd;color:#1565c0;" title="Return required">↩ Return</span>{% endif %}
+                    {% if product.stock_risk %}<span class="tag" style="background:#fef3c7;color:#92400e;" title="Warn at {{ product.stock_risk }} units">⚠ ≤{{ product.stock_risk }}</span>{% endif %}
+                    {% if product.facility_only %}<span class="tag" style="background:#e8f5e9;color:#2e7d32;" title="Facility order only">🏢 Facility</span>{% endif %}
+                </td>
                 <td>
                     {% if product.sizes %}
                     <div style="display:flex;flex-wrap:wrap;gap:4px;">

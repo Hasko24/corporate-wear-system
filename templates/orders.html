@@ -17,30 +17,30 @@
     </div>
 </div>
 
-<form method="GET" class="filter-bar">
+<form method="GET" class="filter-bar" id="filterForm">
     <div class="filter-group">
         <label>From</label>
-        <input type="date" name="start" value="{{ current_filters.get('start','') }}">
+        <input type="date" name="start" id="f_start" value="{{ current_filters.get('start','') }}">
     </div>
     <div class="filter-group">
         <label>To</label>
-        <input type="date" name="end" value="{{ current_filters.get('end','') }}">
+        <input type="date" name="end" id="f_end" value="{{ current_filters.get('end','') }}">
     </div>
     <div class="filter-group">
         <label>Status</label>
-        <select name="status">
+        <select name="status" id="f_status">
             <option value="">All statuses</option>
             <option value="created"   {% if current_filters.get('status')=='created'   %}selected{% endif %}>Created</option>
             <option value="submitted" {% if current_filters.get('status')=='submitted' %}selected{% endif %}>Submitted</option>
             <option value="packed"    {% if current_filters.get('status')=='packed'    %}selected{% endif %}>Packed</option>
             <option value="completed" {% if current_filters.get('status')=='completed' %}selected{% endif %}>Sent</option>
-            <option value="rejected"  {% if current_filters.get('status')=='rejected'  %}selected{% endif %}>Rejected</option>
+            <option value="cancelled" {% if current_filters.get('status')=='cancelled' %}selected{% endif %}>Cancelled</option>
         </select>
     </div>
     {% if session.system_role == 'admin' %}
     <div class="filter-group">
         <label>Supervisor</label>
-        <select name="supervisor">
+        <select name="supervisor" id="f_supervisor">
             <option value="">All supervisors</option>
             {% for sup in supervisors %}
             <option value="{{ sup.id }}" {% if current_filters.get('supervisor')|string == sup.id|string %}selected{% endif %}>{{ sup.full_name }}</option>
@@ -50,53 +50,73 @@
     {% endif %}
     <div class="filter-group">
         <label>Sent Orders</label>
-        <select name="hide_sent">
+        <select name="hide_sent" id="f_hide_sent">
             <option value="1" {% if current_filters.get('hide_sent','1') == '1' %}selected{% endif %}>Hide Sent</option>
             <option value="0" {% if current_filters.get('hide_sent') == '0' %}selected{% endif %}>Show All</option>
         </select>
     </div>
     <button type="submit" class="btn btn-primary">Filter</button>
-    <a href="{{ url_for('view_orders') }}" class="btn btn-ghost">Clear</a>
+    <a href="{{ url_for('view_orders') }}" class="btn btn-ghost" id="clearFiltersBtn">Clear</a>
 </form>
-
-{% set sort = current_filters.get('sort', 'date') %}
-{% set dir = current_filters.get('dir', 'desc') %}
 
 <div class="data-table-wrap">
     <table>
         <thead>
             <tr>
-                <th><a href="?{% for k,v in current_filters.items() %}{% if k not in ('sort','dir') %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=id&dir={{ 'asc' if sort=='id' and dir=='desc' else 'desc' }}" style="color:inherit;text-decoration:none;"># {% if sort=='id' %}{{ '▲' if dir=='asc' else '▼' }}{% endif %}</a></th>
-                <th><a href="?{% for k,v in current_filters.items() %}{% if k not in ('sort','dir') %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=worker&dir={{ 'asc' if sort=='worker' and dir=='desc' else 'desc' }}" style="color:inherit;text-decoration:none;">Order For {% if sort=='worker' %}{{ '▲' if dir=='asc' else '▼' }}{% endif %}</a></th>
-                <th><a href="?{% for k,v in current_filters.items() %}{% if k not in ('sort','dir') %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=supervisor&dir={{ 'asc' if sort=='supervisor' and dir=='desc' else 'desc' }}" style="color:inherit;text-decoration:none;">Created By {% if sort=='supervisor' %}{{ '▲' if dir=='asc' else '▼' }}{% endif %}</a></th>
+                <th style="width:36px;"><input type="checkbox" id="selectAll" onchange="toggleAll(this)" style="width:auto;margin:0;" title="Select all"></th>
+                <th>#</th>
+                <th>Order For</th>
+                <th>Created By</th>
+                <th>Facility</th>
+                <th>Site</th>
                 <th>Items</th>
-                <th><a href="?{% for k,v in current_filters.items() %}{% if k not in ('sort','dir') %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=total&dir={{ 'asc' if sort=='total' and dir=='desc' else 'desc' }}" style="color:inherit;text-decoration:none;">Total {% if sort=='total' %}{{ '▲' if dir=='asc' else '▼' }}{% endif %}</a></th>
-                <th><a href="?{% for k,v in current_filters.items() %}{% if k not in ('sort','dir') %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=date&dir={{ 'asc' if sort=='date' and dir=='desc' else 'desc' }}" style="color:inherit;text-decoration:none;">Date {% if sort=='date' %}{{ '▲' if dir=='asc' else '▼' }}{% endif %}</a></th>
-                <th><a href="?{% for k,v in current_filters.items() %}{% if k not in ('sort','dir') %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=status&dir={{ 'asc' if sort=='status' and dir=='desc' else 'desc' }}" style="color:inherit;text-decoration:none;">Status {% if sort=='status' %}{{ '▲' if dir=='asc' else '▼' }}{% endif %}</a></th>
+                <th>Total</th>
+                <th>Date</th>
+                <th>Status</th>
                 <th></th>
             </tr>
         </thead>
         <tbody>
             {% for order in carts %}
-            <tr>
+            <tr id="order-row-{{ order.id }}">
+                <td><input type="checkbox" class="order-check" value="{{ order.id }}" style="width:auto;margin:0;"></td>
                 <td class="text-muted">#{{ order.id }}</td>
                 <td>
                     <div class="text-bold">{{ order.worker_name or '—' }}</div>
-                    {% if order.employee_number %}
-                    <div class="text-muted text-sm">{{ order.employee_number }}</div>
-                    {% endif %}
+                    {% if order.employee_number %}<div class="text-muted text-sm">{{ order.employee_number }}</div>{% endif %}
                 </td>
                 <td>{{ order.supervisor_name or '—' }}</td>
+                <td class="text-muted" style="font-size:0.85em;">{{ order.facility_name or '—' }}</td>
+                <td class="text-muted" style="font-size:0.85em;">{{ order.site_name or '—' }}</td>
                 <td>{{ order.item_count }}</td>
                 <td class="text-bold">{{ "%.2f"|format(order.total_price) if order.total_price else '—' }} SEK</td>
                 <td class="text-muted">{{ order.created_at.strftime('%d %b %Y') if order.created_at else '—' }}</td>
-                <td><span class="status-pill status-{{ order.status }}">{{ 'Sent' if order.status == 'completed' else order.status|title }}</span></td>
-                <td style="display:flex;gap:6px;align-items:center;">
-                    <a href="{{ url_for('order_detail', cart_id=order.id) }}" class="btn btn-ghost btn-sm">View →</a>
+                <td>
+                    <span class="status-pill status-{{ order.status }}" id="status-pill-{{ order.id }}">
+                        {{ 'Sent' if order.status == 'completed' else order.status|title }}
+                    </span>
+                </td>
+                <td style="white-space:nowrap;">
+                <div style="display:flex;gap:4px;align-items:center;">
+                    <a href="{{ url_for('order_detail', cart_id=order.id) }}" class="btn btn-ghost btn-sm">View</a>
+                    <a href="{{ url_for('download_order_pdf', cart_id=order.id) }}" class="btn btn-ghost btn-sm" style="display:inline-flex;align-items:center;gap:4px;">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        PDF
+                    </a>
+                    {% if session.system_role == 'packer' %}
+                        {% if order.status == 'submitted' %}
+                        <button class="btn btn-ghost btn-sm packer-action" id="action-btn-{{ order.id }}" style="background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7;"
+                                onclick="quickAction('pack', {{ order.id }}, this)">📦 Pack</button>
+                        {% endif %}
+                        {% if order.status == 'packed' %}
+                        <button class="btn btn-ghost btn-sm packer-action" id="action-btn-{{ order.id }}" style="background:#e3f2fd;color:#1565c0;border-color:#90caf9;"
+                                onclick="quickAction('complete', {{ order.id }}, this)">✓ Send</button>
+                        {% endif %}
+                    {% endif %}
                     {% if order.status in ('created', 'submitted') and (session.system_role == 'admin' or session.system_role == 'supervisor') %}
                     <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="cancelOrder(event, {{ order.id }}, this)">Cancel</button>
                     {% endif %}
-                </td>
+                </div></td>
             </tr>
             {% else %}
             <tr><td colspan="8" class="empty-state">No orders found.</td></tr>
@@ -106,12 +126,89 @@
 </div>
 
 <script>
+// ── Select all ──
+function toggleAll(master) {
+    document.querySelectorAll('.order-check').forEach(cb => cb.checked = master.checked);
+}
+
+// ── Sticky filters via localStorage ──
+const FILTER_KEY = 'cw_order_filters';
+const form = document.getElementById('filterForm');
+const clearBtn = document.getElementById('clearFiltersBtn');
+
+function saveFilters() {
+    const data = {};
+    ['f_start','f_end','f_status','f_hide_sent','f_supervisor'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) data[id] = el.value;
+    });
+    localStorage.setItem(FILTER_KEY, JSON.stringify(data));
+}
+
+// Restore filters if no URL params
+const urlParams = new URLSearchParams(window.location.search);
+const hasParams = [...urlParams.keys()].some(k => k !== '');
+if (!hasParams) {
+    try {
+        const saved = JSON.parse(localStorage.getItem(FILTER_KEY) || '{}');
+        let anySet = false;
+        Object.entries(saved).forEach(([id, val]) => {
+            const el = document.getElementById(id);
+            if (el && val) { el.value = val; anySet = true; }
+        });
+        if (anySet) form.submit();
+    } catch(e) {}
+}
+
+form.addEventListener('submit', saveFilters);
+
+clearBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    localStorage.removeItem(FILTER_KEY);
+    window.location.href = clearBtn.href;
+});
+
+// ── Quick packer actions ──
+function quickAction(type, orderId, btn) {
+    const url = type === 'pack' ? '/quick_pack/' + orderId : '/quick_complete/' + orderId;
+    btn.disabled = true;
+    btn.textContent = '…';
+    fetch(url, { method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'} })
+        .then(r => r.json()).then(res => {
+            if (res.ok) {
+                const pill = document.getElementById('status-pill-' + orderId);
+                if (pill) {
+                    pill.className = 'status-pill status-' + res.new_status;
+                    pill.textContent = res.new_status === 'completed' ? 'Sent' : res.new_status.charAt(0).toUpperCase() + res.new_status.slice(1);
+                }
+                if (type === 'pack') {
+                    // Swap Pack button → Send button immediately, no reload needed
+                    btn.style.background = '#e3f2fd';
+                    btn.style.color = '#1565c0';
+                    btn.style.borderColor = '#90caf9';
+                    btn.textContent = '✓ Send';
+                    btn.disabled = false;
+                    btn.onclick = function() { quickAction('complete', orderId, this); };
+                } else {
+                    btn.remove();
+                }
+            } else {
+                btn.disabled = false;
+                btn.textContent = type === 'pack' ? '📦 Pack' : '✓ Send';
+            }
+        }).catch(function() {
+            btn.disabled = false;
+            btn.textContent = type === 'pack' ? '📦 Pack' : '✓ Send';
+        });
+}
+
+// ── Cancel order ──
 function cancelOrder(e, orderId, btn) {
     e.preventDefault();
-    const modal = document.getElementById('confirmModal');
     document.getElementById('confirmModalMsg').textContent = 'Cancel this order?';
-    document.getElementById('confirmModalSub').textContent = 'It will be permanently deleted.';
+    document.getElementById('confirmModalSub').textContent = 'The order will be marked as cancelled.';
     document.getElementById('confirmModalOk').textContent = 'Cancel Order';
+    const modal = document.getElementById('confirmModal');
     modal.style.display = 'flex';
     const okBtn = document.getElementById('confirmModalOk');
     const newOk = okBtn.cloneNode(true);
@@ -120,7 +217,7 @@ function cancelOrder(e, orderId, btn) {
         modal.style.display = 'none';
         fetch('/cancel_order/' + orderId, { method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'} })
             .then(() => {
-                const row = btn.closest('tr');
+                const row = document.getElementById('order-row-' + orderId);
                 if (row) { row.style.transition = 'opacity .2s'; row.style.opacity = '0'; setTimeout(() => row.remove(), 200); }
             });
     });

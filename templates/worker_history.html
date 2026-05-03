@@ -39,6 +39,30 @@
     font-size: 0.82em; font-weight: 700; text-decoration: none;
 }
 .pdf-btn:hover { background: #5a4000; color: white; }
+
+@media print {
+    /* Hide everything except the history table */
+    nav, .page-breadcrumb, .btn, .return-btn, #returnModal,
+    .modal-overlay, footer, .stolen-banner, .flash { display: none !important; }
+    body, .page-container { margin: 0 !important; padding: 0 !important; max-width: 100% !important; }
+    .page-header-band { border: none !important; background: none !important; padding: 0 0 12px !important; box-shadow: none !important; }
+    h1 { font-size: 1.2em !important; margin: 0 0 2px !important; }
+    .header-sub { font-size: 0.85em !important; }
+    .data-table-wrap { overflow: visible !important; }
+    table { width: 100% !important; border-collapse: collapse !important; font-size: 0.85em !important; }
+    th, td { border: 1px solid #ccc !important; padding: 6px 10px !important; }
+    thead { display: table-header-group !important; }
+    tr { page-break-inside: avoid !important; }
+    a { color: inherit !important; text-decoration: none !important; }
+    /* DHL header line */
+    .page-header-band::after {
+        content: "DHL Corporate Wear";
+        display: block;
+        font-size: 0.75em;
+        color: #aaa;
+        margin-top: 4px;
+    }
+}
 </style>
 
 <div class="page-header-band">
@@ -48,6 +72,7 @@
             <h1>{{ member.full_name }}</h1>
             <div class="header-sub">Employee #{{ member.employee_number }} — Uniform order history</div>
         </div>
+        <button onclick="printHistory()" class="btn btn-ghost" style="display:inline-flex;align-items:center;gap:6px;">🖨 Print</button>
     </div>
 </div>
 
@@ -97,6 +122,8 @@
                     {% if u.returned %}
                         {% if u.return_reason in ('stolen', 'lost') %}
                         <span class="status-pill" style="background:#fee2e2;color:#dc2626;">{{ u.return_reason|title }}</span>
+                        {% elif u.return_reason == 'exchanged' or u.uniform_status == 'exchanged' %}
+                        <span class="status-pill" style="background:#e0f2fe;color:#0369a1;">Exchanged</span>
                         {% else %}
                         <span class="status-pill" style="background:#fff0e6;color:#ea580c;border:1px solid #fdba8c;">Returned</span>
                         {% endif %}
@@ -106,7 +133,12 @@
                 </td>
                 <td style="text-align:right;">
                     {% if u.status == 'completed' and not u.returned %}
-                    <button class="btn btn-ghost btn-sm return-btn" data-id="{{ u.item_id }}" data-name="{{ u.product_name | replace('"', '&quot;') | replace("'", '&#39;') | replace('`', '&#96;') }} ({{ u.size }})">Return / Report</button>
+                    <button class="btn btn-ghost btn-sm return-btn"
+                            data-id="{{ u.item_id }}"
+                            data-name="{{ u.product_name | replace('"', '&quot;') | replace("'", '&#39;') }} ({{ u.size }})"
+                            data-return-required="{{ '1' if u.return_required else '0' }}">
+                        Return / Exchange
+                    </button>
                     {% endif %}
                 </td>
             </tr>
@@ -120,15 +152,15 @@
     <a href="{{ url_for('view_team') }}" class="btn btn-ghost">Back to Team</a>
 </div>
 
-<!-- Return Modal -->
+<!-- Return / Exchange Modal -->
 <div id="returnModal" class="modal-overlay">
     <div class="modal-box">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
             <div>
-                <h3 style="margin:0 0 3px;font-size:1.1em;">Return Uniform</h3>
+                <h3 style="margin:0 0 3px;font-size:1.1em;">Return / Exchange</h3>
                 <div id="modalItemName" style="font-size:0.83em;color:var(--text-3);"></div>
             </div>
-            <button onclick="closeReturnModal()" style="background:none;border:none;cursor:pointer;font-size:1.2em;color:var(--text-3);padding:0 4px;">x</button>
+            <button onclick="closeReturnModal()" style="background:none;border:none;cursor:pointer;font-size:1.2em;color:var(--text-3);padding:0 4px;">×</button>
         </div>
         <form id="returnForm" method="POST">
             <div style="font-weight:700;font-size:0.8em;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:10px;">Reason</div>
@@ -141,19 +173,45 @@
                     <input type="radio" name="reason" value="damaged">
                     <div><div class="reason-label">Damaged</div><div class="reason-sub">Broken / torn</div></div>
                 </label>
-                <label class="reason-card" onclick="selectReason(this,'size_exchange')">
-                    <input type="radio" name="reason" value="size_exchange">
-                    <div><div class="reason-label">Size exchange</div><div class="reason-sub">Wrong fit</div></div>
+                <label class="reason-card" onclick="selectReason(this,'exchange')">
+                    <input type="radio" name="reason" value="exchange">
+                    <div><div class="reason-label">Exchange</div><div class="reason-sub">Swap for new item</div></div>
                 </label>
                 <label class="reason-card" onclick="selectReason(this,'stolen')">
                     <input type="radio" name="reason" value="stolen">
                     <div><div class="reason-label">Stolen</div><div class="reason-sub">Requires report</div></div>
                 </label>
-                <label class="reason-card" onclick="selectReason(this,'other')" style="grid-column:span 2;">
+                <label class="reason-card" onclick="selectReason(this,'other')">
                     <input type="radio" name="reason" value="other">
-                    <div><div class="reason-label">Other</div><div class="reason-sub">Describe in the notes below</div></div>
+                    <div><div class="reason-label">Other</div><div class="reason-sub">Describe below</div></div>
+                </label>
+                <label class="reason-card" id="returnCard" onclick="if(!this.classList.contains('disabled')) selectReason(this,'return')">
+                    <input type="radio" name="reason" value="return" disabled>
+                    <div>
+                        <div class="reason-label">Return</div>
+                        <div class="reason-sub" id="returnCardSub">Not required</div>
+                    </div>
                 </label>
             </div>
+
+            <!-- Exchange sub-reason — shown when Exchange selected -->
+            <div id="exchangeDropdownWrap" style="display:none;margin:14px 0 0;">
+                <label style="font-weight:700;font-size:0.8em;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);display:block;margin-bottom:6px;">Exchange reason</label>
+                <select name="exchange_reason" id="exchangeReasonSelect" style="width:100%;" onchange="onExchangeReasonChange(this.value)">
+                    <option value="size_change">Size change</option>
+                    <option value="wrong_size">Wrong size</option>
+                    <option value="wear_and_tear">Wear &amp; tear</option>
+                    <option value="damage">Damage</option>
+                    <option value="style_update">Style / model update</option>
+                    <option value="role_change">Role change</option>
+                    <option value="seasonal">Seasonal swap</option>
+                    <option value="other">Other</option>
+                </select>
+                <input type="text" name="exchange_custom" id="exchangeCustomInput"
+                       placeholder="Describe your reason…"
+                       style="display:none;margin-top:8px;width:100%;">
+            </div>
+
             <div class="stolen-banner" id="stolenBanner">
                 <div class="stolen-banner-title">Police report required</div>
                 <div class="stolen-banner-body">A polisanmälan must be filed and the Förlust av uniform form completed before a replacement can be issued.</div>
@@ -163,43 +221,113 @@
                 <label style="font-weight:700;font-size:0.8em;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);">
                     Notes <span id="notesHint" style="font-weight:400;text-transform:none;">(optional)</span>
                 </label>
-                <textarea name="note" id="returnNote" rows="2" placeholder="Any extra details..." style="resize:vertical;"></textarea>
+                <textarea name="note" id="returnNote" rows="2" placeholder="Any extra details…" style="resize:vertical;"></textarea>
             </div>
             <div style="display:flex;gap:10px;justify-content:flex-end;">
                 <button type="button" onclick="closeReturnModal()" class="btn btn-ghost">Cancel</button>
-                <button type="submit" class="btn btn-primary">Confirm Return</button>
+                <button type="submit" id="returnSubmitBtn" class="btn btn-primary">Confirm</button>
             </div>
         </form>
     </div>
 </div>
 
 <script>
+function printHistory() {
+    // Set the document title so the downloaded PDF gets a clean filename
+    const orig = document.title;
+    document.title = 'Uniform History — {{ member.full_name }} — {{ member.employee_number }}';
+    window.print();
+    document.title = orig;
+}
+
 document.addEventListener('click', function(e) {
     const btn = e.target.closest('.return-btn');
-    if (btn) openReturnModal(btn.dataset.id, btn.dataset.name);
+    if (btn) openReturnModal(btn.dataset.id, btn.dataset.name, btn.dataset.returnRequired === '1');
 });
-function openReturnModal(id, name) {
+
+function openReturnModal(id, name, returnRequired) {
     document.getElementById('returnForm').action = `/return-uniform-worker/{{ member_id }}/${id}`;
     document.getElementById('modalItemName').textContent = name;
-    document.getElementById('returnModal').style.display = 'flex';
+    // Return card — enabled only if return_required
+    const returnCard = document.getElementById('returnCard');
+    const returnRadio = returnCard.querySelector('input[type=radio]');
+    if (returnRequired) {
+        returnCard.classList.remove('disabled');
+        returnCard.style.opacity = '1';
+        returnCard.style.cursor = 'pointer';
+        returnRadio.disabled = false;
+        document.getElementById('returnCardSub').textContent = 'Hand back item';
+    } else {
+        returnCard.classList.add('disabled');
+        returnCard.style.opacity = '0.38';
+        returnCard.style.cursor = 'not-allowed';
+        returnRadio.disabled = true;
+        document.getElementById('returnCardSub').textContent = 'Not required';
+    }
+    // Reset to worn_out
     document.querySelectorAll('.reason-card').forEach(c => c.classList.remove('selected'));
     document.querySelector('.reason-card').classList.add('selected');
     document.querySelector('input[value="worn_out"]').checked = true;
     document.getElementById('stolenBanner').style.display = 'none';
+    document.getElementById('exchangeDropdownWrap').style.display = 'none';
+    document.getElementById('exchangeCustomInput').style.display = 'none';
     document.getElementById('notesHint').textContent = '(optional)';
     document.getElementById('returnNote').required = false;
+    document.getElementById('returnSubmitBtn').textContent = 'Confirm';
+    document.getElementById('returnModal').style.display = 'flex';
 }
+
 function closeReturnModal() { document.getElementById('returnModal').style.display = 'none'; }
+
 function selectReason(card, value) {
+    if (card.classList.contains('disabled')) return;
     document.querySelectorAll('.reason-card').forEach(c => c.classList.remove('selected'));
     card.classList.add('selected');
     card.querySelector('input[type=radio]').checked = true;
     document.getElementById('stolenBanner').style.display = value === 'stolen' ? 'block' : 'none';
+    document.getElementById('exchangeDropdownWrap').style.display = value === 'exchange' ? 'block' : 'none';
+    if (value !== 'exchange') document.getElementById('exchangeCustomInput').style.display = 'none';
     const isOther = value === 'other';
     document.getElementById('notesHint').textContent = isOther ? '— required' : '(optional)';
     document.getElementById('returnNote').required = isOther;
     if (isOther) document.getElementById('returnNote').focus();
+    document.getElementById('returnSubmitBtn').textContent = 'Confirm';
 }
+
+function onExchangeReasonChange(value) {
+    document.getElementById('exchangeCustomInput').style.display = value === 'other' ? 'block' : 'none';
+    if (value === 'other') document.getElementById('exchangeCustomInput').focus();
+}
+
+// Intercept submit — exchange goes to exchange route, others go to return route
+document.getElementById('returnForm').addEventListener('submit', function(e) {
+    const reason = document.querySelector('#returnForm input[name="reason"]:checked')?.value;
+    if (reason === 'exchange') {
+        e.preventDefault();
+        const uniformId = this.action.split('/').pop();
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/exchange-uniform/' + uniformId;
+        const fields = {
+            reason: document.getElementById('exchangeReasonSelect').value,
+            custom_reason: document.getElementById('exchangeCustomInput').value,
+            notes: document.getElementById('returnNote').value,
+            redirect_to: 'worker_history',
+            member_id: '{{ member_id }}'
+        };
+        for (const [k, v] of Object.entries(fields)) {
+            const i = document.createElement('input');
+            i.type = 'hidden'; i.name = k; i.value = v;
+            form.appendChild(i);
+        }
+        document.body.appendChild(form);
+        form.submit();
+    }
+});
+
 document.getElementById('returnModal').addEventListener('click', function(e) { if (e.target === this) closeReturnModal(); });
+function closeReturnModal() { document.getElementById('returnModal').style.display = 'none'; }
+
 </script>
-{% endblock %}
+
+</script>{% endblock %}

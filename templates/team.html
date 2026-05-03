@@ -51,7 +51,10 @@
                         {% if member.shirt_size %}<span class="tag">Shirt: {{ member.shirt_size }}</span>{% endif %}
                         {% if member.pants_size %}<span class="tag">Pants: {{ member.pants_size }}</span>{% endif %}
                         {% if member.shoe_size %}<span class="tag">Shoes: {{ member.shoe_size }}</span>{% endif %}
-                        {% if not member.shirt_size and not member.pants_size and not member.shoe_size %}
+                        {% if member.sweatshirt_size %}<span class="tag">Sweatshirt: {{ member.sweatshirt_size }}</span>{% endif %}
+                        {% if member.gloves_size %}<span class="tag">Gloves: {{ member.gloves_size }}</span>{% endif %}
+                        {% if member.hat_size %}<span class="tag">Hat: {{ member.hat_size }}</span>{% endif %}
+                        {% if not member.shirt_size and not member.pants_size and not member.shoe_size and not member.sweatshirt_size and not member.gloves_size and not member.hat_size %}
                         <span class="text-muted">Not set</span>
                         {% endif %}
                     </div>
@@ -59,7 +62,7 @@
                 <td>
                     <div style="display:flex;gap:6px;align-items:center;">
                         <a href="{{ url_for('worker_history', member_id=member.id) }}" class="btn btn-ghost btn-sm">Uniforms</a>
-                        <button type="button" class="btn btn-ghost btn-sm" onclick="openEditMember({{ member.id }}, '{{ member.full_name }}', '{{ member.employee_number or '' }}', '{{ member.shirt_size or '' }}', '{{ member.pants_size or '' }}', '{{ member.shoe_size or '' }}')">Edit</button>
+                        <button type="button" class="btn btn-ghost btn-sm" onclick="openEditMember({{ member.id }}, '{{ member.full_name }}', '{{ member.employee_number or '' }}', '{{ member.shirt_size or '' }}', '{{ member.pants_size or '' }}', '{{ member.shoe_size or '' }}', '{{ member.sweatshirt_size or '' }}', '{{ member.gloves_size or '' }}', '{{ member.hat_size or '' }}')">Edit</button>
                         <form method="POST" action="{{ url_for('delete_team_member', member_id=member.id) }}" style="margin:0;">
                             <button type="submit" class="btn btn-danger btn-sm"
                                 onclick="showConfirm(this.closest('form'),'Remove {{ member.full_name }}?','They will be removed from your team.','Remove');return false;">Remove</button>
@@ -103,7 +106,10 @@
                             {% if member.shirt_size %}<span class="tag">Shirt: {{ member.shirt_size }}</span>{% endif %}
                             {% if member.pants_size %}<span class="tag">Pants: {{ member.pants_size }}</span>{% endif %}
                             {% if member.shoe_size %}<span class="tag">Shoes: {{ member.shoe_size }}</span>{% endif %}
-                            {% if not member.shirt_size and not member.pants_size and not member.shoe_size %}
+                            {% if member.sweatshirt_size %}<span class="tag">Sweatshirt: {{ member.sweatshirt_size }}</span>{% endif %}
+                            {% if member.gloves_size %}<span class="tag">Gloves: {{ member.gloves_size }}</span>{% endif %}
+                            {% if member.hat_size %}<span class="tag">Hat: {{ member.hat_size }}</span>{% endif %}
+                            {% if not member.shirt_size and not member.pants_size and not member.shoe_size and not member.sweatshirt_size and not member.gloves_size and not member.hat_size %}
                             <span class="text-muted">Not set</span>
                             {% endif %}
                         </div>
@@ -151,19 +157,50 @@ function showTab(name) {
                 <label>Employee #</label>
                 <input type="text" name="employee_number" id="editEmpNum">
             </div>
+
             <div class="section-label" style="margin-top:18px;">Sizes</div>
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px;">
                 <div class="form-group" style="margin:0;">
-                    <label>Shirt</label>
-                    <input type="text" name="shirt_size" id="editShirtSize" placeholder="for example, M, L, XL">
+                    <label>Shirt / Jacket</label>
+                    <select name="shirt_size" id="editShirtSize">
+                        <option value="">Not set</option>
+                        {% for s in ['XS','S','M','L','XL','XXL','XXXL'] %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+                    </select>
                 </div>
                 <div class="form-group" style="margin:0;">
-                    <label>Pants</label>
-                    <input type="text" name="pants_size" id="editPantsSize" placeholder="for example, 32, 34">
+                    <label>Pants / Trouser</label>
+                    <select name="pants_size" id="editPantsSize">
+                        <option value="">Not set</option>
+                        {% for s in ['28','30','32','34','36','38','40','42','44','46'] %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+                    </select>
                 </div>
                 <div class="form-group" style="margin:0;">
-                    <label>Shoes</label>
-                    <input type="text" name="shoe_size" id="editShoeSize" placeholder="for example, 42, 43">
+                    <label>Shoe Size</label>
+                    <select name="shoe_size" id="editShoeSize">
+                        <option value="">Not set</option>
+                        {% for s in ['36','37','38','39','40','41','42','43','44','45','46','47','48'] %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="form-group" style="margin:0;">
+                    <label>Sweatshirt</label>
+                    <select name="sweatshirt_size" id="editSweatshirtSize">
+                        <option value="">Not set</option>
+                        {% for s in ['XS','S','M','L','XL','XXL','XXXL'] %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="form-group" style="margin:0;">
+                    <label>Gloves</label>
+                    <select name="gloves_size" id="editGlovesSize">
+                        <option value="">Not set</option>
+                        {% for s in ['XS','S','M','L','XL','XXL'] %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="form-group" style="margin:0;">
+                    <label>Hat</label>
+                    <select name="hat_size" id="editHatSize">
+                        <option value="">Not set</option>
+                        {% for s in ['S','M','L','XL'] %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+                    </select>
                 </div>
             </div>
             <div style="display:flex;gap:10px;margin-top:20px;">
@@ -175,12 +212,15 @@ function showTab(name) {
 </div>
 
 <script>
-function openEditMember(id, name, emp, shirt, pants, shoe) {
+function openEditMember(id, name, emp, shirt, pants, shoe, sweatshirt, gloves, hat) {
     document.getElementById('editFullName').value = name;
     document.getElementById('editEmpNum').value = emp;
-    document.getElementById('editShirtSize').value = shirt;
-    document.getElementById('editPantsSize').value = pants;
-    document.getElementById('editShoeSize').value = shoe;
+    document.getElementById('editShirtSize').value = shirt || '';
+    document.getElementById('editPantsSize').value = pants || '';
+    document.getElementById('editShoeSize').value = shoe || '';
+    document.getElementById('editSweatshirtSize').value = sweatshirt || '';
+    document.getElementById('editGlovesSize').value = gloves || '';
+    document.getElementById('editHatSize').value = hat || '';
     document.getElementById('editMemberForm').action = '/team/' + id + '/edit';
     const modal = document.getElementById('editMemberModal');
     modal.style.display = 'flex';

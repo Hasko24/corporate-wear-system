@@ -22,21 +22,25 @@
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
                 <div class="form-group">
                     <label>Article Number</label>
-                    <input type="text" name="article_number" required placeholder="for example, 10CW-001-200">
+                    <input type="text" name="article_number" required placeholder="e.g. 10CW-001-200">
                 </div>
                 <div class="form-group">
                     <label>Product Name</label>
-                    <input type="text" name="name" required placeholder="for example, Polo Shirt CIS">
+                    <input type="text" name="name" required placeholder="e.g. Polo Shirt CIS">
                 </div>
             </div>
             <div class="form-group">
                 <label>Description <span style="color:var(--text-3);font-weight:400;">(optional)</span></label>
                 <textarea name="description" rows="3" placeholder="Material, features, colour…"></textarea>
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px;">
                 <div class="form-group">
                     <label>Price (SEK)</label>
                     <input type="number" name="price" min="0" step="0.01" value="0" required>
+                </div>
+                <div class="form-group">
+                    <label>Price (EUR) <span style="color:var(--text-3);font-weight:400;">optional</span></label>
+                    <input type="number" name="price_eur" min="0" step="0.01" placeholder="0.00">
                 </div>
                 <div class="form-group">
                     <label>Max Qty per Order</label>
@@ -51,6 +55,23 @@
                         <option value="unisex">Unisex</option>
                     </select>
                 </div>
+            </div>
+            <!-- Flags -->
+            <div style="display:flex;gap:24px;margin-top:8px;flex-wrap:wrap;">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.9em;font-weight:600;">
+                    <input type="checkbox" name="return_required" style="width:auto;margin:0;">
+                    Return required when leaving
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;font-size:0.9em;font-weight:600;">
+                    Stock risk threshold
+                    <input type="number" name="stock_risk" min="1" placeholder="e.g. 5"
+                           style="width:70px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:0.9em;">
+                    <span style="font-weight:400;color:var(--text-3);">units (leave blank = off)</span>
+                </label>
+                <label id="facilityOnlyWrap" style="display:none;align-items:center;gap:8px;cursor:pointer;font-size:0.9em;font-weight:600;">
+                    <input type="checkbox" name="facility_only" id="facilityOnlyCheck" style="width:auto;margin:0;">
+                    Facility order only <span style="font-weight:400;color:var(--text-3);">(gloves only — no worker assignment)</span>
+                </label>
             </div>
         </div>
 
@@ -81,7 +102,7 @@
                 </div>
                 <div class="form-group" id="custom_type_wrap" style="display:none;">
                     <label>Custom Type Name</label>
-                    <input type="text" id="custom_type_input" placeholder="for example, RAINCOAT" oninput="syncCustomType()">
+                    <input type="text" id="custom_type_input" placeholder="e.g. RAINCOAT" oninput="syncCustomType()">
                 </div>
             </div>
             <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:16px;">
@@ -128,9 +149,14 @@
 </form>
 
 <script>
+function toggleFacilityOnly(cb) {
+    // handled by onTypeChange
+}
 function onTypeChange() {
     const sel = document.getElementById('product_type');
     const wrap = document.getElementById('custom_type_wrap');
+    const facilityWrap = document.getElementById('facilityOnlyWrap');
+    const facilityCheck = document.getElementById('facilityOnlyCheck');
     if (sel.value === 'CUSTOM') {
         wrap.style.display = 'block';
         document.getElementById('type_hidden').value = '';
@@ -138,14 +164,20 @@ function onTypeChange() {
         wrap.style.display = 'none';
         document.getElementById('type_hidden').value = sel.value;
     }
+    // Facility order only available for GLOVES
+    if (sel.value === 'GLOVES') {
+        facilityWrap.style.display = 'flex';
+        facilityCheck.checked = true;
+    } else {
+        facilityWrap.style.display = 'none';
+        facilityCheck.checked = false;
+    }
     updateSizes();
 }
-
 function syncCustomType() {
     const val = document.getElementById('custom_type_input').value.toUpperCase().trim();
     document.getElementById('type_hidden').value = val;
 }
-
 function updateSizes() {
     const sel = document.getElementById('product_type');
     const type = sel.value;
@@ -153,42 +185,26 @@ function updateSizes() {
     const container = document.getElementById('size_container');
     const hint = document.getElementById('size_hint');
     container.innerHTML = '';
-
     const forcedOneSize = ['BALACLAVA','ACCESSORIES','SCARF','CUSTOM'];
     toggle.disabled = forcedOneSize.includes(type);
     if (forcedOneSize.includes(type)) toggle.checked = true;
-
     let sizes = [];
-    if (toggle.checked) {
-        sizes = ['OneSize'];
-    } else if (['SHIRT','JACKET','SWEATSHIRT','VEST'].includes(type)) {
-        sizes = ['XS','S','M','L','XL','XXL','XXXL'];
-    } else if (['PANTS','TROUSER'].includes(type)) {
-        sizes = ['28','30','32','34','36','38','40','42','44','46'];
-    } else if (type === 'SHORTS') {
-        sizes = ['XS','S','M','L','XL','XXL'];
-    } else if (type === 'SHOES') {
-        sizes = ['38','39','40','41','42','43','44','45','46','47'];
-    } else if (type === 'GLOVES') {
-        sizes = ['S','M','L','XL'];
-    } else if (type === 'HAT') {
-        sizes = ['S','M','L','XL'];
-    } else if (type === 'BELT') {
-        sizes = ['80','85','90','95','100','105','110','115'];
-    } else if (type === 'CUSTOM') {
-        sizes = ['OneSize'];
-    }
-
+    if (toggle.checked) { sizes = ['OneSize']; }
+    else if (['SHIRT','JACKET','SWEATSHIRT','VEST'].includes(type)) { sizes = ['XS','S','M','L','XL','XXL','XXXL']; }
+    else if (['PANTS','TROUSER'].includes(type)) { sizes = ['28','30','32','34','36','38','40','42','44','46']; }
+    else if (type === 'SHORTS') { sizes = ['XS','S','M','L','XL','XXL']; }
+    else if (type === 'SHOES') { sizes = ['36','37','38','39','40','41','42','43','44','45','46','47','48']; }
+    else if (type === 'GLOVES') { sizes = ['XS','S','M','L','XL','XXL']; }
+    else if (type === 'HAT') { sizes = ['S','M','L','XL']; }
+    else if (type === 'BELT') { sizes = ['80','85','90','95','100','105','110','115']; }
+    else if (type === 'CUSTOM') { sizes = ['OneSize']; }
     hint.style.display = sizes.length ? 'none' : 'block';
     sizes.forEach(size => {
-        container.innerHTML += `
-        <div style="background:#f8f8f8;border-radius:var(--r-md);padding:10px 12px;border:1px solid var(--border);">
+        container.innerHTML += `<div style="background:#f8f8f8;border-radius:var(--r-md);padding:10px 12px;border:1px solid var(--border);">
             <div style="font-weight:700;font-size:0.8em;color:var(--text-2);margin-bottom:6px;">${size}</div>
-            <input type="number" name="size_${size}" min="0" value="0" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:0.9em;">
-        </div>`;
+            <input type="number" name="size_${size}" min="0" value="0" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:0.9em;"></div>`;
     });
 }
-
 function previewImg(input) {
     const preview = document.getElementById('img_preview');
     if (input.files && input.files[0]) {
@@ -197,7 +213,6 @@ function previewImg(input) {
         reader.readAsDataURL(input.files[0]);
     }
 }
-
 function addRole(id, name) {
     if (!id || document.getElementById('selected_roles').querySelector(`input[value="${id}"]`)) return;
     const div = document.createElement('div');
@@ -214,7 +229,6 @@ document.getElementById('add_role_btn').addEventListener('click', () => {
 });
 document.getElementById('add_all_roles_btn').addEventListener('click', () => {
     const sel = document.getElementById('role_select');
-    Array.from(sel.options).forEach(opt => { if (opt.value) addRole(opt.value, opt.text); });
     document.getElementById('selected_roles').innerHTML = '';
     Array.from(sel.options).forEach(opt => { if (opt.value) addRole(opt.value, opt.text); });
 });

@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header-band">
+    <div class="header-row">
+        <div>
+            <span class="page-breadcrumb"><a href="{{ url_for('admin_dashboard') }}">Admin</a> › Exchange Report</span>
+            <h1>Uniform Exchanges</h1>
+            <div class="header-sub">{{ total }} exchange{{ 's' if total != 1 }} logged</div>
+        </div>
+        <div style="display:flex;gap:8px;">
+            <a href="{{ url_for('export_exchanges_pdf') }}" class="btn btn-primary">⬇ Export PDF</a>
+            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-ghost">← Back</a>
+        </div>
+    </div>
+</div>
+
+<!-- Stats row -->
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:24px;">
+    {% set reason_labels = {
+        'size_change':   ('Size change',         '#e0f2fe', '#0369a1'),
+        'wrong_size':    ('Wrong size',          '#fef3c7', '#92400e'),
+        'wear_and_tear': ('Wear & tear',         '#f3f4f6', '#374151'),
+        'damage':        ('Damage',              '#fee2e2', '#dc2626'),
+        'style_update':  ('Style update',        '#f0fdf4', '#166534'),
+        'role_change':   ('Role change',         '#faf5ff', '#7c3aed'),
+        'seasonal':      ('Seasonal swap',       '#fff7ed', '#c2410c'),
+        'other':         ('Other',               '#f9fafb', '#6b7280'),
+    } %}
+    {% for key, (label, bg, col) in reason_labels.items() %}
+    {% if counts.get(key, 0) > 0 %}
+    <a href="{{ url_for('admin_exchanges', reason=key) }}"
+       style="background:{{ bg }};border-radius:10px;padding:14px 16px;text-decoration:none;border:1px solid rgba(0,0,0,.06);">
+        <div style="font-size:1.6em;font-weight:900;color:{{ col }};line-height:1;">{{ counts.get(key, 0) }}</div>
+        <div style="font-size:0.8em;font-weight:600;color:{{ col }};margin-top:4px;">{{ label }}</div>
+    </a>
+    {% endif %}
+    {% endfor %}
+</div>
+
+{% if top_products %}
+<div class="surface" style="margin-bottom:20px;">
+    <div class="section-label">Most Exchanged Products</div>
+    <div style="display:flex;flex-direction:column;gap:6px;margin-top:10px;">
+        {% for p in top_products %}
+        <div style="display:flex;align-items:center;gap:10px;">
+            <div style="font-size:0.85em;font-weight:600;flex:1;">{{ p.product_name }}</div>
+            <div style="background:#FFCC00;height:10px;border-radius:99px;width:{{ [p.cnt * 20, 200] | min }}px;"></div>
+            <div style="font-size:0.85em;font-weight:700;color:#111;min-width:24px;text-align:right;">{{ p.cnt }}</div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Filters -->
+<div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
+    <form method="GET" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <input type="text" name="product" value="{{ product_filter }}" placeholder="Filter by product…"
+               style="padding:7px 12px;border:1px solid #ddd;border-radius:7px;font-size:0.88em;min-width:220px;">
+        <select name="reason" style="padding:7px 12px;border:1px solid #ddd;border-radius:7px;font-size:0.88em;">
+            <option value="">All reasons</option>
+            <option value="size_change"   {% if reason_filter=='size_change'   %}selected{% endif %}>Size change</option>
+            <option value="wrong_size"    {% if reason_filter=='wrong_size'    %}selected{% endif %}>Wrong size</option>
+            <option value="wear_and_tear" {% if reason_filter=='wear_and_tear' %}selected{% endif %}>Wear & tear</option>
+            <option value="damage"        {% if reason_filter=='damage'        %}selected{% endif %}>Damage</option>
+            <option value="style_update"  {% if reason_filter=='style_update'  %}selected{% endif %}>Style update</option>
+            <option value="role_change"   {% if reason_filter=='role_change'   %}selected{% endif %}>Role change</option>
+            <option value="seasonal"      {% if reason_filter=='seasonal'      %}selected{% endif %}>Seasonal swap</option>
+            <option value="other"         {% if reason_filter=='other'         %}selected{% endif %}>Other</option>
+        </select>
+        <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+        {% if product_filter or reason_filter %}
+        <a href="{{ url_for('admin_exchanges') }}" class="btn btn-ghost btn-sm">Clear</a>
+        {% endif %}
+    </form>
+</div>
+
+{% if exchanges|length == 0 %}
+<div class="surface" style="text-align:center;padding:60px 40px;color:var(--text-3);">
+    <p style="font-size:1.1em;font-weight:600;color:var(--text-2);margin:0 0 6px;">No exchanges found.</p>
+    {% if product_filter or reason_filter %}<p>Try clearing the filters.</p>{% endif %}
+</div>
+{% else %}
+<div class="data-table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Worker</th>
+                <th>Supervisor</th>
+                <th>Product</th>
+                <th>Size</th>
+                <th>Reason</th>
+                <th>Notes</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ex in exchanges %}
+            {% set reason_map = {
+                'size_change':   ('Size change',        '#e0f2fe','#0369a1'),
+                'wrong_size':    ('Wrong size',         '#fef3c7','#92400e'),
+                'wear_and_tear': ('Wear & tear',        '#f3f4f6','#374151'),
+                'damage':        ('Damage',             '#fee2e2','#dc2626'),
+                'style_update':  ('Style/model update', '#f0fdf4','#166534'),
+                'role_change':   ('Role change',        '#faf5ff','#7c3aed'),
+                'seasonal':      ('Seasonal swap',      '#fff7ed','#c2410c'),
+                'other':         ('Other',              '#f9fafb','#6b7280'),
+            } %}
+            {% set r_label, r_bg, r_col = reason_map.get(ex.reason, (ex.reason|replace('_',' ')|title, '#f3f4f6', '#374151')) %}
+            <tr>
+                <td class="text-muted">{{ ex.exchanged_at.strftime('%d %b %Y') if ex.exchanged_at else '—' }}</td>
+                <td style="font-weight:600;">{{ ex.worker_name or '—' }}</td>
+                <td>{{ ex.supervisor_name or '—' }}</td>
+                <td style="font-weight:600;">{{ ex.product_name }}</td>
+                <td>{{ ex.size }}</td>
+                <td>
+                    <span class="status-pill" style="background:{{ r_bg }};color:{{ r_col }};">
+                        {{ ex.custom_reason if ex.custom_reason else r_label }}
+                    </span>
+                </td>
+                <td style="max-width:240px;color:var(--text-2);font-size:0.87em;">{{ ex.notes or '—' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% endblock %}

@@ -5,24 +5,69 @@
         <div>
             <span class="page-breadcrumb"><a href="{{ url_for('admin_dashboard') }}">Admin</a> › Size Analytics</span>
             <h1>Size Analytics</h1>
+            <div class="header-sub">Most common sizes across your workforce</div>
+        </div>
+        <div style="display:flex;gap:8px;">
+            <a href="{{ url_for('export_size_analytics_excel') }}" class="btn btn-ghost" style="display:inline-flex;align-items:center;gap:6px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Export Excel
+            </a>
+            <button onclick="window.print()" class="btn btn-ghost">🖨 Print</button>
+            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-ghost">← Admin</a>
         </div>
     </div>
 </div>
 
+<!-- Summary cards per type -->
+{% set types_seen = [] %}
+{% for row in distribution %}
+  {% if row.product_type not in types_seen %}
+    {% set _ = types_seen.append(row.product_type) %}
+  {% endif %}
+{% endfor %}
+
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px;margin-bottom:32px;">
+    {% for ptype in types_seen %}
+    <div class="surface" style="border-top:3px solid var(--yellow);">
+        <div class="section-label" style="margin-bottom:12px;">{{ ptype|title }}</div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+            {% for row in distribution %}
+            {% if row.product_type == ptype %}
+            {% set total_for_type = distribution | selectattr('product_type', 'equalto', ptype) | sum(attribute='frequency') %}
+            {% set pct = ((row.frequency / total_for_type) * 100)|round|int %}
+            <div>
+                <div style="display:flex;justify-content:space-between;font-size:0.85em;margin-bottom:3px;">
+                    <span style="font-weight:{% if loop.first %}800{% else %}500{% endif %};">
+                        {{ row.size }}{% if loop.first %} ★ Most common{% endif %}
+                    </span>
+                    <span style="color:var(--text-3);">{{ row.frequency }} workers ({{ pct }}%)</span>
+                </div>
+                <div style="background:var(--border);border-radius:4px;height:6px;overflow:hidden;">
+                    <div style="width:{{ pct }}%;height:100%;background:{% if loop.first %}var(--yellow){% else %}#ddd{% endif %};border-radius:4px;"></div>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
     <div class="data-table-wrap">
-        <div style="padding:16px 20px;font-weight:700;border-bottom:1px solid var(--border);">Size Distribution by Type</div>
+        <div style="padding:16px 20px;font-weight:700;border-bottom:1px solid var(--border);">Full Size Distribution by Type</div>
         <table>
-            <thead><tr><th>Type</th><th>Size</th><th>Count</th></tr></thead>
+            <thead><tr><th>Type</th><th>Size</th><th>Count</th><th>Most Common</th></tr></thead>
             <tbody>
                 {% for row in distribution %}
                 <tr>
                     <td>{{ row.product_type }}</td>
                     <td style="font-weight:600;">{{ row.size }}</td>
                     <td>{{ row.frequency }}</td>
+                    <td>{% if loop.changed(row.product_type) %}★{% endif %}</td>
                 </tr>
                 {% else %}
-                <tr><td colspan="3" class="empty-state">No worker size data yet.</td></tr>
+                <tr><td colspan="4" class="empty-state">No worker size data yet.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

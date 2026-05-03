@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+.worker-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 16px;
+    overflow: hidden;
+}
+.worker-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    background: var(--white);
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    user-select: none;
+}
+.worker-card-header:hover { background: #fafafa; }
+.worker-name { font-weight: 700; font-size: 0.95em; }
+.worker-meta { font-size: 0.82em; color: var(--text-3); margin-top: 2px; }
+.worker-badges { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+.chevron { font-size: 0.75em; color: var(--text-3); transition: transform .2s; }
+.card-open .chevron { transform: rotate(180deg); }
+.uniforms-body { padding: 0; display: none; }
+.card-open .uniforms-body { display: block; }
+.no-uniforms { padding: 16px 20px; color: var(--text-3); font-size: 0.88em; }
+</style>
+
+<div class="page-header-band">
+    <div class="header-row">
+        <div>
+            <span class="page-breadcrumb">
+                {% if session.system_role == 'admin' %}
+                <a href="{{ url_for('admin_dashboard') }}">Admin</a>
+                {% else %}
+                <a href="{{ url_for('supervisor_dashboard') }}">Dashboard</a>
+                {% endif %}
+                › Archived Workers
+            </span>
+            <h1>Archived Workers</h1>
+            <div class="header-sub">Former employees — visible for 6 months after archiving</div>
+        </div>
+        <button onclick="window.print()" class="btn btn-ghost">🖨 Print</button>
+    </div>
+</div>
+
+{% if session.system_role == 'admin' %}
+<div class="surface" style="margin-bottom:20px;">
+    <form method="GET" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;">
+        <div class="form-group" style="margin:0;min-width:180px;">
+            <label style="font-size:0.8em;">Supervisor</label>
+            <select name="supervisor_id">
+                <option value="">All supervisors</option>
+                {% for s in supervisors %}
+                <option value="{{ s.id }}" {% if supervisor_filter and supervisor_filter|int == s.id %}selected{% endif %}>{{ s.full_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+            <label style="font-size:0.8em;">Archived from</label>
+            <input type="date" name="date_from" value="{{ date_from or '' }}">
+        </div>
+        <div class="form-group" style="margin:0;">
+            <label style="font-size:0.8em;">Archived to</label>
+            <input type="date" name="date_to" value="{{ date_to or '' }}">
+        </div>
+        <div class="form-group" style="margin:0;flex:1;min-width:160px;">
+            <label style="font-size:0.8em;">Search name / employee #</label>
+            <input type="text" name="search" value="{{ search or '' }}" placeholder="Search…">
+        </div>
+        <button type="submit" class="btn btn-primary">Filter</button>
+        {% if supervisor_filter or date_from or date_to or search %}
+        <a href="{{ url_for('admin_archived_workers') }}" class="btn btn-ghost">Clear</a>
+        {% endif %}
+    </form>
+</div>
+{% endif %}
+
+{% if workers %}
+{% for w in workers %}
+<div class="worker-card" id="card-{{ w.id }}">
+    <div class="worker-card-header" onclick="toggleCard('{{ w.id }}')">
+        <div>
+            <div class="worker-name">{{ w.full_name }}</div>
+            <div class="worker-meta">
+                {{ w.employee_number or 'No employee #' }}
+                {% if w.role_name %} · {{ w.role_name }}{% endif %}
+                {% if w.supervisor_name %} · {{ w.supervisor_name }}{% endif %}
+                · Archived {{ w.archived_at.strftime('%d %b %Y') if w.archived_at else '—' }}
+            </div>
+        </div>
+        <div class="worker-badges">
+            {% if w.uniforms %}
+            <span class="tag">{{ w.uniforms|length }} uniform{{ 's' if w.uniforms|length != 1 }}</span>
+            {% else %}
+            <span class="text-muted" style="font-size:0.82em;">No uniforms</span>
+            {% endif %}
+            <button onclick="event.stopPropagation(); printWorker('{{ w.id }}')"
+                    class="btn btn-ghost btn-sm" style="display:inline-flex;align-items:center;gap:4px;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                Print
+            </button>
+            <span class="chevron">▼</span>
+        </div>
+    </div>
+
+    <div class="uniforms-body">
+        {% if w.uniforms %}
+        <div class="data-table-wrap" style="margin:0;border:none;border-radius:0;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Size</th>
+                        <th>Status</th>
+                        <th>Issued</th>
+                        <th>Returned</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in w.uniforms %}
+                    <tr>
+                        <td class="text-bold">{{ u.product_name }}</td>
+                        <td>{{ u.size }}</td>
+                        <td>
+                            {% set s = u.status or '' %}
+                            {% if s == 'active' %}
+                            <span class="status-pill status-completed">Active</span>
+                            {% elif s in ('lost', 'stolen') or s.startswith('returned_lost') or s.startswith('returned_stolen') %}
+                            <span class="status-pill" style="background:#fee2e2;color:#dc2626;">{{ s.replace('returned_','').replace('_',' ')|title }}</span>
+                            {% elif s.startswith('returned_') %}
+                            <span class="status-pill" style="background:#fff0e6;color:#ea580c;">Returned</span>
+                            {% else %}
+                            <span class="status-pill">{{ s.replace('_',' ')|title or '—' }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted">{{ u.issued_at.strftime('%d %b %Y') if u.issued_at else '—' }}</td>
+                        <td class="text-muted">{{ u.returned_at.strftime('%d %b %Y') if u.returned_at else '—' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="no-uniforms">No uniforms recorded for this worker.</div>
+        {% endif %}
+    </div>
+</div>
+{% endfor %}
+
+{% else %}
+<div class="surface" style="text-align:center;padding:60px 40px;color:var(--text-3);">
+    <p style="font-size:1.1em;font-weight:600;color:var(--text-2);margin:0 0 6px;">No archived workers.</p>
+    <p style="margin:0;">Workers appear here for 6 months after being archived.</p>
+</div>
+{% endif %}
+
+<script>
+function toggleCard(id) {
+    const card = document.getElementById('card-' + id);
+    card.classList.toggle('card-open');
+}
+
+function printWorker(id) {
+    const card = document.getElementById('card-' + id);
+    const name = card.querySelector('.worker-name').textContent;
+    const meta = card.querySelector('.worker-meta').textContent.trim();
+    const table = card.querySelector('table');
+    const tableHtml = table ? table.outerHTML : '<p>No uniforms recorded.</p>';
+    const win = window.open('', '_blank');
+    win.document.write(`<!DOCTYPE html><html><head><title>${name}</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 24px; font-size: 12px; }
+        h2 { margin: 0 0 4px; font-size: 18px; }
+        .meta { color: #666; margin-bottom: 16px; font-size: 11px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+        th { background: #FFCC00; padding: 7px 10px; text-align: left; font-size: 11px; }
+        td { padding: 6px 10px; border-bottom: 1px solid #eee; font-size: 11px; }
+        tr:nth-child(even) td { background: #f9f9f9; }
+    </style></head><body>
+    <h2>${name}</h2><div class="meta">${meta}</div>
+    ${tableHtml}
+    <script>window.onload=function(){window.print();window.close()}<\/script>
+    </body></html>`);
+    win.document.close();
+}
+
+// Auto-expand cards that have uniforms
+document.querySelectorAll('.worker-card').forEach(card => {
+    const hasUniforms = card.querySelector('table');
+    if (hasUniforms) card.classList.add('card-open');
+});
+</script>
+
+{% endblock %}

@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
+<script>var rolesStore = {};</script>
 
 <div class="page-header-band">
     <div class="header-row">
@@ -51,8 +52,8 @@
                 </select>
             </div>
             <div class="form-group" id="createCountryGroup" style="display:none;">
-                <label>Country</label>
-                <select name="country">
+                <label>Country <span style="color:var(--red);">*</span></label>
+                <select name="country" id="createCountry">
                     <option value="">— Select country —</option>
                     <option value="Sweden">Sweden</option>
                     <option value="Norway">Norway</option>
@@ -63,6 +64,24 @@
                     <option value="Netherlands">Netherlands</option>
                 </select>
             </div>
+            <div class="form-group" id="createFacilityGroup">
+                <label>Facility <span style="color:var(--red);">*</span></label>
+                <select name="facility_id" id="createFacilitySelect" required>
+                    <option value="">— Select facility —</option>
+                    {% for f in facilities %}
+                    <option value="{{ f.id }}">{{ f.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group" id="createSiteGroup">
+                <label>Site <span style="color:var(--red);">*</span></label>
+                <select name="site_id" id="createSiteSelect" required>
+                    <option value="">— Select site —</option>
+                    {% for s in sites %}
+                    <option value="{{ s.id }}">{{ s.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
             <button type="submit" class="btn btn-primary btn-full" style="margin-top:4px;">Create User</button>
         </form>
     </div>
@@ -71,7 +90,7 @@
     <div class="data-table-wrap">
         <table>
             <thead>
-                <tr><th>Name</th><th>Email</th><th>Role</th><th>Country</th><th>Job Role</th><th></th></tr>
+                <tr><th>Name</th><th>Email</th><th>Role</th><th>Country</th><th>Facility</th><th>Site</th><th>Job Role(s)</th><th></th></tr>
             </thead>
             <tbody>
                 {% for user in users %}
@@ -80,9 +99,32 @@
                     <td class="text-muted text-sm">{{ user.email }}</td>
                     <td><span class="tag">{{ user.system_role }}</span></td>
                     <td class="text-muted">{{ user.country or '—' }}</td>
-                    <td class="text-muted">{{ user.job_role or '—' }}</td>
-                    <td style="display:flex;gap:6px;align-items:center;">
-                        <button type="button" onclick="openEditModal({{ user.id }}, '{{ user.full_name|replace("'","\\'")|e }}', '{{ user.email|e }}', '{{ user.system_role }}', '{{ user.job_role_id or "" }}', '{{ user.country or "" }}')"
+                    <td class="text-muted text-sm">{{ user.facility_name or '—' }}</td>
+                    <td class="text-muted text-sm">{{ user.site_name or '—' }}</td>
+                    <td>
+                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                            <span class="text-muted">{{ user.job_role or '—' }}</span>
+                            <span id="role-tags-{{ user.id }}" data-roles="{{ user.extra_roles | tojson | e }}">
+                            {% if user.extra_roles %}
+                            <span style="font-size:0.78em;padding:2px 8px;border-radius:20px;background:#FFCC00;color:#000;font-weight:700;">
+                                {{ user.extra_roles | map(attribute='name') | join(', ') }}
+                            </span>
+                            {% endif %}
+                            </span>
+                            <button type="button"
+                                    onclick="openRolesById({{ user.id }}, '{{ user.full_name | replace("'", "") }}')"
+                                    data-userid="{{ user.id }}"
+                                    style="padding:3px 10px;font-size:0.78em;border:1px solid #FFCC00;border-radius:6px;background:#fff;color:#333;cursor:pointer;font-weight:600;white-space:nowrap;">
+                                ✎ Roles
+                            </button>
+                        </div>
+                        <script>rolesStore[{{ user.id }}] = {{ user.extra_roles | tojson | safe }};</script>
+                    </td>
+                    <td style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                        {% if user.system_role == 'supervisor' %}
+                        <a href="{{ url_for('admin_view_supervisor_team', supervisor_id=user.id) }}" class="btn btn-ghost btn-sm">Team</a>
+                        {% endif %}
+                        <button type="button" onclick="openEditModal({{ user.id }}, '{{ user.full_name|replace("'","\\'")|e }}', '{{ user.email|e }}', '{{ user.system_role }}', '{{ user.job_role_id or "" }}', '{{ user.country or "" }}', '{{ user.facility_id or "" }}', '{{ user.site_id or "" }}')"
                                 class="btn btn-ghost btn-sm">Edit</button>
                         {% if user.id != session.user_id %}
                         <form method="POST" action="{{ url_for('delete_user', user_id=user.id) }}" style="margin:0;">
@@ -137,7 +179,7 @@
                 </select>
             </div>
             <div class="form-group" id="editCountryGroup" style="display:none;">
-                <label>Country</label>
+                <label>Country <span style="color:var(--red);">*</span></label>
                 <select name="country" id="editCountry">
                     <option value="">— Select country —</option>
                     <option value="Sweden">Sweden</option>
@@ -147,6 +189,24 @@
                     <option value="Germany">Germany</option>
                     <option value="UK">UK</option>
                     <option value="Netherlands">Netherlands</option>
+                </select>
+            </div>
+            <div class="form-group" id="editFacilityGroup">
+                <label>Facility <span style="color:var(--red);">*</span></label>
+                <select name="facility_id" id="editFacilityId">
+                    <option value="">— Select facility —</option>
+                    {% for f in facilities %}
+                    <option value="{{ f.id }}">{{ f.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group" id="editSiteGroup">
+                <label>Site <span style="color:var(--red);">*</span></label>
+                <select name="site_id" id="editSiteId">
+                    <option value="">— Select site —</option>
+                    {% for s in sites %}
+                    <option value="{{ s.id }}">{{ s.name }}</option>
+                    {% endfor %}
                 </select>
             </div>
 <div class="modal-actions" style="justify-content:flex-end;margin-top:8px;">
@@ -169,6 +229,43 @@
     </div>
 </div>
 
+<!-- Roles modal -->
+<div id="rolesModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:12px;width:420px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden;">
+        <!-- Header -->
+        <div style="background:#D40511;padding:18px 22px;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+                <div style="color:#fff;font-weight:800;font-size:1em;" id="rolesModalTitle">Manage Roles</div>
+                <div style="color:rgba(255,255,255,.7);font-size:0.78em;margin-top:2px;">Add or remove extra job roles</div>
+            </div>
+            <button type="button" onclick="document.getElementById('rolesModal').style.display='none'"
+                    style="background:rgba(255,255,255,.15);border:none;border-radius:6px;cursor:pointer;color:#fff;font-size:1.2em;width:30px;height:30px;display:flex;align-items:center;justify-content:center;">×</button>
+        </div>
+        <!-- Body -->
+        <div style="padding:20px 22px;">
+            <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#aaa;margin-bottom:10px;">Assigned roles</div>
+            <div id="currentRolesList" style="min-height:36px;margin-bottom:18px;"></div>
+            <div style="border-top:1px solid #f0f0f0;padding-top:16px;">
+                <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#aaa;margin-bottom:8px;">Add a role</div>
+                <div style="display:flex;gap:8px;">
+                    <select id="roleAddSelect" style="flex:1;">
+                        <option value="">— Select role —</option>
+                        {% for role in job_roles %}
+                        {% if role.name != 'Everyone' %}
+                        <option value="{{ role.id }}">{{ role.name }}</option>
+                        {% endif %}
+                        {% endfor %}
+                    </select>
+                    <button type="button" id="rolesAddBtn" onclick="addExtraRole()"
+                            style="padding:0 18px;background:#FFCC00;color:#000;border:none;border-radius:7px;font-weight:800;font-size:0.88em;cursor:pointer;height:38px;white-space:nowrap;">
+                        + Add
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 // Delete modal
 let formToSubmit = null;
@@ -183,12 +280,18 @@ document.getElementById('confirmDeleteBtn').addEventListener('click', () => {
 // Create form — show country only for admin
 function toggleCreateFields() {
     const role = document.getElementById('createRoleSelect').value;
-    document.getElementById('createCountryGroup').style.display = role === 'admin' ? 'block' : 'none';
+    const isAdmin = role === 'admin';
+    document.getElementById('createCountryGroup').style.display = isAdmin ? 'block' : 'none';
+    document.getElementById('createCountry').required = isAdmin;
+    document.getElementById('createFacilityGroup').style.display = isAdmin ? 'none' : 'block';
+    document.getElementById('createSiteGroup').style.display = isAdmin ? 'none' : 'block';
+    document.getElementById('createFacilitySelect').required = !isAdmin;
+    document.getElementById('createSiteSelect').required = !isAdmin;
 }
 toggleCreateFields();
 
 // Edit modal
-function openEditModal(id, fullName, email, sysRole, jobRoleId, country) {
+function openEditModal(id, fullName, email, sysRole, jobRoleId, country, facilityId, siteId) {
     document.getElementById('editUserForm').action = '/admin/edit-user/' + id;
     document.getElementById('editModalTitle').textContent = 'Edit — ' + fullName;
     document.getElementById('editFullName').value = fullName;
@@ -197,7 +300,9 @@ function openEditModal(id, fullName, email, sysRole, jobRoleId, country) {
     document.getElementById('editRoleSelect').value = sysRole;
     document.getElementById('editJobRole').value = jobRoleId;
     document.getElementById('editCountry').value = country;
-toggleEditCountry();
+    document.getElementById('editFacilityId').value = facilityId || '';
+    document.getElementById('editSiteId').value = siteId || '';
+    toggleEditCountry();
     document.getElementById('editUserModal').style.display = 'flex';
 }
 function closeEditModal() {
@@ -205,12 +310,133 @@ function closeEditModal() {
 }
 function toggleEditCountry() {
     const role = document.getElementById('editRoleSelect').value;
-    document.getElementById('editCountryGroup').style.display = role === 'admin' ? 'block' : 'none';
+    const isAdmin = role === 'admin';
+    document.getElementById('editCountryGroup').style.display = isAdmin ? 'block' : 'none';
+    document.getElementById('editCountry').required = isAdmin;
+    document.getElementById('editFacilityGroup').style.display = isAdmin ? 'none' : 'block';
+    document.getElementById('editSiteGroup').style.display = isAdmin ? 'none' : 'block';
+    document.getElementById('editFacilityId').required = !isAdmin;
+    document.getElementById('editSiteId').required = !isAdmin;
 }
 document.getElementById('editUserModal').addEventListener('click', e => {
     if (e.target === document.getElementById('editUserModal')) closeEditModal();
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeEditModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeEditModal(); document.getElementById('rolesModal').style.display='none'; } });
+
+// rolesStore: source of truth, always updated after add/remove
+var _rolesUserId = null;
+var _currentRoles = [];
+
+function openRolesById(userId, name) {
+    openRolesModal(userId, name, rolesStore[userId] || []);
+}
+
+function openRolesModal(userId, name, currentRoles) {
+    _rolesUserId = userId;
+    _currentRoles = [];
+    for (var i = 0; i < (currentRoles || []).length; i++) {
+        _currentRoles.push({ id: parseInt(currentRoles[i].id), name: String(currentRoles[i].name) });
+    }
+    document.getElementById('rolesModalTitle').textContent = name;
+    document.getElementById('roleAddSelect').value = '';
+    renderRolesList();
+    document.getElementById('rolesModal').style.display = 'flex';
+}
+
+function renderRolesList() {
+    var el = document.getElementById('currentRolesList');
+    var html = '';
+    if (_currentRoles.length === 0) {
+        html = '<p style="color:#aaa;font-size:0.88em;margin:0;">No extra roles assigned.</p>';
+    } else {
+        for (var i = 0; i < _currentRoles.length; i++) {
+            var r = _currentRoles[i];
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;background:#fff;border:1.5px solid #e8e8e8;border-radius:8px;margin-bottom:6px;">';
+            html += '<span style="font-weight:700;font-size:0.9em;">' + r.name + '</span>';
+            html += '<button type="button" data-rid="' + r.id + '" onclick="removeExtraRole(' + r.id + ')" style="padding:3px 12px;background:#D40511;color:#fff;border:none;border-radius:6px;font-size:0.8em;font-weight:700;cursor:pointer;">Remove</button>';
+            html += '</div>';
+        }
+    }
+    el.innerHTML = html;
+
+    // Update rolesStore so next openRolesById gets fresh data
+    rolesStore[_rolesUserId] = _currentRoles.slice();
+
+    // Update yellow badge in table
+    var tagEl = document.getElementById('role-tags-' + _rolesUserId);
+    if (tagEl) {
+        if (_currentRoles.length > 0) {
+            var names = [];
+            for (var j = 0; j < _currentRoles.length; j++) names.push(_currentRoles[j].name);
+            tagEl.innerHTML = '<span style="font-size:0.78em;padding:2px 8px;border-radius:20px;background:#FFCC00;color:#000;font-weight:700;">' + names.join(', ') + '</span>';
+        } else {
+            tagEl.innerHTML = '';
+        }
+    }
+}
+
+function addExtraRole() {
+    var sel = document.getElementById('roleAddSelect');
+    if (!sel.value) return;
+    var roleId = parseInt(sel.value);
+    var roleName = sel.options[sel.selectedIndex].text;
+    for (var i = 0; i < _currentRoles.length; i++) {
+        if (_currentRoles[i].id === roleId) {
+            alert(roleName + ' is already assigned.');
+            sel.value = '';
+            return;
+        }
+    }
+    var addBtn = document.getElementById('rolesAddBtn');
+    addBtn.disabled = true;
+    addBtn.textContent = 'Adding…';
+    var fd = new FormData();
+    fd.append('action', 'add');
+    fd.append('role_id', roleId);
+    fetch('/admin/user/' + _rolesUserId + '/roles', {
+        method: 'POST',
+        headers: {'X-Requested-With': 'XMLHttpRequest'},
+        body: fd
+    }).then(function(r) { return r.json(); }).then(function(res) {
+        addBtn.disabled = false;
+        addBtn.textContent = 'Add';
+        if (res.ok) {
+            _currentRoles.push({ id: roleId, name: roleName });
+            sel.value = '';
+            renderRolesList();
+        } else {
+            alert('Could not add: ' + (res.error || 'server error'));
+        }
+    }).catch(function() {
+        addBtn.disabled = false;
+        addBtn.textContent = 'Add';
+        alert('Network error. Try again.');
+    });
+}
+
+function removeExtraRole(roleId) {
+    roleId = parseInt(roleId);
+    var fd = new FormData();
+    fd.append('action', 'remove');
+    fd.append('role_id', roleId);
+    fetch('/admin/user/' + _rolesUserId + '/roles', {
+        method: 'POST',
+        headers: {'X-Requested-With': 'XMLHttpRequest'},
+        body: fd
+    }).then(function(r) { return r.json(); }).then(function(res) {
+        if (res.ok) {
+            var next = [];
+            for (var i = 0; i < _currentRoles.length; i++) {
+                if (_currentRoles[i].id !== roleId) next.push(_currentRoles[i]);
+            }
+            _currentRoles = next;
+            renderRolesList();
+        } else {
+            alert('Could not remove: ' + (res.error || 'server error'));
+        }
+    }).catch(function() { alert('Network error. Try again.'); });
+}
+// rolesStore initialised by inline scripts per user row
 </script>
 
 {% endblock %}

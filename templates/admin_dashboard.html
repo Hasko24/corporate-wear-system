@@ -112,8 +112,8 @@
         </div>
         <div class="dash-links">
             <a href="{{ url_for('admin_users') }}" class="dash-link">
-                <span>Users</span>
-                <span class="dash-link-meta">Create, edit & delete accounts</span>
+                <span>Users & Teams</span>
+                <span class="dash-link-meta">Manage accounts — click "Team" to see a supervisor's workers</span>
             </a>
             <a href="{{ url_for('admin_job_roles') }}" class="dash-link">
                 <span>Job Roles</span>
@@ -126,6 +126,10 @@
             <a href="{{ url_for('admin_sites') }}" class="dash-link">
                 <span>Sites</span>
                 <span class="dash-link-meta">Manage PUD, GTW & CCP sites</span>
+            </a>
+            <a href="{{ url_for('admin_archived_workers') }}" class="dash-link">
+                <span>Archived Workers</span>
+                <span class="dash-link-meta">Former employees — visible for 6 months</span>
             </a>
         </div>
     </div>
@@ -157,6 +161,11 @@
                 <span>Size Guides</span>
                 <span class="dash-link-meta">Upload brand size charts</span>
             </a>
+            <a href="{{ url_for('size_analytics') }}" class="dash-link">
+                <span>Size Analytics</span>
+                <span class="dash-link-meta">Most common sizes per team/facility</span>
+            </a>
+
         </div>
     </div>
 

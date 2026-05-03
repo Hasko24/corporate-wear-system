@@ -4,9 +4,9 @@
 <div class="page-header-band">
     <div class="header-row">
         <div>
-            <span class="page-breadcrumb"><a href="{{ url_for('supervisor_dashboard') }}">Dashboard</a> › Delegation</span>
-            <h1>Delegation</h1>
-            <div class="header-sub">Grant another supervisor temporary access to order for your team</div>
+            <span class="page-breadcrumb"><a href="{{ url_for('supervisor_dashboard') }}">Dashboard</a> › Team Coverage</span>
+            <h1>Team Coverage</h1>
+            <div class="header-sub">Temporarily allow another supervisor to order for your team — useful during holidays or absences</div>
         </div>
     </div>
 </div>
@@ -19,7 +19,7 @@
         <form method="POST">
             <input type="hidden" name="action" value="add">
             <div class="form-group">
-                <label>Delegate To</label>
+                <label>Grant Access To</label>
                 <select name="delegate_id" required>
                     <option value="">Select supervisor…</option>
                     {% for sup in supervisors %}
@@ -44,7 +44,7 @@
 
         <!-- Outgoing delegations -->
         <div>
-            <div class="section-label">Delegations You've Created</div>
+            <div class="section-label">Coverage Access You've Granted</div>
             {% if delegations|length == 0 %}
             <div class="surface" style="color:var(--text-3);text-align:center;padding:32px;">No delegations yet.</div>
             {% else %}

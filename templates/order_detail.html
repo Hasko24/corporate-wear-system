@@ -4,11 +4,16 @@
 <div class="page-header-band">
     <div class="header-row">
         <div>
-            <span class="page-breadcrumb"><a href="{{ url_for('view_orders') }}" >Orders</a> › #{{ cart.id }}</span>
+            <span class="page-breadcrumb"><a href="{{ url_for('view_orders') }}">Orders</a> › #{{ cart.id }}</span>
             <h1>Order #{{ cart.id }}</h1>
         </div>
-        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span class="status-pill status-{{ cart.status }}" style="font-size:0.85em;padding:7px 16px;">{{ 'Sent' if cart.status == 'completed' else cart.status|title }}</span>
+            <a href="{{ url_for('download_order_pdf', cart_id=cart.id) }}" class="btn btn-ghost" style="display:inline-flex;align-items:center;gap:6px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Download PDF
+            </a>
+            <button onclick="window.print()" class="btn btn-ghost" style="display:inline-flex;align-items:center;gap:6px;">🖨 Print</button>
             <a href="{{ url_for('view_orders') }}" class="btn btn-ghost">← Back</a>
         </div>
     </div>
@@ -32,6 +37,24 @@
         <div class="meta-label">Total</div>
         <div class="meta-value">{{ "%.2f"|format(total) ~ " SEK" if total else '—' }}</div>
     </div>
+    {% if cart.get('facility_name') %}
+    <div class="order-meta-item">
+        <div class="meta-label">Facility</div>
+        <div class="meta-value">{{ cart.facility_name }}</div>
+    </div>
+    {% endif %}
+    {% if cart.get('site_name') %}
+    <div class="order-meta-item">
+        <div class="meta-label">Site</div>
+        <div class="meta-value">{{ cart.site_name }}</div>
+    </div>
+    {% endif %}
+    {% if cart.get('department') %}
+    <div class="order-meta-item">
+        <div class="meta-label">Department</div>
+        <div class="meta-value">{{ cart.department }}</div>
+    </div>
+    {% endif %}
     {% if cart.comment %}
     <div class="order-meta-item" style="grid-column:1/-1;">
         <div class="meta-label">Comment</div>
@@ -50,23 +73,36 @@
                 <th>Unit Price</th>
                 <th>Line Total</th>
                 <th>Employee</th>
+                {% if session.system_role in ('packer','admin') and cart.status in ('submitted','packed') %}
+                <th>Stock Status</th>
+                {% endif %}
             </tr>
         </thead>
         <tbody>
             {% for item in items %}
-            <tr>
+            <tr id="item-row-{{ item.item_id }}" style="{% if item.out_of_stock %}opacity:0.6;{% endif %}">
                 <td class="text-bold">{{ item.name }}</td>
                 <td>{{ item.size }}</td>
                 <td>{{ item.quantity }}</td>
                 <td>{{ "%.2f"|format(item.price_at_time) }} SEK</td>
                 <td class="text-bold">{{ "%.2f"|format(item.subtotal) }} SEK</td>
                 <td class="text-muted">{{ item.worker_name or '—' }}</td>
+                {% if session.system_role in ('packer','admin') and cart.status in ('submitted','packed') %}
+                <td>
+                    <button class="btn btn-sm {% if item.out_of_stock %}btn-danger{% else %}btn-ghost{% endif %}"
+                            id="oos-btn-{{ item.item_id }}"
+                            onclick="toggleOutOfStock({{ item.item_id }}, this)"
+                            style="font-size:0.78em;">
+                        {% if item.out_of_stock %}⚠ Out of Stock{% else %}✓ In Stock{% endif %}
+                    </button>
+                </td>
+                {% endif %}
             </tr>
             {% endfor %}
             {% if total %}
-            <tr style="background:var(--yellow-pale);">
-                <td colspan="5" style="text-align:right;font-weight:800;font-size:0.9em;text-transform:uppercase;letter-spacing:.06em;border-bottom:none;">Total</td>
-                <td style="font-weight:900;font-size:1.05em;border-bottom:none;">{{ "%.2f"|format(total) }} SEK</td>
+            <tr style="background:var(--yellow-pale);border-bottom:2px solid var(--border);">
+                <td colspan="{% if session.system_role in ('packer','admin') and cart.status in ('submitted','packed') %}6{% else %}5{% endif %}" style="text-align:right;font-weight:800;font-size:0.9em;text-transform:uppercase;letter-spacing:.06em;border-bottom:2px solid var(--border);">Total</td>
+                <td style="font-weight:900;font-size:1.05em;border-bottom:2px solid var(--border);">{{ "%.2f"|format(total) }} SEK</td>
             </tr>
             {% endif %}
         </tbody>
@@ -84,10 +120,55 @@
     {% if cart.status == 'packed' %}
     <form method="POST" action="{{ url_for('complete_order', cart_id=cart.id) }}" style="margin:0;">
         <button type="submit" class="btn btn-primary"
-                onclick="showConfirm(this.closest('form'),'Mark order #{{ cart.id }} as sent?','This will notify the supervisor.','Mark as Sent');return false;">Mark as Sent</button>
+                onclick="showConfirm(this.closest('form'),'Mark order #{{ cart.id }} as sent?','Items marked out-of-stock will be skipped.','Mark as Sent');return false;">Mark as Sent</button>
     </form>
     {% endif %}
 </div>
 {% endif %}
+
+<script>
+function toggleOutOfStock(itemId, btn) {
+    const isCurrentlyOOS = btn.classList.contains('btn-danger');
+    const confirmMsg = isCurrentlyOOS
+        ? 'Mark as back in stock?'
+        : 'Mark as out of stock?';
+    const confirmSub = isCurrentlyOOS
+        ? 'The quantity will be restored to inventory.'
+        : 'Stock will be set to 0 and the item will show as unavailable everywhere.';
+    const okLabel = isCurrentlyOOS ? 'Mark In Stock' : 'Mark Out of Stock';
+
+    showConfirmCallback(confirmMsg, confirmSub, okLabel, function() {
+        btn.disabled = true;
+        btn.textContent = '…';
+
+        fetch('/mark_item_out_of_stock/' + itemId, {
+            method: 'POST',
+            headers: {'X-Requested-With': 'XMLHttpRequest'}
+        }).then(r => r.json()).then(res => {
+            if (res.ok) {
+                const row = document.getElementById('item-row-' + itemId);
+                if (res.out_of_stock) {
+                    btn.textContent = '⚠ Out of Stock';
+                    btn.className = 'btn btn-sm btn-danger';
+                    btn.title = 'Stock set to 0 — item unavailable in shop';
+                    if (row) row.style.opacity = '0.55';
+                } else {
+                    btn.textContent = '✓ In Stock';
+                    btn.className = 'btn btn-sm btn-ghost';
+                    btn.title = res.new_stock !== undefined ? 'Stock restored to ' + res.new_stock : '';
+                    if (row) row.style.opacity = '1';
+                }
+                btn.disabled = false;
+            } else {
+                btn.textContent = 'Error';
+                btn.disabled = false;
+            }
+        }).catch(() => { btn.textContent = 'Error'; btn.disabled = false; });
+    });
+}
+
+// dummy to avoid errors if called before btn.disabled
+function _noop(){}
+</script>
 
 {% endblock %}

@@ -1,6 +1,53 @@
 {% extends "base.html" %}
 {% block content %}
 
+<style>
+.stock-stepper {
+    display: inline-flex;
+    align-items: center;
+    border: 1.5px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+}
+.stock-stepper button {
+    width: 34px; height: 34px;
+    border: none; background: none;
+    font-size: 1.15em; font-weight: 700;
+    cursor: pointer; color: #333;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .1s;
+    padding: 0; margin: 0;
+}
+.stock-stepper button:hover { background: #f5f5f5; }
+.stock-stepper button:active { background: #ececec; }
+.stock-stepper button:disabled { opacity: 0.3; cursor: default; }
+.stock-stepper input {
+    width: 52px; height: 34px;
+    border: none; border-left: 1.5px solid #e0e0e0; border-right: 1.5px solid #e0e0e0;
+    text-align: center; font-size: 0.95em; font-weight: 700;
+    color: #111; padding: 0; margin: 0; background: #fff;
+    -moz-appearance: textfield;
+}
+.stock-stepper input::-webkit-inner-spin-button,
+.stock-stepper input::-webkit-outer-spin-button { -webkit-appearance: none; }
+.save-btn {
+    margin-left: 8px;
+    padding: 0 14px; height: 34px;
+    background: #FFCC00; color: #000;
+    border: none; border-radius: 8px;
+    font-size: 0.85em; font-weight: 700;
+    cursor: pointer; transition: background .1s;
+    white-space: nowrap;
+}
+.save-btn:hover { background: #f0be00; }
+.save-btn:disabled { opacity: 0.5; cursor: default; }
+.stock-num {
+    font-size: 1.1em; font-weight: 800;
+    min-width: 32px; display: inline-block;
+}
+</style>
+
 <div class="page-header-band">
     <div class="header-row">
         <div>
@@ -12,16 +59,15 @@
     </div>
 </div>
 
-<div style="display:grid;grid-template-columns:320px 1fr;gap:24px;align-items:start;">
+<div style="display:grid;grid-template-columns:300px 1fr;gap:24px;align-items:start;">
 
-    <!-- Add size form -->
-    <div class="surface" style="border-top:3px solid var(--yellow);">
+    <div class="surface" style="border-top:3px solid #FFCC00;">
         <div class="section-label">Add Size</div>
         <form method="POST">
             <input type="hidden" name="action" value="add">
             <div class="form-group">
                 <label>Size</label>
-                <input type="text" name="size" required placeholder="for example, M, 42, OneSize">
+                <input type="text" name="size" required placeholder="e.g. M, 42, OneSize">
             </div>
             <div class="form-group">
                 <label>Initial Stock</label>
@@ -31,35 +77,141 @@
         </form>
     </div>
 
-    <!-- Sizes table -->
     <div class="data-table-wrap">
         <table>
             <thead>
-                <tr><th>Size</th><th>Stock</th><th></th></tr>
+                <tr><th>Size</th><th>Current Stock</th><th>Adjust</th><th></th></tr>
             </thead>
             <tbody>
                 {% for size in sizes %}
-                <tr>
-                    <td class="text-bold">{{ size.size }}</td>
+                <tr id="size-row-{{ size.id }}">
+                    <td class="text-bold" style="font-size:1.05em;">{{ size.size }}</td>
                     <td>
-                        <span class="{% if size.stock <= 5 %}stock-critical{% elif size.stock <= 15 %}stock-warning{% else %}stock-ok{% endif %}">
+                        <span id="stock-{{ size.id }}" class="stock-num {% if size.stock == 0 %}stock-critical{% elif size.stock <= 5 %}stock-warning{% else %}stock-ok{% endif %}">
                             {{ size.stock }}
                         </span>
+                    </td>
+                    <td>
+                        <div style="display:flex;align-items:center;">
+                            <div class="stock-stepper">
+                                <button type="button" onclick="stepStock({{ size.id }}, -1, this)" title="Remove 1">−</button>
+                                <input type="number" id="step-{{ size.id }}" value="1" min="1" max="9999">
+                                <button type="button" onclick="stepStock({{ size.id }}, 1, this)" title="Add 1">+</button>
+                            </div>
+                            <button class="save-btn" id="save-{{ size.id }}" onclick="saveStock({{ size.id }}, this)">Save</button>
+                        </div>
                     </td>
                     <td style="text-align:right;">
                         <form method="POST" style="margin:0;display:inline;">
                             <input type="hidden" name="action" value="delete">
                             <input type="hidden" name="size_id" value="{{ size.id }}">
-                            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="showConfirm(this.closest('form'),'Delete size {{ size.size }}?','This cannot be undone.');return false;">Delete</button>
+                            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--red);"
+                                    onclick="showConfirm(this.closest('form'),'Delete size {{ size.size }}?','This cannot be undone.');return false;">Delete</button>
                         </form>
                     </td>
                 </tr>
                 {% else %}
-                <tr><td colspan="3" class="empty-state">No sizes added yet.</td></tr>
+                <tr><td colspan="4" class="empty-state">No sizes added yet.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 </div>
+
+<script>
+// Track pending adjustments per size: positive = add, negative = remove
+var pending = {};
+
+function stepStock(sizeId, direction, btn) {
+    var input = document.getElementById('step-' + sizeId);
+    var val = parseInt(input.value) || 1;
+    if (direction === -1) {
+        var stockEl = document.getElementById('stock-' + sizeId);
+        var base = parseInt(stockEl.dataset.base !== undefined ? stockEl.dataset.base : stockEl.textContent) || 0;
+        var alreadyPending = pending[sizeId] || 0;
+        var resultingStock = base + alreadyPending - val;
+        if (resultingStock < 0) {
+            // Flash the stock number red to warn
+            stockEl.style.color = '#D40511';
+            stockEl.style.transition = 'color .1s';
+            setTimeout(function() { stockEl.style.color = ''; }, 700);
+            showStockWarning('Stock cannot go below 0. Maximum you can remove: ' + Math.max(0, base + alreadyPending) + ' units.');
+            return;
+        }
+    }
+    pending[sizeId] = (pending[sizeId] || 0) + (direction * val);
+    updateStockPreview(sizeId);
+}
+
+function showStockWarning(msg) {
+    var el = document.getElementById('stock-warning-toast');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'stock-warning-toast';
+        el.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#D40511;color:#fff;padding:12px 20px;border-radius:8px;font-size:0.88em;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2);transition:opacity .3s;';
+        document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.style.opacity = '1';
+    clearTimeout(el._t);
+    el._t = setTimeout(function() { el.style.opacity = '0'; }, 2500);
+}
+
+function updateStockPreview(sizeId) {
+    var stockEl = document.getElementById('stock-' + sizeId);
+    var base = parseInt(stockEl.dataset.base !== undefined ? stockEl.dataset.base : stockEl.textContent) || 0;
+    if (stockEl.dataset.base === undefined) stockEl.dataset.base = base;
+    var adj = pending[sizeId] || 0;
+    var preview = Math.max(0, base + adj);
+    stockEl.textContent = preview;
+    stockEl.className = 'stock-num ' + (preview === 0 ? 'stock-critical' : preview <= 5 ? 'stock-warning' : 'stock-ok');
+    // Show save button as active if there's a pending change
+    var saveBtn = document.getElementById('save-' + sizeId);
+    if (adj !== 0) {
+        saveBtn.style.background = '#FFCC00';
+        saveBtn.textContent = adj > 0 ? 'Save (+' + adj + ')' : 'Save (' + adj + ')';
+    } else {
+        saveBtn.style.background = '#e0e0e0';
+        saveBtn.textContent = 'Save';
+    }
+}
+
+function saveStock(sizeId, btn) {
+    var adj = pending[sizeId] || 0;
+    if (adj === 0) return;
+    btn.disabled = true;
+    btn.textContent = '…';
+    var amount = Math.abs(adj);
+    var url = adj > 0 ? '/add-stock/' + sizeId : '/remove-stock/' + sizeId;
+    var fd = new FormData();
+    fd.append('amount', amount);
+    fetch(url, { method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'}, body: fd })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+        btn.disabled = false;
+        if (res.ok) {
+            var stockEl = document.getElementById('stock-' + sizeId);
+            stockEl.textContent = res.new_stock;
+            stockEl.dataset.base = res.new_stock;
+            stockEl.className = 'stock-num ' + (res.new_stock === 0 ? 'stock-critical' : res.new_stock <= 5 ? 'stock-warning' : 'stock-ok');
+            pending[sizeId] = 0;
+            document.getElementById('step-' + sizeId).value = 1;
+            btn.style.background = '#d4edda';
+            btn.textContent = '✓ Saved';
+            setTimeout(function() {
+                btn.style.background = '#e0e0e0';
+                btn.textContent = 'Save';
+            }, 1500);
+        } else {
+            btn.textContent = 'Error';
+            btn.style.background = '#fee2e2';
+        }
+    })
+    .catch(function() {
+        btn.disabled = false;
+        btn.textContent = 'Error';
+    });
+}
+</script>
 
 {% endblock %}

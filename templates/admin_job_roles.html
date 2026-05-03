@@ -4,7 +4,7 @@
 <div class="page-header-band">
     <div class="header-row">
         <div>
-            <span class="page-breadcrumb"><a href="{{ url_for('admin_dashboard') }}" >Admin</a> › Job Roles</span>
+            <span class="page-breadcrumb"><a href="{{ url_for('admin_dashboard') }}">Admin</a> › Job Roles</span>
             <h1>Job Roles</h1>
         </div>
         <a href="{{ url_for('admin_dashboard') }}" class="btn btn-ghost">← Admin</a>
@@ -13,17 +13,19 @@
 
 <div style="display:grid;grid-template-columns:380px 1fr;gap:28px;align-items:start;">
 
+    <!-- Add Role -->
     <div class="surface">
         <div class="section-label">Add Role</div>
-        <form method="POST" style="display:flex;flex-direction:column;gap:14px;">
+        <form method="POST" action="{{ url_for('admin_job_roles') }}" style="display:flex;flex-direction:column;gap:14px;">
             <div class="form-group" style="margin:0;">
                 <label>Role Name</label>
-                <input type="text" name="name" placeholder="for example, Warehouse Operative" required>
+                <input type="text" name="name" placeholder="e.g. Warehouse Operative" required autocomplete="off">
             </div>
             <button type="submit" class="btn btn-primary">Add Role</button>
         </form>
     </div>
 
+    <!-- Roles List -->
     <div class="data-table-wrap">
         <table>
             <thead><tr><th>Role Name</th><th></th></tr></thead>
@@ -38,9 +40,12 @@
                     </td>
                     <td style="text-align:right;">
                         {% if role.name not in ('Everyone', 'Packer') %}
-                        <form method="POST" action="{{ url_for('delete_job_role', role_id=role.id) }}" style="margin:0;display:inline;">
-                            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="showConfirm(this.closest('form'),'Delete this role?','This cannot be undone.');return false;">Delete</button>
-                        </form>
+                        <div style="display:inline-flex;gap:8px;">
+                            <button type="button" class="btn btn-ghost btn-sm"
+                                onclick="openEdit({{ role.id }}, '{{ role.name | e }}')">Edit</button>
+                            <button type="button" class="btn btn-ghost btn-sm" style="color:var(--red);"
+                                onclick="openDeleteConfirm({{ role.id }}, '{{ role.name | e }}')">Delete</button>
+                        </div>
                         {% endif %}
                     </td>
                 </tr>
@@ -49,5 +54,60 @@
         </table>
     </div>
 </div>
+
+<!-- Edit Modal -->
+<div id="editModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;align-items:center;justify-content:center;">
+    <div class="surface" style="width:100%;max-width:400px;margin:0 20px;">
+        <div class="section-label" style="margin-bottom:16px;">Edit Role</div>
+        <form id="editForm" method="POST" style="display:flex;flex-direction:column;gap:14px;">
+            <div class="form-group" style="margin:0;">
+                <label>Role Name</label>
+                <input type="text" id="editName" name="name" required autocomplete="off">
+            </div>
+            <div style="display:flex;gap:10px;">
+                <button type="submit" class="btn btn-primary">Save</button>
+                <button type="button" class="btn btn-ghost" onclick="closeEdit()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;align-items:center;justify-content:center;">
+    <div class="surface" style="width:100%;max-width:380px;margin:0 20px;">
+        <div class="section-label" style="margin-bottom:8px;color:var(--red);">Delete Role</div>
+        <p style="margin:0 0 20px;font-size:0.95em;">Are you sure you want to delete <strong id="deleteRoleName"></strong>? This cannot be undone.</p>
+        <form id="deleteForm" method="POST" style="display:flex;gap:10px;">
+            <button type="submit" class="btn btn-primary" style="background:var(--red);border-color:var(--red);">Delete</button>
+            <button type="button" class="btn btn-ghost" onclick="closeDeleteConfirm()">Cancel</button>
+        </form>
+    </div>
+</div>
+
+<script>
+function openEdit(id, name) {
+    document.getElementById('editName').value = name;
+    document.getElementById('editForm').action = '/admin/job-roles/edit/' + id;
+    document.getElementById('editModal').style.display = 'flex';
+    document.getElementById('editName').focus();
+}
+function closeEdit() {
+    document.getElementById('editModal').style.display = 'none';
+}
+document.getElementById('editModal').addEventListener('click', function(e) {
+    if (e.target === this) closeEdit();
+});
+function openDeleteConfirm(id, name) {
+    document.getElementById('deleteRoleName').textContent = name;
+    document.getElementById('deleteForm').action = '/admin/job-roles/delete/' + id;
+    document.getElementById('deleteModal').style.display = 'flex';
+}
+function closeDeleteConfirm() {
+    document.getElementById('deleteModal').style.display = 'none';
+}
+document.getElementById('deleteModal').addEventListener('click', function(e) {
+    if (e.target === this) closeDeleteConfirm();
+});
+</script>
 
 {% endblock %}

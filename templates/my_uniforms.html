@@ -47,6 +47,7 @@
             <span class="page-breadcrumb"><a href="{{ url_for('supervisor_dashboard') }}">Dashboard</a> › My Uniforms</span>
             <h1>My Uniforms</h1>
         </div>
+        <button onclick="window.print()" class="btn btn-ghost" style="display:inline-flex;align-items:center;gap:6px;">🖨 Print</button>
     </div>
 </div>
 
@@ -83,6 +84,7 @@
     <table>
         <thead>
             <tr>
+                <th style="width:36px;"><input type="checkbox" id="selectAllUniforms" onchange="document.querySelectorAll('.uni-check').forEach(c=>c.checked=this.checked)" style="width:auto;margin:0;" title="Select all"></th>
                 <th>Product</th><th>Size</th>
                 {% if session.get('system_role') == 'supervisor' %}<th>Worker</th>{% endif %}
                 <th>Status</th><th>Issued</th><th>Returned</th><th></th>
@@ -91,6 +93,7 @@
         <tbody>
             {% for u in uniforms %}
             <tr>
+                <td><input type="checkbox" class="uni-check" value="{{ u.id }}" style="width:auto;margin:0;"></td>
                 <td style="font-weight:600;">{{ u.product_name }}</td>
                 <td>{{ u.size }}</td>
                 {% if session.get('system_role') == 'supervisor' %}<td>{{ u.worker_name or '—' }}</td>{% endif %}
@@ -108,8 +111,10 @@
                 <td>{{ u.issued_at.strftime('%d %b %Y') if u.issued_at else '—' }}</td>
                 <td>{{ u.returned_at.strftime('%d %b %Y') if u.returned_at else '—' }}</td>
                 <td style="text-align:right;">
-                    {% if not u.returned %}
-                    <button class="btn btn-ghost btn-sm return-btn" data-id="{{ u.id }}" data-name="{{ u.product_name | replace('"', '&quot;') | replace("'", '&#39;') | replace('`', '&#96;') }} ({{ u.size }})">Return / Report</button>
+                    {% if not u.returned and u.return_required %}
+                    <button class="btn btn-ghost btn-sm return-btn" data-id="{{ u.id }}" data-name="{{ u.product_name | replace('"', '&quot;') | replace("'", '&#39;') | replace('`', '&#96;') }} ({{ u.size }})">Return</button>
+                    {% elif not u.returned and not u.return_required %}
+                    <span style="font-size:0.8em;color:var(--text-3);">No return needed</span>
                     {% endif %}
                 </td>
             </tr>

@@ -4,26 +4,30 @@
 <div class="page-header-band">
     <div class="header-row">
         <div>
-            <span class="page-breadcrumb"><a href="{{ url_for('view_team') }}" >My Team</a> › Add Member</span>
+            <span class="page-breadcrumb"><a href="{{ url_for('view_team') }}">My Team</a> › Add Member</span>
             <h1>Add Team Member</h1>
         </div>
         <a href="{{ url_for('view_team') }}" class="btn btn-ghost">← Back to Team</a>
     </div>
 </div>
 
-<div class="surface" style="max-width:600px;">
+<div class="surface" style="max-width:640px;">
     <form method="POST">
-        <div class="form-row">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
             <div class="form-group">
-                <label>Full Name <span style="color:var(--red);">*</span></label>
-                <input type="text" name="full_name" required placeholder="First and last name">
+                <label>First Name <span style="color:var(--red);">*</span></label>
+                <input type="text" name="first_name" required placeholder="First name">
             </div>
             <div class="form-group">
-                <label>Employee Number</label>
-                <input type="text" name="employee_number" placeholder="for example, EMP-1042">
+                <label>Last Name <span style="color:var(--red);">*</span></label>
+                <input type="text" name="last_name" required placeholder="Last name">
             </div>
         </div>
-        <div class="form-row">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <div class="form-group">
+                <label>Employee ID <span style="color:var(--red);">*</span></label>
+                <input type="text" name="employee_number" required placeholder="e.g. EMP-1042">
+            </div>
             <div class="form-group">
                 <label>Job Role <span style="color:var(--red);">*</span></label>
                 <select name="job_role_id" required>
@@ -35,12 +39,12 @@
                     {% endfor %}
                 </select>
             </div>
-</div>
+        </div>
 
-        <hr>
+        <hr style="margin:20px 0;">
+        <div class="section-label" style="margin-bottom:14px;">Clothing Sizes <span style="font-weight:400;color:var(--text-3);font-size:0.85em;">(optional — fill in as many as known)</span></div>
 
-        <div class="section-label" style="margin-bottom:18px;">Clothing Sizes</div>
-        <div class="form-row-3">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;">
             <div class="form-group">
                 <label>Shirt / Jacket</label>
                 <select name="shirt_size">
@@ -62,9 +66,30 @@
                     {% for s in ['36','37','38','39','40','41','42','43','44','45','46','47','48'] %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
                 </select>
             </div>
+            <div class="form-group">
+                <label>Sweatshirt</label>
+                <select name="sweatshirt_size">
+                    <option value="">Not set</option>
+                    {% for s in ['XS','S','M','L','XL','XXL','XXXL'] %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Gloves</label>
+                <select name="gloves_size">
+                    <option value="">Not set</option>
+                    {% for s in ['XS','S','M','L','XL','XXL'] %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Hat</label>
+                <select name="hat_size">
+                    <option value="">Not set</option>
+                    {% for s in ['S','M','L','XL'] %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+                </select>
+            </div>
         </div>
 
-        <button type="submit" class="btn btn-primary btn-lg" style="margin-top:8px;">Add Team Member</button>
+        <button type="submit" class="btn btn-primary btn-lg" style="margin-top:16px;">Add Team Member</button>
     </form>
 </div>
 

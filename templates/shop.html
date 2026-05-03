@@ -225,20 +225,6 @@
 .p-desc { font-size: 0.84em; color: #666; line-height: 1.55; margin-bottom: 10px; }
 .p-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
 .p-tag { font-size: 0.72em; padding: 3px 9px; background: #f2f2f2; border-radius: 20px; color: #555; font-weight: 500; }
-.p-rec-banner {
-    display: flex; align-items: center; justify-content: space-between;
-    background: #f8f8f8; border: 1px solid #e8e8e8; border-radius: 8px;
-    padding: 10px 14px; margin-bottom: 10px;
-    font-size: 0.85em; color: #222; gap: 8px;
-}
-.p-rec-banner-left { display: flex; align-items: center; gap: 8px; }
-.p-rec-icon { font-size: 1.1em; opacity: 0.7; flex-shrink: 0; }
-.p-rec-text { color: #333; }
-.p-rec-text strong { color: #111; font-size: 1.05em; }
-.p-rec-why {
-    font-size: 0.85em; font-weight: 700; text-decoration: underline;
-    cursor: pointer; white-space: nowrap; color: #111; flex-shrink: 0;
-}
 .p-price { font-size: 1.1em; font-weight: 900; color: #111; margin-top: 6px; }
 
 /* ── Admin buttons ── */
@@ -321,6 +307,7 @@
 }
 .small-modal-box h3 { margin: 0 0 10px; font-size: 1.1em; }
 .small-modal-box p { color: #666; margin: 0 0 24px; font-size: 0.92em; }
+#editModal .small-modal-box { text-align: left; max-width: 640px; width: 93vw; max-height: 90vh; overflow-y: auto; }
 .modal-actions { display: flex; gap: 10px; justify-content: center; }
 .modal-actions .safe-btn   { padding: 9px 22px !important; border-radius: 7px !important; cursor: pointer; font-weight: 600; font-size: 0.9em; }
 .modal-actions .danger-btn { padding: 9px 22px !important; border-radius: 7px !important; cursor: pointer; font-weight: 700; font-size: 0.9em; }
@@ -332,7 +319,6 @@
 #stockTable input[type=number]::-webkit-inner-spin-button,
 #stockTable input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 #stockTable input[type=number] { -moz-appearance: textfield; }
-
 
 /* ── Member selector bar ── */
 .member-bar {
@@ -361,6 +347,29 @@
 }
 .member-bar-clear:hover { text-decoration: underline; }
 
+/* ── Edit modal size grid ── */
+.edit-size-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 8px;
+    margin-bottom: 16px;
+}
+.edit-size-cell {
+    background: #f8f8f8;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 8px 10px;
+}
+.edit-size-cell .size-label {
+    font-size: 0.75em; font-weight: 700; color: #888;
+    text-transform: uppercase; margin-bottom: 5px; display: block;
+}
+.edit-size-cell input {
+    width: 100% !important; padding: 5px 7px !important;
+    border: 1px solid #ddd !important; border-radius: 5px !important;
+    font-size: 0.88em !important; text-align: center;
+}
+
 @media (max-width: 960px) {
     .sw-sidebar { display: none; }
     .product-row { grid-template-columns: 160px 1fr; }
@@ -372,6 +381,26 @@
     .img-modal-box { flex-direction: column; }
     .img-modal-left { flex: 0 0 220px; }
 }
+
+/* ── Currency dropdown ── */
+.currency-dropdown {
+    appearance: none !important;
+    background: white !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--r-md) !important;
+    padding: 6px 28px 6px 12px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    color: var(--black) !important;
+    cursor: pointer !important;
+    width: auto !important;
+    margin: 0 !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 10px center !important;
+    min-width: 80px !important;
+}
+.currency-dropdown:focus { outline: none !important; border-color: var(--yellow) !important; }
 </style>
 
 <div class="sw">
@@ -435,7 +464,12 @@
 
         {% if session.system_role == 'supervisor' %}
         <div style="display:flex;align-items:center;gap:10px;background:white;border:1px solid #e8e8e8;border-radius:10px;padding:10px 16px;margin-bottom:14px;">
-            <span style="font-size:0.72em;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#aaa;white-space:nowrap;">🛒 Ordering for</span>
+            <span style="font-size:0.72em;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#aaa;white-space:nowrap;">
+                🛒 Ordering for
+                {% if delegated_supervisor_name %}
+                <span style="color:#e53935;"> ({{ delegated_supervisor_name }}'s team)</span>
+                {% endif %}
+            </span>
             <select onchange="assignMember(this.value)"
                     style="flex:1;max-width:260px;padding:7px 10px!important;border:1px solid #ddd!important;border-radius:7px!important;font-size:0.9em!important;font-weight:600;background:white!important;cursor:pointer;">
                 <option value="">— Select team member —</option>
@@ -455,37 +489,26 @@
             {% else %}
             <span style="font-size:0.82em;color:#bbb;">No workers assigned to your account yet</span>
             {% endif %}
-            <!-- Currency selector -->
-            <div style="margin-left:auto;display:flex;align-items:center;gap:6px;flex-shrink:0;">
-                <span style="font-size:0.72em;font-weight:700;color:#aaa;">Currency</span>
-                <select id="currency_select" onchange="convertCurrency(this.value)"
-                        style="padding:6px 10px!important;border:1px solid #ddd!important;border-radius:7px!important;font-size:0.88em!important;font-weight:600;background:white!important;cursor:pointer;width:auto!important;margin:0!important;">
-                    <option value="SEK">SEK</option>
-                    <option value="EUR">EUR</option>
-                    <option value="USD">USD</option>
-                    <option value="GBP">GBP</option>
-                    <option value="DKK">DKK</option>
-                    <option value="NOK">NOK</option>
-                </select>
-                <span id="currency_status" style="font-size:0.75em;color:#aaa;"></span>
-            </div>
+
         </div>
         {% else %}
-        <!-- Currency bar for non-supervisor users -->
-        <div style="display:flex;align-items:center;gap:6px;background:white;border:1px solid #e8e8e8;border-radius:10px;padding:8px 16px;margin-bottom:14px;justify-content:flex-end;">
-            <span style="font-size:0.72em;font-weight:700;color:#aaa;">Currency</span>
-            <select id="currency_select" onchange="convertCurrency(this.value)"
-                    style="padding:6px 10px!important;border:1px solid #ddd!important;border-radius:7px!important;font-size:0.88em!important;font-weight:600;background:white!important;cursor:pointer;width:auto!important;margin:0!important;">
+
+        {% endif %}
+
+        <!-- Search + Currency bar -->
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
+            <div style="position:relative;flex:1;">
+                <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;opacity:0.4;" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" id="shopSearch" placeholder="Search products…"
+                       oninput="searchProducts(this.value)"
+                       style="width:100% !important;padding:7px 12px 7px 32px !important;border:1px solid #ddd !important;border-radius:8px !important;font-size:0.9em !important;background:white !important;margin:0 !important;">
+            </div>
+            <span style="font-size:12px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;">Currency</span>
+            <select onchange="setCurrency(this.value)" class="currency-dropdown">
                 <option value="SEK">SEK</option>
                 <option value="EUR">EUR</option>
-                <option value="USD">USD</option>
-                <option value="GBP">GBP</option>
-                <option value="DKK">DKK</option>
-                <option value="NOK">NOK</option>
             </select>
-            <span id="currency_status" style="font-size:0.75em;color:#aaa;"></span>
         </div>
-        {% endif %}
 
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}{% for category, message in messages %}
@@ -527,10 +550,10 @@
                     {% if product.gender %}<span class="p-tag">{{ product.gender|title }}</span>{% endif %}
                     {% if product.max_quantity %}<span class="p-tag">Max {{ product.max_quantity }} pcs</span>{% endif %}
                 </div>
-                {% if product.recommended_size %}
-                {% endif %}
                 {% if product.price %}
-                <div class="p-price" data-price-sek="{{ product.price }}">{{ "%.2f"|format(product.price) }} SEK</div>
+                <div class="p-price currency-price"
+                     data-sek="{{ product.price }}"
+                     data-eur="{{ product.price_eur or '' }}">{{ "%.2f"|format(product.price) }} SEK</div>
                 {% endif %}
 
                 {% if session.system_role == 'admin' %}
@@ -543,13 +566,19 @@
                     <button class="abtn abtn-edit"
                             data-product-id="{{ product.id }}"
                             data-product-name="{{ product.name }}"
+                            data-product-article="{{ product.article_number or '' }}"
                             data-product-description="{{ (product.description or '')|replace('"', '&quot;') }}"
                             data-product-price="{{ product.price or '' }}"
+                            data-product-price-eur="{{ product.price_eur or '' }}"
                             data-product-max-qty="{{ product.max_quantity or '' }}"
                             data-product-image="{{ product.image or '' }}"
                             data-product-gender="{{ product.gender or '' }}"
                             data-product-type="{{ product.type or '' }}"
+                            data-product-return="{{ '1' if product.return_required else '' }}"
+                            data-product-stock-risk="{{ product.stock_risk or '' }}"
+                            data-product-facility="{{ '1' if product.facility_only else '' }}"
                             data-product-roles="{{ product.role_ids | tojson | safe }}"
+                            data-sizes='{{ (product.sizes or []) | tojson | safe }}'
                             onclick="openEditModal(this)">Edit</button>
                     <form method="POST" action="/delete-product/{{ product.id }}" style="margin:0;">
                         <button type="button" onclick="openModal(this.form)" class="abtn abtn-remove">Remove</button>
@@ -561,7 +590,46 @@
             <!-- Order -->
             {% if session.system_role == 'supervisor' %}
             <div class="p-order">
-                {% if not selected_member %}
+                {% if product.facility_only and product.type == 'GLOVES' %}
+                <form class="add-to-cart-form" action="/add-to-cart" onsubmit="addToCart(event, this)">
+                    <input type="hidden" name="team_member_id" value="">
+                    <div style="font-size:0.78em;font-weight:700;color:#2e7d32;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;background:#e8f5e9;padding:6px 10px;border-radius:6px;">
+                        🏢 Facility order — no worker assignment needed
+                    </div>
+                    <div>
+                        <span class="p-order-label">Size</span>
+                        {% if product.sizes|length > 1 %}
+                        <select name="product_size_id" required>
+                            <option value="">Select size…</option>
+                            {% for s in product.sizes %}
+                            <option value="{{ s.id }}" {% if s.stock == 0 %}disabled{% endif %}>
+                                {{ s.size }} — {{ s.stock }} left{% if s.stock == 0 %} (out of stock){% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        {% elif product.sizes|length == 1 %}
+                        <input type="hidden" name="product_size_id" value="{{ product.sizes[0].id }}">
+                        <div class="single-size">{{ product.sizes[0].size }} — {{ product.sizes[0].stock }} left</div>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <span class="p-order-label">Quantity</span>
+                        <div class="qty-row">
+                            <input type="number" name="quantity" value="1" min="1" max="{{ product.max_quantity }}"
+                                   data-price-sek="{{ product.price or 0 }}"
+                                   data-price-eur="{{ product.price_eur or '' }}"
+                                   data-price="{{ product.price or 0 }}" data-target="price-{{ product.id }}"
+                                   oninput="updatePrice(this)">
+                            <span class="qty-price currency-price" id="price-{{ product.id }}"
+                                  data-sek="{{ product.price or 0 }}"
+                                  data-eur="{{ product.price_eur or '' }}">
+                                {% if product.price %}{{ "%.2f"|format(product.price) }} SEK{% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    <button type="submit" class="add-cart-btn">Add to Cart</button>
+                </form>
+                {% elif not selected_member %}
                 <button type="button" disabled style="width:100%;padding:12px;background:#f0f0f0;color:#aaa;border:none;border-radius:8px;font-weight:700;font-size:0.88em;cursor:not-allowed;">
                     Select a team member to order
                 </button>
@@ -575,7 +643,6 @@
                     <div style="font-size:0.78em;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">
                         For: <span style="color:var(--black);">{% for m in team %}{% if m.id|string == selected_member %}{{ m.full_name }}{% endif %}{% endfor %}</span>
                     </div>
-
                     <div>
                         <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:5px;">
                             <span class="p-order-label">Size</span>
@@ -600,21 +667,23 @@
                         <div class="single-size">{{ product.sizes[0].size }} — {{ product.sizes[0].stock }} left</div>
                         {% endif %}
                     </div>
-
                     <div>
                         <span class="p-order-label">Quantity</span>
                         <div class="qty-row">
                             <input type="number" name="quantity" value="1" min="1"
                                    max="{{ product.max_quantity }}"
+                                   data-price-sek="{{ product.price or 0 }}"
+                                   data-price-eur="{{ product.price_eur or '' }}"
                                    data-price="{{ product.price or 0 }}"
                                    data-target="price-{{ product.id }}"
                                    oninput="updatePrice(this)">
-                            <span class="qty-price" id="price-{{ product.id }}" data-price-sek="{{ product.price or 0 }}">
+                            <span class="qty-price currency-price" id="price-{{ product.id }}"
+                                  data-sek="{{ product.price or 0 }}"
+                                  data-eur="{{ product.price_eur or '' }}">
                                 {% if product.price %}{{ "%.2f"|format(product.price) }} SEK{% endif %}
                             </span>
                         </div>
                     </div>
-
                     <button type="submit" class="add-cart-btn">Add to Cart</button>
                 </form>
                 {% endif %}
@@ -659,86 +728,105 @@
     </div>
 </div>
 
-
 <!-- EDIT PRODUCT MODAL -->
 <div id="editModal" class="overlay">
-    <div class="small-modal-box" style="max-width:560px;max-height:88vh;overflow-y:auto;">
+    <div class="small-modal-box">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
             <h3 id="editModalTitle" style="margin:0;">Edit Product</h3>
             <button onclick="closeEditModal()" style="background:none !important;border:none !important;font-size:1.8em;cursor:pointer;color:#aaa;padding:0 !important;margin:0 !important;width:auto !important;line-height:1;">×</button>
         </div>
         <form id="editForm" method="POST" enctype="multipart/form-data" onsubmit="submitEditForm(event)">
 
-            <div style="margin-bottom:14px;">
-                <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin-bottom:5px;">Name</div>
-                <input type="text" name="name" id="editName" required
-                       style="width:100% !important;padding:9px 12px !important;border:1px solid #ddd !important;border-radius:7px !important;font-size:0.95em !important;">
-            </div>
-
-            <div style="margin-bottom:14px;">
-                <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin-bottom:5px;">Description</div>
-                <textarea name="description" id="editDescription"
-                          style="width:100%;padding:9px 12px;border:1px solid #ddd;border-radius:7px;font-size:0.95em;resize:vertical;min-height:90px;font-family:inherit;"></textarea>
-            </div>
-
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
-                <div>
-                    <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin-bottom:5px;">Price (SEK)</div>
-                    <input type="number" step="0.01" name="price" id="editPrice"
-                           style="width:100% !important;padding:9px 12px !important;border:1px solid #ddd !important;border-radius:7px !important;font-size:0.95em !important;">
+            <!-- Article + Name -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div class="form-group">
+                    <label>Article Number</label>
+                    <input type="text" name="article_number" id="editArticle" required>
                 </div>
-                <div>
-                    <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin-bottom:5px;">Max Quantity</div>
-                    <input type="number" name="max_quantity" id="editMaxQty"
-                           style="width:100% !important;padding:9px 12px !important;border:1px solid #ddd !important;border-radius:7px !important;font-size:0.95em !important;">
+                <div class="form-group">
+                    <label>Product Name</label>
+                    <input type="text" name="name" id="editName" required>
                 </div>
             </div>
 
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
-                <div>
-                    <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin-bottom:5px;">Gender</div>
-                    <select name="gender" id="editGender"
-                            style="width:100% !important;padding:9px 12px !important;border:1px solid #ddd !important;border-radius:7px !important;font-size:0.95em !important;">
+            <!-- Description -->
+            <div class="form-group">
+                <label>Description <span style="color:var(--text-3);font-weight:400;">(optional)</span></label>
+                <textarea name="description" id="editDescription" rows="3" style="width:100%;padding:9px 12px;border:1px solid #ddd;border-radius:7px;font-size:0.9em;resize:vertical;font-family:inherit;"></textarea>
+            </div>
+
+            <!-- Price / EUR / Max Qty / Gender -->
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;">
+                <div class="form-group">
+                    <label>Price (SEK)</label>
+                    <input type="number" step="0.01" min="0" name="price" id="editPrice" required>
+                </div>
+                <div class="form-group">
+                    <label>Price (EUR) *</label>
+                    <input type="number" step="0.01" min="0" name="price_eur" id="editPriceEur" placeholder="0.00">
+                </div>
+                <div class="form-group">
+                    <label>Max Qty</label>
+                    <input type="number" min="1" name="max_quantity" id="editMaxQty" required>
+                </div>
+                <div class="form-group">
+                    <label>Gender</label>
+                    <select name="gender" id="editGender">
                         <option value="">Not specified</option>
                         <option value="male">Herr</option>
                         <option value="female">Dam</option>
                         <option value="unisex">Unisex</option>
                     </select>
                 </div>
-                <div>
-                    <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin-bottom:5px;">Type</div>
-                    <input type="text" name="type" id="editType"
-                           style="width:100% !important;padding:9px 12px !important;border:1px solid #ddd !important;border-radius:7px !important;font-size:0.95em !important;">
-                </div>
             </div>
 
-            <div style="margin-bottom:20px;">
-                <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin-bottom:8px;">Current Image</div>
-                <div id="editCurrentImage" style="margin-bottom:10px;"></div>
-                <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin-bottom:5px;">Replace Image</div>
-                <input type="file" name="image" accept="image/*"
-                       style="width:100% !important;padding:6px !important;border:1px solid #ddd !important;border-radius:7px !important;font-size:0.9em !important;">
+            <!-- Flags -->
+            <div style="display:flex;gap:20px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">
+                <label style="display:flex !important;align-items:center;gap:8px;cursor:pointer;font-size:0.88em;font-weight:600;margin:0 !important;">
+                    <input type="checkbox" name="return_required" id="editReturnRequired" style="width:auto !important;margin:0 !important;">
+                    Return required when leaving
+                </label>
+                <label style="display:flex !important;align-items:center;gap:8px;font-size:0.88em;font-weight:600;margin:0 !important;">
+                    <input type="checkbox" name="facility_only" id="editFacilityOnly" style="width:auto !important;margin:0 !important;">
+                    Facility order only
+                </label>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+                <span style="font-size:0.88em;font-weight:600;">Stock risk threshold</span>
+                <input type="number" name="stock_risk" id="editStockRisk" min="1" placeholder="e.g. 5"
+                       style="width:70px !important;padding:5px 8px !important;border:1px solid #ddd !important;border-radius:6px !important;font-size:0.88em !important;">
+                <span style="font-size:0.82em;color:var(--text-3);">units (leave blank = off)</span>
             </div>
 
-            <div style="margin-bottom:14px;">
-                <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin-bottom:8px;">Job Roles</div>
-                <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
-                    <select id="editRoleSelect" style="flex:1;padding:8px 10px;border:1px solid #ddd;border-radius:7px;font-size:0.9em;">
+            <!-- Image -->
+            <div class="form-group">
+                <label>Current Image</label>
+                <div id="editCurrentImage" style="margin-bottom:8px;"></div>
+                <label>Replace Image</label>
+                <input type="file" name="image" accept="image/*">
+                <p style="color:var(--text-3);font-size:0.78em;margin-top:4px;">Leave empty to keep current image.</p>
+            </div>
+
+            <!-- Job Roles -->
+            <div class="form-group">
+                <label>Job Roles</label>
+                <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;margin-top:6px;">
+                    <select id="editRoleSelect" style="flex:1;width:auto !important;">
                         <option value="">— Add a role —</option>
                         {% for role in job_roles %}
                         <option value="{{ role.id }}" data-name="{{ role.name }}">{{ role.name }}</option>
                         {% endfor %}
                     </select>
-                    <button type="button" onclick="editAddRole()" style="padding:8px 14px;border:1px solid #ddd;border-radius:7px;background:#f5f5f5;font-size:0.88em;cursor:pointer;">Add</button>
-                    <button type="button" onclick="editAddAllRoles()" style="padding:8px 14px;border:1px solid #ddd;border-radius:7px;background:#f5f5f5;font-size:0.88em;cursor:pointer;">All</button>
+                    <button type="button" onclick="editAddRole()" class="btn btn-ghost">Add</button>
+                    <button type="button" onclick="editAddAllRoles()" class="btn btn-ghost">All</button>
                 </div>
                 <div id="editSelectedRoles" style="display:flex;flex-direction:column;gap:6px;"></div>
-                <p style="color:#aaa;font-size:0.78em;margin-top:6px;">Leave empty to show to all roles.</p>
+                <p style="color:var(--text-3);font-size:0.82em;margin-top:6px;">Leave empty to show to all roles.</p>
             </div>
 
-            <div style="display:flex;gap:10px;justify-content:flex-end;">
-                <button type="button" onclick="closeEditModal()" class="safe-btn">Cancel</button>
-                <button type="submit" class="danger-btn" style="background:#D40511 !important;">Save Changes</button>
+            <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
+                <button type="button" onclick="closeEditModal()" class="btn btn-ghost">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
             </div>
 
         </form>
@@ -764,22 +852,37 @@
 <script>
 // @ts-nocheck
 /* eslint-disable */
-// When member is selected, keep current role filter
 function assignMember(memberId) {
     const url = new URL(window.location.href);
-    if (memberId) {
-        url.searchParams.set('team_member_id', memberId);
-    } else {
-        url.searchParams.delete('team_member_id');
-    }
+    if (memberId) { url.searchParams.set('team_member_id', memberId); }
+    else { url.searchParams.delete('team_member_id'); }
     window.location.href = url.toString();
 }
 
+// ── Currency toggle ──
+let activeCurrency = 'SEK';
+function setCurrency(currency) {
+    activeCurrency = currency;
+    document.querySelectorAll('.currency-price').forEach(el => renderPriceEl(el, getQtyForPriceEl(el)));
+}
+function getQtyForPriceEl(el) {
+    const row = el.closest('.qty-row');
+    if (row) { const input = row.querySelector('input[type=number]'); return input ? (parseInt(input.value) || 1) : 1; }
+    return 1;
+}
+function renderPriceEl(el, qty) {
+    if (activeCurrency === 'EUR') {
+        const eur = parseFloat(el.dataset.eur);
+        el.textContent = eur ? (eur * qty).toFixed(2) + ' EUR' : '— EUR';
+    } else {
+        const sek = parseFloat(el.dataset.sek) || 0;
+        el.textContent = sek ? (sek * qty).toFixed(2) + ' SEK' : '';
+    }
+}
 function updatePrice(input) {
     const qty = parseInt(input.value) || 1;
-    const price = parseFloat(input.dataset.price) || 0;
     const el = document.getElementById(input.dataset.target);
-    if (el) el.textContent = (qty * price).toFixed(2) + ' SEK';
+    if (el) renderPriceEl(el, qty);
 }
 
 // Image modal
@@ -794,10 +897,7 @@ document.querySelectorAll('.image-wrapper').forEach(wrapper => {
         let stock = '';
         try {
             const sizes = JSON.parse(img.dataset.sizes || '[]');
-            if (sizes.length) {
-                stock = '<strong>Stock levels:</strong><br>';
-                sizes.forEach(s => stock += s.size + ': ' + s.stock + ' pcs<br>');
-            }
+            if (sizes.length) { stock = '<strong>Stock levels:</strong><br>'; sizes.forEach(s => stock += s.size + ': ' + s.stock + ' pcs<br>'); }
         } catch(e) {}
         document.getElementById('modalStock').innerHTML = stock;
         openOverlay('imageModal');
@@ -813,12 +913,10 @@ function closeModal() { closeOverlay('deleteModal'); }
 document.getElementById('confirmDeleteBtn').addEventListener('click', () => {
     if (formToSubmit) {
         const row = formToSubmit.closest('.product-row');
-        fetch(formToSubmit.action, { method:'POST' })
-            .then(() => {
-                closeModal();
-                showToast('Product removed');
-                if (row) { row.style.transition='opacity .2s'; row.style.opacity='0'; setTimeout(() => row.remove(), 200); }
-            });
+        fetch(formToSubmit.action, { method:'POST' }).then(() => {
+            closeModal(); showToast('Product removed');
+            if (row) { row.style.transition='opacity .2s'; row.style.opacity='0'; setTimeout(() => row.remove(), 200); }
+        });
     }
 });
 document.getElementById('deleteModal').addEventListener('click', e => { if (e.target === document.getElementById('deleteModal')) closeModal(); });
@@ -827,15 +925,15 @@ document.getElementById('deleteModal').addEventListener('click', e => { if (e.ta
 function handleStockClick(btn) {
     const sizes = JSON.parse(btn.dataset.sizes || '[]');
     document.getElementById('stockModalTitle').innerText = 'Edit Stock — ' + btn.dataset.productName;
-    document.getElementById('stockForm').action = '/update-stock/' + btn.dataset.productId;
+    document.getElementById('stockForm').dataset.productId = btn.dataset.productId;
     const t = document.getElementById('stockTable');
-    t.innerHTML = '<tr><th>Size</th><th>Current</th><th>&nbsp;&nbsp;&nbsp;Add</th></tr>';
+    t.innerHTML = '<tr><th>Size</th><th>Current</th><th>Change <span style="font-weight:400;color:#aaa;font-size:0.9em;">(+ add / − remove)</span></th></tr>';
     sizes.forEach(s => {
         t.innerHTML += `<tr>
-            <td>${s.size}</td><td>${s.stock}</td>
+            <td>${s.size}</td><td id="stock-cur-${s.id}">${s.stock}</td>
             <td><div style="display:flex;align-items:center;gap:5px;">
                 <button type="button" style="width:28px;height:28px;border:1px solid #ddd;border-radius:5px;cursor:pointer;font-size:1em;" onclick="this.nextElementSibling.stepDown()">−</button>
-                <input type="number" name="size_${s.id}" min="0" value="0" style="width:72px;text-align:center;padding:5px;border:1px solid #ddd;border-radius:5px;">
+                <input type="number" data-size-id="${s.id}" value="0" style="width:72px;text-align:center;padding:5px;border:1px solid #ddd;border-radius:5px;">
                 <button type="button" style="width:28px;height:28px;border:1px solid #ddd;border-radius:5px;cursor:pointer;font-size:1em;" onclick="this.previousElementSibling.stepUp()">+</button>
             </div></td></tr>`;
     });
@@ -845,17 +943,91 @@ function closeStockModal() { closeOverlay('stockModal'); }
 function submitStockForm(e) {
     e.preventDefault();
     const form = document.getElementById('stockForm');
-    fetch(form.action, { method:'POST', body: new FormData(form) })
-        .then(() => { closeStockModal(); showToast('Stock updated successfully'); });
+    const productId = form.dataset.productId;
+    const submitBtn = form.querySelector('.danger-btn');
+    submitBtn.disabled = true; submitBtn.textContent = 'Saving…';
+
+    const inputs = form.querySelectorAll('input[data-size-id]');
+    const promises = [];
+    inputs.forEach(input => {
+        const change = parseInt(input.value) || 0;
+        if (change === 0) return;
+        const sizeId = input.dataset.sizeId;
+        const route = change > 0 ? '/add-stock/' : '/remove-stock/';
+        const fd = new FormData();
+        fd.append('amount', Math.abs(change));
+        promises.push(
+            fetch(route + sizeId, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(r => r.json())
+            .then(data => {
+                if (data.ok) {
+                    const cell = document.getElementById('stock-cur-' + sizeId);
+                    if (cell) cell.textContent = data.new_stock;
+                    input.value = 0;
+                }
+            })
+        );
+    });
+
+    Promise.all(promises).then(() => {
+        closeStockModal();
+        showToast('Stock updated');
+
+        const stockBtn = document.querySelector(`.abtn-stock[data-product-id="${productId}"]`);
+        if (stockBtn) {
+            const oldSizes = JSON.parse(stockBtn.dataset.sizes || '[]');
+            oldSizes.forEach(s => {
+                const cell = document.getElementById('stock-cur-' + s.id);
+                if (cell) s.stock = parseInt(cell.textContent);
+            });
+            stockBtn.dataset.sizes = JSON.stringify(oldSizes);
+            const row = stockBtn.closest('.product-row');
+            if (row) {
+                const img = row.querySelector('.product-image');
+                if (img) img.dataset.sizes = stockBtn.dataset.sizes;
+                row.querySelectorAll('select[name=product_size_id] option[value]').forEach(opt => {
+                    const sid = parseInt(opt.value);
+                    const sData = oldSizes.find(s => s.id === sid);
+                    if (!sData) return;
+                    const star = opt.textContent.includes('★') ? ' ★' : '';
+                    opt.textContent = sData.size + star + ' — ' + sData.stock + ' left' + (sData.stock === 0 ? ' (out of stock)' : '');
+                    opt.disabled = sData.stock === 0;
+                });
+                const hidden = row.querySelector('input[name=product_size_id]');
+                const singleEl = row.querySelector('.single-size');
+                if (hidden && singleEl) {
+                    const sid = parseInt(hidden.value);
+                    const sData = oldSizes.find(s => s.id === sid);
+                    if (sData) singleEl.textContent = sData.size + ' — ' + sData.stock + ' left';
+                }
+            }
+        }
+        submitBtn.disabled = false; submitBtn.textContent = 'Save';
+    });
 }
+
 function submitEditForm(e) {
     e.preventDefault();
     const form = document.getElementById('editForm');
-    fetch(form.action, { method:'POST', body: new FormData(form) })
-        .then(() => { closeEditModal(); showToast('Product updated successfully'); });
+    const submitBtn = form.querySelector('button[type=submit]');
+    submitBtn.disabled = true; submitBtn.textContent = 'Saving…';
+    fetch(form.action, { method:'POST', body: new FormData(form), headers:{'X-Requested-With':'XMLHttpRequest'} })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            closeEditModal(); showToast('Product updated successfully');
+            fetch(window.location.href).then(r => r.text()).then(html => {
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                const newList = doc.querySelector('.product-list');
+                const curList = document.querySelector('.product-list');
+                if (newList && curList) curList.innerHTML = newList.innerHTML;
+            });
+        } else { showToast('Error saving product'); }
+    })
+    .catch(() => showToast('Error saving product'))
+    .finally(() => { submitBtn.disabled = false; submitBtn.textContent = 'Save Changes'; });
 }
 document.getElementById('stockModal').addEventListener('click', e => { if (e.target === document.getElementById('stockModal')) closeStockModal(); });
-
 
 // Edit modal
 const allJobRoles = {{ job_roles | tojson | safe }};
@@ -864,20 +1036,26 @@ function openEditModal(btn) {
     const id = btn.dataset.productId;
     document.getElementById('editModalTitle').innerText = 'Edit — ' + btn.dataset.productName;
     document.getElementById('editForm').action = '/admin/products/edit/' + id;
+    document.getElementById('editArticle').value = btn.dataset.productArticle || '';
     document.getElementById('editName').value = btn.dataset.productName || '';
     document.getElementById('editDescription').value = btn.dataset.productDescription || '';
     document.getElementById('editPrice').value = btn.dataset.productPrice || '';
+    document.getElementById('editPriceEur').value = btn.dataset.productPriceEur || '';
     document.getElementById('editMaxQty').value = btn.dataset.productMaxQty || '';
-    document.getElementById('editType').value = btn.dataset.productType || '';
-    const genderSel = document.getElementById('editGender');
-    genderSel.value = btn.dataset.productGender || '';
+    document.getElementById('editGender').value = btn.dataset.productGender || '';
+    document.getElementById('editReturnRequired').checked = btn.dataset.productReturn === '1';
+    document.getElementById('editStockRisk').value = btn.dataset.productStockRisk || '';
+    document.getElementById('editFacilityOnly').checked = btn.dataset.productFacility === '1';
+
+    // Image
     const imgDiv = document.getElementById('editCurrentImage');
     if (btn.dataset.productImage) {
         imgDiv.innerHTML = '<img src="/static/uploads/' + btn.dataset.productImage + '" style="height:80px;border-radius:6px;object-fit:contain;border:1px solid #eee;padding:4px;">';
     } else {
         imgDiv.innerHTML = '<span style="color:#aaa;font-size:0.85em;">No image</span>';
     }
-    // Populate roles
+
+    // Roles
     const assignedIds = JSON.parse(btn.dataset.productRoles || '[]');
     document.getElementById('editSelectedRoles').innerHTML = '';
     document.getElementById('editRoleSelect').value = '';
@@ -894,7 +1072,7 @@ function editAddRoleById(id, name) {
     div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:#f8f8f8;border-radius:7px;border:1px solid #e0e0e0;';
     div.innerHTML = `<span style="font-size:0.88em;font-weight:600;">${name}</span>
         <input type="hidden" name="job_role_ids" value="${id}">
-        <button type="button" onclick="this.closest('div').remove()" style="background:none;border:none;color:#D40511;cursor:pointer;font-weight:700;padding:0 4px;">x</button>`;
+        <button type="button" onclick="this.closest('div').remove()" style="background:none;border:none;color:#D40511;cursor:pointer;font-weight:700;padding:0 4px;">✕</button>`;
     document.getElementById('editSelectedRoles').appendChild(div);
 }
 function editAddRole() {
@@ -911,86 +1089,47 @@ document.getElementById('editModal').addEventListener('click', e => { if (e.targ
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeImage(); closeModal(); closeStockModal(); closeEditModal(); } });
 
-// Shared open/close helpers — class-based so the browser composites on GPU (no layout thrash)
 function openOverlay(id) { document.getElementById(id).classList.add('open'); }
 function closeOverlay(id) { document.getElementById(id).classList.remove('open'); }
 
-// Client-side type/gender filters
+// Search
+let activeSearch = '';
+function searchProducts(val) {
+    activeSearch = val.trim().toLowerCase();
+    applyFilters();
+}
+
+// Filters
 let activeType = 'all';
 let activeGender = 'all';
-
 function applyFilters() {
     document.querySelectorAll('.product-row').forEach(row => {
         const t = row.dataset.type || '';
         const g = row.dataset.gender || '';
+        const name = (row.querySelector('.p-name')?.textContent || '').toLowerCase();
+        const code = (row.querySelector('.p-code')?.textContent || '').toLowerCase();
         const typeMatch = activeType === 'all' || t === activeType;
         const genderMatch = activeGender === 'all' || g === activeGender;
-        row.style.display = (typeMatch && genderMatch) ? '' : 'none';
+        const searchMatch = !activeSearch || name.includes(activeSearch) || code.includes(activeSearch);
+        row.style.display = (typeMatch && genderMatch && searchMatch) ? '' : 'none';
     });
-    // Show empty state if nothing visible
     const visible = [...document.querySelectorAll('.product-row')].filter(r => r.style.display !== 'none');
     const emptyEl = document.getElementById('filter-empty');
     if (emptyEl) emptyEl.style.display = visible.length === 0 ? 'block' : 'none';
 }
-
 function filterType(type, el) {
     activeType = type;
     document.querySelectorAll('.sw-sidebar .role-links').forEach((group, i) => {
-        if (i === 1) { // second group = type filters
-            group.querySelectorAll('.role-link').forEach(a => a.classList.remove('active'));
-        }
+        if (i === 1) group.querySelectorAll('.role-link').forEach(a => a.classList.remove('active'));
     });
-    el.classList.add('active');
-    applyFilters();
+    el.classList.add('active'); applyFilters();
 }
-
 function filterGender(gender, el) {
     activeGender = gender;
     document.querySelectorAll('.sw-sidebar .role-links').forEach((group, i) => {
-        if (i === 2) { // third group = gender filters
-            group.querySelectorAll('.role-link').forEach(a => a.classList.remove('active'));
-        }
+        if (i === 2) group.querySelectorAll('.role-link').forEach(a => a.classList.remove('active'));
     });
-    el.classList.add('active');
-    applyFilters();
-}
-
-// ── Currency conversion ──
-let currentRate = 1;
-let currentCurrency = 'SEK';
-
-function convertCurrency(toCurrency) {
-    currentCurrency = toCurrency;
-    const statusEls = document.querySelectorAll('#currency_status');
-    const setStatus = t => statusEls.forEach(el => el.textContent = t);
-    if (toCurrency === 'SEK') {
-        currentRate = 1;
-        renderPrices();
-        setStatus('');
-        return;
-    }
-    setStatus('…');
-    // frankfurter.app — ECB data, free, no key, CORS enabled
-    fetch(`https://api.frankfurter.app/latest?from=SEK&to=${toCurrency}`)
-        .then(r => r.json())
-        .then(data => {
-            const rate = data.rates && data.rates[toCurrency];
-            if (rate) {
-                currentRate = rate;
-                renderPrices();
-                setStatus(`1 SEK = ${rate.toFixed(4)} ${toCurrency}`);
-            } else {
-                setStatus('N/A');
-            }
-        })
-        .catch(() => setStatus('N/A'));
-}
-
-function renderPrices() {
-    document.querySelectorAll('[data-price-sek]').forEach(el => {
-        const sek = parseFloat(el.dataset.priceSek);
-        if (!isNaN(sek)) el.textContent = `${(sek * currentRate).toFixed(2)} ${currentCurrency}`;
-    });
+    el.classList.add('active'); applyFilters();
 }
 
 function addToCart(e, form) {
@@ -1003,40 +1142,28 @@ function addToCart(e, form) {
         const dot = document.createElement('div');
         dot.style.cssText = `position:fixed;left:${btnRect.left+btnRect.width/2-5}px;top:${btnRect.top+btnRect.height/2-5}px;width:10px;height:10px;background:#FFCC00;border-radius:50%;z-index:99999;pointer-events:none;opacity:0.9;`;
         document.body.appendChild(dot);
-        const sx = btnRect.left + btnRect.width/2;
-        const sy = btnRect.top + btnRect.height/2;
-        const ex = cartRect.left + cartRect.width/2;
-        const ey = cartRect.top + cartRect.height/2;
+        const sx = btnRect.left+btnRect.width/2, sy = btnRect.top+btnRect.height/2;
+        const ex = cartRect.left+cartRect.width/2, ey = cartRect.top+cartRect.height/2;
         const start = performance.now();
         (function step(now) {
-            const t = Math.min((now - start) / 350, 1);
-            const ease = t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
-            dot.style.left = (sx + (ex-sx)*ease - 5) + 'px';
-            dot.style.top = (sy + (ey-sy)*ease - 5) + 'px';
-            dot.style.opacity = 0.9 - ease * 0.9;
-            if (t < 1) requestAnimationFrame(step);
-            else dot.remove();
+            const t = Math.min((now-start)/350, 1);
+            const ease = t<0.5 ? 2*t*t : -1+(4-2*t)*t;
+            dot.style.left = (sx+(ex-sx)*ease-5)+'px'; dot.style.top = (sy+(ey-sy)*ease-5)+'px';
+            dot.style.opacity = 0.9-ease*0.9;
+            if (t<1) requestAnimationFrame(step); else dot.remove();
         })(start);
     }
-
-    fetch('/add-to-cart', {
-        method: 'POST',
-        headers: { 'X-Requested-With': 'XMLHttpRequest' },
-        body: new FormData(form)
-    }).then(r => r.json()).then(res => {
+    fetch('/add-to-cart', { method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}, body:new FormData(form) })
+    .then(r => r.json()).then(res => {
         if (res.ok) {
             showToast('Added to cart successfully');
             const badge = document.getElementById('nav-cart-badge');
             if (badge && res.cart_count !== undefined) {
-                badge.textContent = res.cart_count;
-                badge.style.display = '';
+                badge.textContent = res.cart_count; badge.style.display = '';
                 if (cartLink) { cartLink.classList.add('active'); cartLink.classList.remove('nav-cart-empty'); }
-                badge.style.transform = 'scale(1.5)';
-                setTimeout(() => { badge.style.transform = ''; }, 250);
+                badge.style.transform = 'scale(1.5)'; setTimeout(() => { badge.style.transform = ''; }, 250);
             }
-        } else {
-            showToast(res.message || 'Could not add to cart');
-        }
+        } else { showToast(res.message || 'Could not add to cart'); }
     }).catch(() => showToast('Could not add to cart'));
 }
 
@@ -1048,7 +1175,6 @@ function showToast(msg) {
     clearTimeout(t._t);
     t._t = setTimeout(() => { t.style.opacity = '0'; }, 2500);
 }
-
 </script>
 
 {% endblock %}

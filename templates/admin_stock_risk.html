@@ -4,30 +4,96 @@
 <div class="page-header-band">
     <div class="header-row">
         <div>
-            <span class="page-breadcrumb"><a href="{{ url_for('admin_dashboard') }}" >Admin</a> › Stock Risk</span>
+            <span class="page-breadcrumb"><a href="{{ url_for('admin_dashboard') }}">Admin</a> › Stock Risk</span>
             <h1>Stock Risk Monitor</h1>
-            <div class="header-sub">Items with low inventory levels</div>
+            <div class="header-sub">Items at or below their risk threshold — set the threshold per product when adding or editing</div>
         </div>
-        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-ghost">← Admin</a>
+        <div style="display:flex;gap:8px;">
+            <button onclick="window.print()" class="btn btn-ghost">🖨 Print</button>
+            <a href="{{ url_for('admin_products') }}" class="btn btn-ghost">← Products</a>
+        </div>
     </div>
 </div>
 
 <div class="data-table-wrap">
     <table>
-        <thead><tr><th>Product</th><th>Size</th><th>Stock</th><th></th></tr></thead>
+        <thead>
+            <tr>
+                <th>Product</th>
+                <th>Size</th>
+                <th>Current Stock</th>
+                <th>Risk threshold</th>
+                <th>Update threshold</th>
+                <th></th>
+            </tr>
+        </thead>
         <tbody>
             {% for item in risk_items %}
-            <tr>
+            <tr id="row-{{ item.product_id }}-{{ loop.index }}">
                 <td class="text-bold">{{ item.name }}</td>
                 <td>{{ item.size }}</td>
-                <td><span class="stock-critical">{{ item.stock }}</span></td>
-                <td><a href="{{ url_for('admin_products') }}" class="btn btn-ghost btn-sm">Manage Stock →</a></td>
+                <td>
+                    <span class="{% if item.stock == 0 %}stock-critical{% elif item.stock <= (item.threshold or 2) %}stock-warning{% endif %}">
+                        {{ item.stock }}
+                    </span>
+                </td>
+                <td>
+                    {% if item.threshold %}
+                    <span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:0.85em;font-weight:600;">
+                        ≤ {{ item.threshold }} units
+                    </span>
+                    {% else %}
+                    <span style="color:var(--text-3);font-size:0.85em;">default (≤2)</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <input type="number" id="threshold-{{ item.product_id }}" min="0"
+                               value="{{ item.threshold or '' }}" placeholder="e.g. 5"
+                               style="width:70px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:0.88em;">
+                        <button class="btn btn-ghost btn-sm" style="background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7;"
+                                onclick="saveThreshold({{ item.product_id }}, this)">Save</button>
+                        {% if item.threshold %}
+                        <button class="btn btn-ghost btn-sm" style="color:var(--text-3);"
+                                onclick="clearThreshold({{ item.product_id }}, this)">Clear</button>
+                        {% endif %}
+                    </div>
+                </td>
+                <td>
+                    <a href="{{ url_for('manage_product_sizes', product_id=item.product_id) }}" class="btn btn-ghost btn-sm">Manage Stock →</a>
+                </td>
             </tr>
             {% else %}
-            <tr><td colspan="4" class="empty-state">✓ All stock levels are healthy.</td></tr>
+            <tr><td colspan="6" class="empty-state">✓ No products are at or below their risk threshold.</td></tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
+
+<script>
+function saveThreshold(productId, btn) {
+    const input = document.getElementById('threshold-' + productId);
+    const val = input.value.trim();
+    btn.disabled = true;
+    btn.textContent = '…';
+    const fd = new FormData();
+    fd.append('threshold', val);
+    fetch('/admin/set-stock-risk/' + productId, {
+        method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'}, body: fd
+    }).then(r => r.json()).then(res => {
+        if (res.ok) {
+            btn.textContent = '✓ Saved';
+            btn.style.background = '#c8e6c9';
+            setTimeout(() => { btn.textContent = 'Save'; btn.disabled = false; btn.style.background = '#e8f5e9'; }, 1500);
+        } else {
+            btn.textContent = 'Error'; btn.disabled = false;
+        }
+    });
+}
+function clearThreshold(productId, btn) {
+    document.getElementById('threshold-' + productId).value = '';
+    saveThreshold(productId, btn.previousElementSibling);
+}
+</script>
 
 {% endblock %}

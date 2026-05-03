@@ -11,7 +11,11 @@
 
 {% if session.user_id %}
 <nav class="navbar">
+    {% if session.system_role == 'packer' %}
+    <span class="logo-link" style="cursor:default;">DHL Corporate Wear</span>
+    {% else %}
     <a href="{{ url_for('shop') }}" class="logo-link">DHL Corporate Wear</a>
+    {% endif %}
 
     <div class="menu">
         {% if session.system_role != "packer" %}
@@ -24,7 +28,7 @@
 
         {% if session.system_role == "supervisor" %}
         <a href="{{ url_for('view_team') }}" class="{% if request.endpoint == 'view_team' %}active{% endif %}">My Team</a>
-        <a href="{{ url_for('supervisor_delegation') }}" class="{% if request.endpoint == 'supervisor_delegation' %}active{% endif %}">Delegation</a>
+        <a href="{{ url_for('supervisor_delegation') }}" class="{% if request.endpoint == 'supervisor_delegation' %}active{% endif %}">Team Coverage</a>
         {% endif %}
 
         {% if session.system_role == "admin" %}
@@ -97,50 +101,65 @@ window.addEventListener("load", () => {
 
 
 <!-- ── Global styled confirm modal ── -->
-<div id="confirmModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center;">
-    <div style="background:#fff;border-radius:14px;padding:36px 32px;max-width:420px;width:92%;box-shadow:0 16px 48px rgba(0,0,0,.22);border-top:4px solid var(--red);text-align:center;">
-        <p id="confirmModalMsg" style="font-size:1em;font-weight:600;color:var(--black);margin:0 0 8px;"></p>
-        <p id="confirmModalSub" style="font-size:0.88em;color:var(--text-3);margin:0 0 28px;"></p>
-        <div style="display:flex;gap:12px;justify-content:center;">
+<div id="confirmModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:12px;padding:28px 28px 24px;max-width:380px;width:92%;box-shadow:0 8px 32px rgba(0,0,0,.15);">
+        <p id="confirmModalMsg" style="font-size:0.95em;font-weight:700;color:#111;margin:0 0 6px;"></p>
+        <p id="confirmModalSub" style="font-size:0.85em;color:#777;margin:0 0 24px;line-height:1.5;"></p>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
             <button onclick="closeConfirmModal()" class="confirm-btn-cancel">Cancel</button>
-            <button id="confirmModalOk" class="confirm-btn-ok">Delete</button>
+            <button id="confirmModalOk" class="confirm-btn-ok">Confirm</button>
         </div>
     </div>
 </div>
 <style>
 .confirm-btn-cancel {
-    min-width:110px; padding:10px 20px; border:1px solid #ddd; border-radius:8px;
-    background:#fff; font-weight:600; font-size:0.9em; cursor:pointer;
-    transition:background .12s;
+    padding:8px 16px; border:1px solid #ddd; border-radius:7px;
+    background:#fff; color:#555; font-weight:600; font-size:0.85em; cursor:pointer;
 }
 .confirm-btn-cancel:hover { background:#f5f5f5; }
 .confirm-btn-ok {
-    min-width:110px; padding:10px 20px; border:none; border-radius:8px;
-    background:#e53935; color:#fff; font-weight:700; font-size:0.9em; cursor:pointer;
-    transition:background .12s;
+    padding:8px 18px; border:none; border-radius:7px;
+    background:#111; color:#FFCC00; font-weight:700; font-size:0.85em; cursor:pointer;
 }
-.confirm-btn-ok:hover { background:#c62828; }
+.confirm-btn-ok:hover { background:#333; }
 </style>
 <script>
 var _confirmForm = null;
+var _confirmCallback = null;
+
 function showConfirm(form, msg, sub, okLabel) {
     _confirmForm = form;
+    _confirmCallback = null;
+    _openConfirmModal(msg, sub, okLabel);
+}
+
+function showConfirmCallback(msg, sub, okLabel, callback) {
+    _confirmForm = null;
+    _confirmCallback = callback;
+    _openConfirmModal(msg, sub, okLabel);
+}
+
+function _openConfirmModal(msg, sub, okLabel) {
     document.getElementById('confirmModalMsg').textContent = msg || 'Are you sure?';
     document.getElementById('confirmModalSub').textContent = sub || 'This action cannot be undone.';
-    document.getElementById('confirmModalOk').textContent = okLabel || 'Delete';
+    document.getElementById('confirmModalOk').textContent = okLabel || 'Confirm';
     var modal = document.getElementById('confirmModal');
     modal.style.display = 'flex';
-    // animate in
     var box = modal.querySelector('div');
     box.style.transform = 'scale(.95)'; box.style.opacity = '0'; box.style.transition = 'transform .15s,opacity .15s';
     setTimeout(function(){ box.style.transform = 'scale(1)'; box.style.opacity = '1'; }, 10);
 }
 function closeConfirmModal() {
     document.getElementById('confirmModal').style.display = 'none';
-    _confirmForm = null;
 }
 document.getElementById('confirmModalOk').addEventListener('click', function() {
-    if (_confirmForm) _confirmForm.submit();
+    var form = _confirmForm;
+    var cb = _confirmCallback;
+    _confirmForm = null;
+    _confirmCallback = null;
+    closeConfirmModal();
+    if (cb) { cb(); }
+    else if (form) { form.submit(); }
 });
 document.getElementById('confirmModal').addEventListener('click', function(e) {
     if (e.target === this) closeConfirmModal();

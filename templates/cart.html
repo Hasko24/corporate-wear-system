@@ -3,18 +3,10 @@
 
 <style>
 .qty-control { display:flex; align-items:center; gap:6px; }
-.qty-btn {
-    width:28px; height:28px; border:1px solid var(--border); border-radius:6px;
-    background:var(--white); cursor:pointer; font-size:1em; font-weight:700;
-    display:flex; align-items:center; justify-content:center;
-    transition:background .12s;
-}
+.qty-btn { width:28px; height:28px; border:1px solid var(--border); border-radius:6px; background:var(--white); cursor:pointer; font-size:1em; font-weight:700; display:flex; align-items:center; justify-content:center; transition:background .12s; }
 .qty-btn:hover { background:#f0f0f0; }
 .qty-num { min-width:28px; text-align:center; font-weight:700; font-size:0.95em; }
-.size-select {
-    border:1px solid var(--border); border-radius:6px; padding:4px 8px;
-    font-size:0.85em; background:var(--white); cursor:pointer;
-}
+.size-select { border:1px solid var(--border); border-radius:6px; padding:4px 8px; font-size:0.85em; background:var(--white); cursor:pointer; }
 .cart-row-removing { opacity:0.4; pointer-events:none; transition:opacity .2s; }
 </style>
 
@@ -38,14 +30,14 @@
                 <tr id="cart-row-{{ item.item_id }}">
                     <td class="text-bold">{{ item.name }}</td>
                     <td>
-                        {% if item.all_sizes|length > 1 %}
+                        {% if item.all_sizes and item.all_sizes|length > 1 %}
                         <select class="size-select" onchange="changeSize({{ item.item_id }}, this.value, this)">
                             {% for s in item.all_sizes %}
                             <option value="{{ s.id }}" {% if s.id == item.size_id %}selected{% endif %}>{{ s.size }} ({{ s.stock }} left)</option>
                             {% endfor %}
                         </select>
                         {% else %}
-                        <span id="size-label-{{ item.item_id }}">{{ item.size }}</span>
+                        {{ item.size }}
                         {% endif %}
                     </td>
                     <td class="text-muted">{{ item.worker_name or '—' }}</td>
@@ -59,7 +51,7 @@
                     <td class="text-muted">{{ "%.2f"|format(item.price_at_time) }} SEK</td>
                     <td class="text-bold" id="subtotal-{{ item.item_id }}">{{ "%.2f"|format(item.subtotal) }} SEK</td>
                     <td>
-                        <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="removeItem({{ item.item_id }}, {{ item.price_at_time }})">✕</button>
+                        <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="removeItem({{ item.item_id }})">✕</button>
                     </td>
                 </tr>
                 {% endfor %}
@@ -84,8 +76,8 @@
 
         <form method="POST" action="{{ url_for('checkout') }}" style="margin-top:20px;">
             <div class="form-group">
-                <label>Comment (optional)</label>
-                <textarea name="comment" rows="3" placeholder="Any notes for the packer…">{{ cart.comment or '' }}</textarea>
+                <label>Comment <span style="color:var(--text-3);font-weight:400;">(optional)</span></label>
+                <textarea name="comment" rows="2" placeholder="Any notes for the packer…">{{ cart.comment or '' }}</textarea>
             </div>
             <button type="submit" class="btn btn-primary btn-full btn-lg" onclick="showConfirm(this.closest('form'), 'Submit this order?', 'The order will be sent for packing.', 'Submit Order'); return false;">Submit Order</button>
         </form>
@@ -102,22 +94,10 @@
 <script>
 const priceMap = { {% for item in items %}{{ item.item_id }}: {{ item.price_at_time }},{% endfor %} };
 
-function updateTotal() {
-    let total = 0;
-    document.querySelectorAll('[id^="subtotal-"]').forEach(el => {
-        const val = parseFloat(el.textContent);
-        if (!isNaN(val)) total += val;
-    });
-    const el = document.getElementById('cart-total');
-    if (el) el.textContent = total.toFixed(2) + ' SEK';
-}
-
 function changeQty(itemId, delta, btn) {
     const qtyEl = document.getElementById('qty-' + itemId);
     const current = parseInt(qtyEl.textContent);
-    const newQty = current + delta;
-    if (newQty < 0) return;
-
+    const newQty = Math.max(0, current + delta);
     const fd = new FormData();
     fd.append('quantity', newQty);
     fetch('/cart/update/' + itemId, { method: 'POST', headers: {'X-Requested-With':'XMLHttpRequest'}, body: fd })
@@ -126,8 +106,7 @@ function changeQty(itemId, delta, btn) {
             if (newQty === 0) {
                 const row = document.getElementById('cart-row-' + itemId);
                 if (row) { row.classList.add('cart-row-removing'); setTimeout(() => row.remove(), 200); }
-                const summaryRow = document.querySelector(`#summary-qty-${itemId}`)?.closest('div');
-                if (summaryRow) summaryRow.remove();
+                document.querySelector('#summary-qty-' + itemId)?.closest('div')?.remove();
             } else {
                 qtyEl.textContent = newQty;
                 const price = priceMap[itemId] || 0;
@@ -150,23 +129,7 @@ function changeQty(itemId, delta, btn) {
 }
 
 function removeItem(itemId) {
-    const fd = new FormData();
-    fd.append('quantity', 0);
-    fetch('/cart/update/' + itemId, { method: 'POST', headers: {'X-Requested-With':'XMLHttpRequest'}, body: fd })
-    .then(r => r.json()).then(res => {
-        if (res.ok) {
-            const row = document.getElementById('cart-row-' + itemId);
-            if (row) { row.classList.add('cart-row-removing'); setTimeout(() => row.remove(), 200); }
-            const summaryRow = document.querySelector(`#summary-qty-${itemId}`)?.closest('div');
-            if (summaryRow) summaryRow.remove();
-            if (res.total) document.getElementById('cart-total').textContent = res.total + ' SEK';
-            const badge = document.getElementById('nav-cart-badge');
-            if (badge && res.cart_count !== undefined) {
-                badge.textContent = res.cart_count;
-                badge.style.display = res.cart_count > 0 ? '' : 'none';
-            }
-        }
-    });
+    changeQty(itemId, -999, null);
 }
 
 function changeSize(itemId, sizeId, sel) {

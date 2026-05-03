@@ -7,7 +7,12 @@
             <span class="page-breadcrumb"><a href="{{ url_for('admin_dashboard') }}">Admin</a> › Returns</span>
             <h1>Uniform Returns</h1>
         </div>
-        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-ghost">Back</a>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <a href="{{ url_for('export_returns_excel', status=status_filter or '') }}" class="btn btn-ghost">⬇ Excel</a>
+            <a href="{{ url_for('export_returns_pdf', status=status_filter or '') }}" class="btn btn-primary">⬇ PDF</a>
+            <a href="{{ url_for('admin_exchanges') }}" class="btn btn-ghost">Exchange Report →</a>
+            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-ghost">← Back</a>
+        </div>
     </div>
 </div>
 
@@ -18,6 +23,7 @@
     <a href="{{ url_for('admin_returns', status='damaged') }}" class="btn {% if status_filter=='damaged' %}btn-dark{% else %}btn-ghost{% endif %} btn-sm">Damaged ({{ counts.damaged or 0 }})</a>
     <a href="{{ url_for('admin_returns', status='size_exchange') }}" class="btn {% if status_filter=='size_exchange' %}btn-dark{% else %}btn-ghost{% endif %} btn-sm">Size exchange ({{ counts.size_exchange or 0 }})</a>
     <a href="{{ url_for('admin_returns', status='stolen') }}" class="btn {% if status_filter=='stolen' %}btn-dark{% else %}btn-ghost{% endif %} btn-sm">Stolen ({{ counts.stolen or 0 }})</a>
+    <a href="{{ url_for('admin_returns', status='exchanged') }}" class="btn {% if status_filter=='exchanged' %}btn-dark{% else %}btn-ghost{% endif %} btn-sm" style="{% if counts.exchanged %}border-color:#0369a1;color:#0369a1;{% endif %}">Exchanged ({{ counts.exchanged or 0 }})</a>
     <a href="{{ url_for('admin_returns', status='other') }}" class="btn {% if status_filter=='other' %}btn-dark{% else %}btn-ghost{% endif %} btn-sm">Other ({{ counts.other or 0 }})</a>
 </div>
 
@@ -30,6 +36,7 @@
     <table>
         <thead>
             <tr>
+                <th style="width:36px;"><input type="checkbox" id="selectAllReturns" onchange="document.querySelectorAll('.ret-check').forEach(c=>c.checked=this.checked)" style="width:auto;margin:0;" title="Select all"></th>
                 <th>Date Returned</th>
                 <th>Worker</th>
                 <th>Supervisor</th>
@@ -43,6 +50,7 @@
         <tbody>
             {% for r in returns %}
             <tr>
+                <td><input type="checkbox" class="ret-check" value="{{ r.id }}" style="width:auto;margin:0;"></td>
                 <td class="text-muted">{{ r.returned_at.strftime('%d %b %Y') if r.returned_at else '—' }}</td>
                 <td style="font-weight:600;">{{ r.worker_name or '—' }}</td>
                 <td>{{ r.supervisor_name or '—' }}</td>
@@ -59,6 +67,13 @@
                     <span class="status-pill" style="background:#fef3c7;color:#92400e;">Damaged</span>
                     {% elif r.return_reason == 'size_exchange' %}
                     <span class="status-pill" style="background:#e0f2fe;color:#0369a1;">Size exchange</span>
+                    {% elif r.return_reason == 'exchanged' %}
+                    <span class="status-pill" style="background:#e0f2fe;color:#0369a1;">Exchanged</span>
+                    {% if exchange_details.get(r.id) %}
+                    <span style="font-size:0.8em;color:var(--text-3);display:block;margin-top:3px;">
+                        {{ exchange_details[r.id].custom_reason or exchange_details[r.id].reason|replace('_',' ')|title }}
+                    </span>
+                    {% endif %}
                     {% else %}
                     <span class="status-pill" style="background:#f3f4f6;color:#374151;">{{ r.return_reason|replace('_',' ')|title if r.return_reason else 'Other' }}</span>
                     {% endif %}
