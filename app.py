@@ -51,69 +51,26 @@ def get_db_config():
     )
     return config
 
-from mysql.connector.pooling import MySQLConnectionPool
-
-_pool = None
-
-def get_pool():
-    global _pool
-    if _pool is None:
-        cfg = get_db_config()
-        cfg.pop("buffered", None)
-        _pool = MySQLConnectionPool(
-            pool_name="cw_pool",
-            pool_size=10,
-            pool_reset_session=True,
-            **cfg
-        )
-    return _pool
-
-db = None  # kept for legacy references
+db = None
 
 def get_db():
-    return get_pool().get_connection()
-
-class _CursorWrapper:
-    """Wraps a pooled cursor so that db.commit() / db.rollback() still work
-    via the cursor's own connection, and auto-returns the connection to the
-    pool when the cursor is closed or the request ends."""
-    def __init__(self, conn, cur):
-        self._conn = conn
-        self._cur  = cur
-    # forward all cursor calls
-    def __getattr__(self, name):
-        return getattr(self._cur, name)
-    def __iter__(self):
-        return iter(self._cur)
-
-class _DbProxy:
-    """Proxy for legacy `db.commit()` / `db.rollback()` calls.
-    Always commits/rolls back on the most-recently-created cursor's connection."""
-    def __init__(self):
-        self._conn = None
-    def _set(self, conn):
-        self._conn = conn
-    def commit(self):
-        if self._conn:
-            try: self._conn.commit()
-            except Exception: pass
-    def rollback(self):
-        if self._conn:
-            try: self._conn.rollback()
-            except Exception: pass
-    # Allow attribute access for any other mysql connection attr
-    def __getattr__(self, name):
-        if self._conn:
-            return getattr(self._conn, name)
-        raise AttributeError(name)
-
-db = _DbProxy()
+    global db
+    if db is None or not db.is_connected():
+        try:
+            db = mysql.connector.connect(**get_db_config())
+        except Exception:
+            db = mysql.connector.connect(**get_db_config())
+    return db
 
 def get_cursor():
-    conn = get_pool().get_connection()
-    cur  = conn.cursor(dictionary=True, buffered=True)
-    db._set(conn)   # point legacy db.commit() at this connection
-    return cur
+    global db
+    try:
+        conn = get_db()
+        conn.ping(reconnect=True, attempts=3, delay=1)
+        return conn.cursor(dictionary=True)
+    except Exception:
+        db = mysql.connector.connect(**get_db_config())
+        return db.cursor(dictionary=True)
 
 # ─────────────────────────────────────────────
 # EMAIL HELPER
@@ -753,6 +710,7 @@ def view_cart():
     return render_template("cart.html", items=items, total=total, cart=cart, team=team,
                            facilities=facilities, sites=sites,
                            worker_facility_id=worker_facility_id,
+                           worker_department=worker_department,
                            worker_site_id=worker_site_id)
 
 
@@ -920,6 +878,7 @@ def view_orders():
                tm.employee_number,
                f.name AS facility_name,
                s.name AS site_name,
+
                (SELECT COUNT(*) FROM order_items oi WHERE oi.cart_id = oc.id) AS item_count
         FROM order_carts oc
         JOIN users u ON oc.supervisor_id = u.id
@@ -1181,7 +1140,7 @@ def export_orders_excel():
                (oi.quantity * oi.price_at_time) AS subtotal_sek,
                COALESCE(p.price_eur * oi.quantity, NULL) AS subtotal_eur,
                tm.full_name AS worker, tm.employee_number,
-               f.name AS facility, tm.full_name AS worker, tm.employee_number
+               f.name AS facility
         FROM order_carts oc
         JOIN users u ON oc.supervisor_id = u.id
         JOIN order_items oi ON oi.cart_id = oc.id
