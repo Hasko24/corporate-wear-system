@@ -51,26 +51,69 @@ def get_db_config():
     )
     return config
 
-db = None
+from mysql.connector.pooling import MySQLConnectionPool
+
+_pool = None
+
+def get_pool():
+    global _pool
+    if _pool is None:
+        cfg = get_db_config()
+        cfg.pop("buffered", None)
+        _pool = MySQLConnectionPool(
+            pool_name="cw_pool",
+            pool_size=10,
+            pool_reset_session=True,
+            **cfg
+        )
+    return _pool
+
+db = None  # kept for legacy references
 
 def get_db():
-    global db
-    if db is None or not db.is_connected():
-        try:
-            db = mysql.connector.connect(**get_db_config())
-        except Exception:
-            db = mysql.connector.connect(**get_db_config())
-    return db
+    return get_pool().get_connection()
+
+class _CursorWrapper:
+    """Wraps a pooled cursor so that db.commit() / db.rollback() still work
+    via the cursor's own connection, and auto-returns the connection to the
+    pool when the cursor is closed or the request ends."""
+    def __init__(self, conn, cur):
+        self._conn = conn
+        self._cur  = cur
+    # forward all cursor calls
+    def __getattr__(self, name):
+        return getattr(self._cur, name)
+    def __iter__(self):
+        return iter(self._cur)
+
+class _DbProxy:
+    """Proxy for legacy `db.commit()` / `db.rollback()` calls.
+    Always commits/rolls back on the most-recently-created cursor's connection."""
+    def __init__(self):
+        self._conn = None
+    def _set(self, conn):
+        self._conn = conn
+    def commit(self):
+        if self._conn:
+            try: self._conn.commit()
+            except Exception: pass
+    def rollback(self):
+        if self._conn:
+            try: self._conn.rollback()
+            except Exception: pass
+    # Allow attribute access for any other mysql connection attr
+    def __getattr__(self, name):
+        if self._conn:
+            return getattr(self._conn, name)
+        raise AttributeError(name)
+
+db = _DbProxy()
 
 def get_cursor():
-    global db
-    try:
-        conn = get_db()
-        conn.ping(reconnect=True, attempts=3, delay=1)
-        return conn.cursor(dictionary=True)
-    except Exception:
-        db = mysql.connector.connect(**get_db_config())
-        return db.cursor(dictionary=True)
+    conn = get_pool().get_connection()
+    cur  = conn.cursor(dictionary=True, buffered=True)
+    db._set(conn)   # point legacy db.commit() at this connection
+    return cur
 
 # ─────────────────────────────────────────────
 # EMAIL HELPER
@@ -684,14 +727,13 @@ def view_cart():
     facilities = fc.fetchall()
     fc.close()
 
-    # Pre-fill facility/department/site from the first worker in the cart
+    # Pre-fill facility/site from the first worker in the cart
     worker_facility_id = None
-    worker_department = None
     worker_site_id = None
     if items:
         wc = get_cursor()
         wc.execute("""
-            SELECT tm.facility_id, tm.department, tm.site_id
+            SELECT tm.facility_id, tm.site_id
             FROM order_items oi
             JOIN team_members tm ON oi.team_member_id = tm.id
             WHERE oi.cart_id = %s AND oi.team_member_id IS NOT NULL LIMIT 1
@@ -699,7 +741,6 @@ def view_cart():
         wrow = wc.fetchone()
         if wrow:
             worker_facility_id = wrow["facility_id"]
-            worker_department = wrow["department"]
             worker_site_id = wrow["site_id"]
         wc.close()
 
@@ -712,7 +753,6 @@ def view_cart():
     return render_template("cart.html", items=items, total=total, cart=cart, team=team,
                            facilities=facilities, sites=sites,
                            worker_facility_id=worker_facility_id,
-                           worker_department=worker_department,
                            worker_site_id=worker_site_id)
 
 
@@ -880,7 +920,6 @@ def view_orders():
                tm.employee_number,
                f.name AS facility_name,
                s.name AS site_name,
-               oc.department,
                (SELECT COUNT(*) FROM order_items oi WHERE oi.cart_id = oc.id) AS item_count
         FROM order_carts oc
         JOIN users u ON oc.supervisor_id = u.id
@@ -1142,7 +1181,7 @@ def export_orders_excel():
                (oi.quantity * oi.price_at_time) AS subtotal_sek,
                COALESCE(p.price_eur * oi.quantity, NULL) AS subtotal_eur,
                tm.full_name AS worker, tm.employee_number,
-               f.name AS facility, oc.department
+               f.name AS facility, tm.full_name AS worker, tm.employee_number
         FROM order_carts oc
         JOIN users u ON oc.supervisor_id = u.id
         JOIN order_items oi ON oi.cart_id = oc.id
@@ -1435,7 +1474,7 @@ def view_team():
     uid = session["user_id"]
     cursor.execute("""
         SELECT tm.id, tm.full_name, tm.employee_number, jr.name AS role_name,
-               tm.facility_id, tm.department, tm.site_id, f.name AS facility_name, s.name AS site_name,
+               tm.facility_id, tm.site_id, f.name AS facility_name, s.name AS site_name,
                MAX(CASE WHEN ws.product_type='SHIRT' THEN ws.size END) AS shirt_size,
                MAX(CASE WHEN ws.product_type='PANTS' THEN ws.size END) AS pants_size,
                MAX(CASE WHEN ws.product_type='SHOES' THEN ws.size END) AS shoe_size,
@@ -1448,7 +1487,7 @@ def view_team():
         LEFT JOIN facilities f ON tm.facility_id = f.id
         LEFT JOIN sites s ON tm.site_id = s.id
         WHERE tm.supervisor_id = %s AND (tm.is_archived = 0 OR tm.is_archived IS NULL)
-        GROUP BY tm.id, tm.full_name, tm.employee_number, jr.name, tm.facility_id, tm.department, tm.site_id, f.name, s.name
+        GROUP BY tm.id, tm.full_name, tm.employee_number, jr.name, tm.facility_id, tm.site_id, f.name, s.name
         ORDER BY tm.full_name
     """, (uid,))
     team = cursor.fetchall()
