@@ -1,5 +1,16 @@
 {% extends "base.html" %}
 {% block content %}
+<style>
+@media print {
+    @page { margin: 14mm 16mm 14mm 16mm; }
+    body, .page-container { margin: 0 !important; padding: 0 !important; max-width: 100% !important; }
+    nav, .page-breadcrumb, .btn, footer, .flash { display: none !important; }
+    .page-header-band { border: none !important; background: none !important; box-shadow: none !important; }
+    .data-table-wrap { overflow: visible !important; }
+    table { width: 100% !important; border-collapse: collapse !important; font-size: 0.85em !important; }
+    th, td { border: 1px solid #ccc !important; padding: 6px 10px !important; }
+}
+</style>
 
 <div class="page-header-band">
     <div class="header-row">
@@ -13,7 +24,7 @@
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 Download PDF
             </a>
-            <button onclick="window.print()" class="btn btn-ghost" style="display:inline-flex;align-items:center;gap:6px;">🖨 Print</button>
+
             <a href="{{ url_for('view_orders') }}" class="btn btn-ghost">← Back</a>
         </div>
     </div>
