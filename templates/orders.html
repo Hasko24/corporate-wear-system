@@ -106,11 +106,11 @@
                     {% if session.system_role == 'packer' %}
                         {% if order.status == 'submitted' %}
                         <button class="btn btn-ghost btn-sm packer-action" id="action-btn-{{ order.id }}" style="background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7;"
-                                onclick="quickAction('pack', {{ order.id }}, this)">📦 Pack</button>
+                                onclick="quickAction('pack', {{ order.id }}, this)">Pack</button>
                         {% endif %}
                         {% if order.status == 'packed' %}
                         <button class="btn btn-ghost btn-sm packer-action" id="action-btn-{{ order.id }}" style="background:#e3f2fd;color:#1565c0;border-color:#90caf9;"
-                                onclick="quickAction('complete', {{ order.id }}, this)">✓ Send</button>
+                                onclick="quickAction('complete', {{ order.id }}, this)">Send</button>
                         {% endif %}
                     {% endif %}
                     {% if order.status in ('created', 'submitted') and (session.system_role == 'admin' or session.system_role == 'supervisor') %}
@@ -186,7 +186,7 @@ function quickAction(type, orderId, btn) {
                     btn.style.background = '#e3f2fd';
                     btn.style.color = '#1565c0';
                     btn.style.borderColor = '#90caf9';
-                    btn.textContent = '✓ Send';
+                    btn.textContent = 'Send';
                     btn.disabled = false;
                     btn.onclick = function() { quickAction('complete', orderId, this); };
                 } else {
@@ -194,11 +194,11 @@ function quickAction(type, orderId, btn) {
                 }
             } else {
                 btn.disabled = false;
-                btn.textContent = type === 'pack' ? '📦 Pack' : '✓ Send';
+                btn.textContent = type === 'pack' ? 'Pack' : 'Send';
             }
         }).catch(function() {
             btn.disabled = false;
-            btn.textContent = type === 'pack' ? '📦 Pack' : '✓ Send';
+            btn.textContent = type === 'pack' ? 'Pack' : 'Send';
         });
 }
 
