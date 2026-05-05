@@ -120,9 +120,12 @@
                         </div>
                         <script>rolesStore[{{ user.id }}] = {{ user.extra_roles | tojson | safe }};</script>
                     </td>
-                    <td style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                    <td style="white-space:nowrap;min-width:160px;">
+                        <div style="display:flex;gap:6px;align-items:center;flex-wrap:nowrap;">
                         {% if user.system_role == 'supervisor' %}
                         <a href="{{ url_for('admin_view_supervisor_team', supervisor_id=user.id) }}" class="btn btn-ghost btn-sm">Team</a>
+                        {% else %}
+                        <span style="display:inline-block;width:51px;"></span>
                         {% endif %}
                         <button type="button" onclick="openEditModal({{ user.id }}, '{{ user.full_name|replace("'","\\'")|e }}', '{{ user.email|e }}', '{{ user.system_role }}', '{{ user.job_role_id or "" }}', '{{ user.country or "" }}', '{{ user.facility_id or "" }}', '{{ user.site_id or "" }}')"
                                 class="btn btn-ghost btn-sm">Edit</button>
@@ -131,6 +134,7 @@
                             <button type="button" onclick="openDeleteModal(this.form)" class="btn btn-ghost btn-sm" style="color:var(--red);">Delete</button>
                         </form>
                         {% else %}<span class="text-muted text-sm">You</span>{% endif %}
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}
