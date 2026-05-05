@@ -687,10 +687,11 @@ def view_cart():
     # Pre-fill facility/site from the first worker in the cart
     worker_facility_id = None
     worker_site_id = None
+    worker_department = None
     if items:
         wc = get_cursor()
         wc.execute("""
-            SELECT tm.facility_id, tm.site_id
+            SELECT tm.facility_id, tm.site_id, tm.department
             FROM order_items oi
             JOIN team_members tm ON oi.team_member_id = tm.id
             WHERE oi.cart_id = %s AND oi.team_member_id IS NOT NULL LIMIT 1
@@ -699,6 +700,7 @@ def view_cart():
         if wrow:
             worker_facility_id = wrow["facility_id"]
             worker_site_id = wrow["site_id"]
+            worker_department = wrow["department"]
         wc.close()
 
     # Load sites for cart form
@@ -759,6 +761,8 @@ def update_cart_item(item_id):
 
 @app.route("/cart/remove/<int:item_id>", methods=["POST"])
 def remove_cart_item(item_id):
+    if "user_id" not in session:
+        return redirect(url_for("login"))
     cursor = get_cursor()
     # Verify ownership
     cart_id = session.get("cart_id")
@@ -2756,10 +2760,7 @@ def admin_analytics():
         GROUP BY p.id ORDER BY total_quantity DESC LIMIT 5
     """)
     top_products = cursor.fetchall()
-    cursor.execute("""
-        SELECT shoe_size, COUNT(*) as count FROM user_measurements GROUP BY shoe_size
-    """)
-    size_distribution = cursor.fetchall()
+    size_distribution = []
     cursor.execute("SELECT COUNT(*) as low_stock FROM product_sizes WHERE stock <= 2")
     low_stock = cursor.fetchone()["low_stock"]
     return render_template("admin_analytics.html",
@@ -3489,6 +3490,8 @@ def pin_news(post_id):
 
 @app.route('/debug-db')
 def debug_db():
+    if session.get("system_role") != "admin":
+        return redirect(url_for("login"))
     try:
         conn = mysql.connector.connect(**get_db_config())
         conn.close()
