@@ -42,10 +42,10 @@
 
 @media print {
     /* Hide everything except the history table */
-    nav, .page-breadcrumb, .btn, .return-btn, #returnModal,
+    .no-print, nav, .page-breadcrumb, .btn, #returnModal,
     .modal-overlay, footer, .stolen-banner, .flash { display: none !important; }
-    @page { margin: 20mm 18mm 20mm 18mm; }
-    body, .page-container { margin: 0 !important; padding: 16mm !important; max-width: 100% !important; box-sizing: border-box !important; }
+    @page { margin: 14mm 16mm 14mm 16mm; }
+    body, .page-container { margin: 0 !important; padding: 0 !important; max-width: 100% !important; }
     .page-header-band { border: none !important; background: none !important; padding: 0 0 12px !important; box-shadow: none !important; }
     h1 { font-size: 1.2em !important; margin: 0 0 2px !important; }
     .header-sub { font-size: 0.85em !important; }
@@ -108,7 +108,7 @@
     <table>
         <thead>
             <tr>
-                <th>Order</th><th>Product</th><th>Size</th><th>Qty</th><th>Date</th><th>Status</th><th></th>
+                <th>Order</th><th>Product</th><th>Size</th><th>Qty</th><th>Date</th><th>Status</th>
             </tr>
         </thead>
         <tbody>
@@ -132,7 +132,7 @@
                         <span class="status-pill status-{{ u.status }}">{{ u.status|title }}</span>
                     {% endif %}
                 </td>
-                <td style="text-align:right;">
+                <td style="text-align:right;" class="no-print">
                     {% if u.status == 'completed' and not u.returned %}
                     <button class="btn btn-ghost btn-sm return-btn"
                             data-id="{{ u.item_id }}"
