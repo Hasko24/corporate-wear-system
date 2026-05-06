@@ -40,34 +40,7 @@
 }
 .pdf-btn:hover { background: #5a4000; color: white; }
 
-@media print {
-    /* Hide everything except the history table */
-    .no-print, nav, .page-breadcrumb, .btn, #returnModal,
-    .modal-overlay, footer, .stolen-banner, .flash { display: none !important; }
-    @page { margin: 20mm 22mm 20mm 22mm; }
-    body, .page-container {
-    margin: 0 !important;
-    padding: 0 12mm !important;   /* ← adds left/right padding */
-    max-width: 100% !important;
-    }
-    .page-header-band { border: none !important; background: none !important; padding: 0 0 12px !important; box-shadow: none !important; }
-    h1 { font-size: 1.2em !important; margin: 0 0 2px !important; }
-    .header-sub { font-size: 0.85em !important; }
-    .data-table-wrap { overflow: visible !important; }
-    table { width: 100% !important; border-collapse: collapse !important; font-size: 0.85em !important; }
-    th, td { border: 1px solid #ccc !important; padding: 6px 10px !important; }
-    thead { display: table-header-group !important; }
-    tr { page-break-inside: avoid !important; }
-    a { color: inherit !important; text-decoration: none !important; }
-    /* DHL header line */
-    .page-header-band::after {
-        content: "DHL Corporate Wear";
-        display: block;
-        font-size: 0.75em;
-        color: #aaa;
-        margin-top: 4px;
-    }
-}
+@media print { }
 </style>
 
 <div class="page-header-band">
@@ -77,7 +50,7 @@
             <h1>{{ member.full_name }}</h1>
             <div class="header-sub">Employee #{{ member.employee_number }} — Uniform order history</div>
         </div>
-        <button onclick="printHistory()" class="btn btn-ghost" style="display:inline-flex;align-items:center;gap:6px;">🖨 Print</button>
+        <a href="{{ url_for('worker_history_pdf', member_id=member.id) }}" class="btn btn-ghost" style="display:inline-flex;align-items:center;gap:6px;">Download PDF</a>
     </div>
 </div>
 
@@ -108,8 +81,8 @@
     <p style="margin:0;">Uniforms will appear here once orders have been placed for this employee.</p>
 </div>
 {% else %}
-<div class="data-table-wrap">
-    <table>
+<div class="data-table-wrap" style="width:100%;">
+    <table style="width:100%">
         <thead>
             <tr>
                 <th>Order</th><th>Product</th><th>Size</th><th>Qty</th><th>Date</th><th>Status</th>
