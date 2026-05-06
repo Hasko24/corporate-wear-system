@@ -119,6 +119,7 @@
                         <th>Status</th>
                         <th>Issued</th>
                         <th>Returned</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -140,6 +141,11 @@
                         </td>
                         <td class="text-muted">{{ u.issued_at.strftime('%d %b %Y') if u.issued_at else '—' }}</td>
                         <td class="text-muted">{{ u.returned_at.strftime('%d %b %Y') if u.returned_at else '—' }}</td>
+                        <td>
+                            {% if (u.status or '') == 'active' %}
+                            <a href="{{ url_for('worker_history', member_id=w.id) }}" class="btn btn-ghost btn-sm">Return / Exchange</a>
+                            {% endif %}
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>

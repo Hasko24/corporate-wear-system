@@ -2943,8 +2943,7 @@ def export_size_analytics_excel():
                f.name AS facility_name
         FROM worker_sizes ws
         JOIN team_members tm ON ws.team_member_id = tm.id
-        LEFT JOIN users u ON tm.supervisor_id = u.id
-        LEFT JOIN facilities f ON u.facility_id = f.id
+        LEFT JOIN facilities f ON tm.facility_id = f.id
         GROUP BY ws.product_type, ws.size, f.name
         ORDER BY ws.product_type, frequency DESC
     """)
@@ -3337,6 +3336,95 @@ def worker_history(member_id):
         uniforms.append(u)
 
     return render_template("worker_history.html", member=member, uniforms=uniforms, member_id=member_id)
+
+
+@app.route("/worker/<int:member_id>/history/pdf")
+def worker_history_pdf(member_id):
+    if session.get("system_role") not in ("supervisor", "admin"):
+        return redirect(url_for("login"))
+    cursor = get_cursor()
+    cursor.execute("SELECT * FROM team_members WHERE id=%s", (member_id,))
+    member = cursor.fetchone()
+    if not member:
+        return redirect(url_for("view_team"))
+
+    cursor.execute("""
+        SELECT oc.id AS order_id, oc.created_at AS order_date, oc.status,
+               p.name AS product_name, ps.size, oi.quantity,
+               uu.status AS uniform_status
+        FROM order_items oi
+        JOIN order_carts oc ON oi.cart_id = oc.id
+        JOIN product_sizes ps ON oi.product_size_id = ps.id
+        JOIN products p ON ps.product_id = p.id
+        LEFT JOIN user_uniforms uu ON uu.product_size_id = oi.product_size_id
+            AND uu.team_member_id = oi.team_member_id
+        WHERE oi.team_member_id = %s
+        ORDER BY oc.created_at DESC
+    """, (member_id,))
+    rows = cursor.fetchall()
+
+    from reportlab.lib.units import mm
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.platypus import Paragraph as RLP
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4,
+                            leftMargin=20*mm, rightMargin=20*mm,
+                            topMargin=20*mm, bottomMargin=20*mm)
+    styles = getSampleStyleSheet()
+    elements = []
+
+    # Header
+    elements.append(Paragraph(member["full_name"], styles["Title"]))
+    elements.append(Paragraph(f"Employee #{member['employee_number']} — Uniform order history", styles["Normal"]))
+    elements.append(Paragraph("DHL Corporate Wear", ParagraphStyle('sub', fontName='Helvetica', fontSize=9, textColor=colors.grey)))
+    elements.append(Spacer(1, 14))
+
+    cell = ParagraphStyle('cell', fontName='Helvetica', fontSize=8, leading=11)
+    cellb = ParagraphStyle('cellb', fontName='Helvetica-Bold', fontSize=8, leading=11)
+
+    def P(text, bold=False):
+        return RLP(str(text) if text else '—', cellb if bold else cell)
+
+    headers = ["Order", "Product", "Size", "Qty", "Date", "Status"]
+    table_data = [[P(h, bold=True) for h in headers]]
+
+    for u in rows:
+        uniform_status = u["uniform_status"] or ""
+        returned = uniform_status not in ("active", "issued", "")
+        if returned:
+            status_label = uniform_status.replace("returned_", "").title()
+        else:
+            status_label = (u["status"] or "").title()
+
+        table_data.append([
+            P(f"#{u['order_id']}"),
+            P(u["product_name"]),
+            P(u["size"]),
+            P(str(u["quantity"])),
+            P(u["order_date"].strftime("%d %b %Y") if u["order_date"] else "—"),
+            P(status_label),
+        ])
+
+    usable = 170*mm
+    col_widths = [0.10*usable, 0.38*usable, 0.10*usable, 0.07*usable, 0.18*usable, 0.17*usable]
+    t = Table(table_data, colWidths=col_widths, repeatRows=1)
+    t.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#FFCC00")),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F9F9F9")]),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    elements.append(t)
+    doc.build(elements)
+    buffer.seek(0)
+
+    filename = f"Uniform_History_{member['full_name'].replace(' ', '_')}_{member['employee_number']}.pdf"
+    return send_file(buffer, as_attachment=True, download_name=filename, mimetype="application/pdf")
 
 
 # ─────────────────────────────────────────────
