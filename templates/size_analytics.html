@@ -31,7 +31,7 @@
             {% for row in rows %}
             {% set pct = ((row.frequency / total) * 100)|round|int %}
             {% set is_top = loop.first %}
-            <div style="{% if is_top %}background:#fffbeb;border-radius:6px;padding:4px 6px;margin:-4px -6px;{% endif %}">
+            <div>
                 <div style="display:flex;justify-content:space-between;font-size:0.85em;margin-bottom:3px;">
                     <span style="font-weight:{% if is_top %}800{% else %}500{% endif %};color:{% if is_top %}#b45309{% else %}inherit{% endif %};">
                         {{ row.size }}{% if is_top %} ★{% endif %}
