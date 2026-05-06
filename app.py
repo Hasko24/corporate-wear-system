@@ -2962,6 +2962,75 @@ def export_size_analytics_excel():
                      mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
+@app.route("/admin/size-analytics/pdf")
+def export_size_analytics_pdf():
+    if session.get("system_role") != "admin":
+        return redirect(url_for("shop"))
+    cursor = get_cursor()
+    cursor.execute("""
+        SELECT product_type, size, COUNT(*) AS frequency
+        FROM worker_sizes GROUP BY product_type, size ORDER BY product_type, frequency DESC
+    """)
+    rows = cursor.fetchall()
+
+    from reportlab.lib.units import mm
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.platypus import Paragraph as RLP
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4,
+                            leftMargin=20*mm, rightMargin=20*mm,
+                            topMargin=20*mm, bottomMargin=20*mm)
+    styles = getSampleStyleSheet()
+    elements = []
+
+    elements.append(Paragraph("Size Analytics", styles["Title"]))
+    elements.append(Paragraph("Most common sizes across your workforce", styles["Normal"]))
+    elements.append(Spacer(1, 14))
+
+    cell = ParagraphStyle('cell', fontName='Helvetica', fontSize=8, leading=11)
+    cellb = ParagraphStyle('cellb', fontName='Helvetica-Bold', fontSize=8, leading=11)
+
+    def P(text, bold=False):
+        return RLP(str(text) if text else '—', cellb if bold else cell)
+
+    # Group by type
+    from collections import defaultdict
+    grouped = defaultdict(list)
+    for r in rows:
+        grouped[r["product_type"]].append(r)
+
+    usable = 170*mm
+    col_widths = [0.35*usable, 0.35*usable, 0.30*usable]
+
+    for ptype, prows in grouped.items():
+        total = sum(r["frequency"] for r in prows)
+        elements.append(Paragraph(ptype.title(), styles["Heading3"]))
+        table_data = [[P("Size", bold=True), P("Workers", bold=True), P("% Share", bold=True)]]
+        for i, r in enumerate(prows):
+            pct = round((r["frequency"] / total) * 100)
+            star = " ★" if i == 0 else ""
+            table_data.append([P(r["size"] + star, bold=(i == 0)), P(str(r["frequency"]), bold=(i == 0)), P(f"{pct}%", bold=(i == 0))])
+        t = Table(table_data, colWidths=col_widths)
+        t.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#FFCC00")),
+            ("BACKGROUND", (0, 1), (-1, 1), colors.HexColor("#FFFBEB")),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+            ("ROWBACKGROUNDS", (0, 2), (-1, -1), [colors.white, colors.HexColor("#F9F9F9")]),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("LEFTPADDING", (0, 0), (-1, -1), 5),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+        ]))
+        elements.append(t)
+        elements.append(Spacer(1, 10))
+
+    doc.build(elements)
+    buffer.seek(0)
+    return send_file(buffer, as_attachment=True, download_name="size_analytics.pdf", mimetype="application/pdf")
+
+
 @app.route("/admin/size-analytics")
 def size_analytics():
     if session.get("system_role") != "admin":
@@ -2972,15 +3041,14 @@ def size_analytics():
         FROM worker_sizes GROUP BY product_type, size ORDER BY product_type, frequency DESC
     """)
     distribution = cursor.fetchall()
-    cursor.execute("""
-        SELECT tm.facility_id, ws.product_type, ws.size, COUNT(*) AS frequency
-        FROM worker_sizes ws
-        JOIN team_members tm ON ws.team_member_id = tm.id
-        GROUP BY tm.facility_id, ws.product_type, ws.size
-    """)
-    facility_distribution = cursor.fetchall()
+
+    from collections import defaultdict
+    grouped_distribution = defaultdict(list)
+    for row in distribution:
+        grouped_distribution[row["product_type"]].append(row)
+
     return render_template("size_analytics.html", distribution=distribution,
-                           facility_distribution=facility_distribution)
+                           grouped_distribution=grouped_distribution)
 
 
 # ─────────────────────────────────────────────

@@ -12,39 +12,36 @@
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 Export Excel
             </a>
+            <a href="{{ url_for('export_size_analytics_pdf') }}" class="btn btn-ghost" style="display:inline-flex;align-items:center;gap:6px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Download PDF
+            </a>
             <a href="{{ url_for('admin_dashboard') }}" class="btn btn-ghost">← Admin</a>
         </div>
     </div>
 </div>
 
-{% set types_seen = [] %}
-{% for row in distribution %}
-  {% if row.product_type not in types_seen %}
-    {% set _ = types_seen.append(row.product_type) %}
-  {% endif %}
-{% endfor %}
-
+{# Group rows by product_type in Python via the template — pass grouped_distribution from backend #}
 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px;margin-bottom:32px;">
-    {% for ptype in types_seen %}
+    {% for ptype, rows in grouped_distribution.items() %}
+    {% set total = rows | sum(attribute='frequency') %}
     <div class="surface" style="border-top:3px solid var(--yellow);">
         <div class="section-label" style="margin-bottom:12px;">{{ ptype|title }}</div>
         <div style="display:flex;flex-direction:column;gap:6px;">
-            {% for row in distribution %}
-            {% if row.product_type == ptype %}
-            {% set total_for_type = distribution | selectattr('product_type', 'equalto', ptype) | sum(attribute='frequency') %}
-            {% set pct = ((row.frequency / total_for_type) * 100)|round|int %}
-            <div>
+            {% for row in rows %}
+            {% set pct = ((row.frequency / total) * 100)|round|int %}
+            {% set is_top = loop.first %}
+            <div style="{% if is_top %}background:#fffbeb;border-radius:6px;padding:4px 6px;margin:-4px -6px;{% endif %}">
                 <div style="display:flex;justify-content:space-between;font-size:0.85em;margin-bottom:3px;">
-                    <span style="font-weight:{% if loop.first %}800{% else %}500{% endif %};color:{% if loop.first %}var(--yellow-dark){% else %}inherit{% endif %};">
-                        {{ row.size }}{% if loop.first %} ★{% endif %}
+                    <span style="font-weight:{% if is_top %}800{% else %}500{% endif %};color:{% if is_top %}#b45309{% else %}inherit{% endif %};">
+                        {{ row.size }}{% if is_top %} ★{% endif %}
                     </span>
                     <span style="color:var(--text-3);">{{ row.frequency }} workers ({{ pct }}%)</span>
                 </div>
                 <div style="background:var(--border);border-radius:4px;height:6px;overflow:hidden;">
-                    <div style="width:{{ pct }}%;height:100%;background:{% if loop.first %}var(--yellow){% else %}#ddd{% endif %};border-radius:4px;"></div>
+                    <div style="width:{{ pct }}%;height:100%;background:{% if is_top %}var(--yellow){% else %}#ddd{% endif %};border-radius:4px;"></div>
                 </div>
             </div>
-            {% endif %}
             {% endfor %}
         </div>
     </div>
