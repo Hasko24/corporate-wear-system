@@ -45,7 +45,11 @@
     .no-print, nav, .page-breadcrumb, .btn, #returnModal,
     .modal-overlay, footer, .stolen-banner, .flash { display: none !important; }
     @page { margin: 20mm 22mm 20mm 22mm; }
-    body, .page-container { margin: 0 !important; padding: 0 !important; max-width: 100% !important; }
+    body, .page-container {
+    margin: 0 !important;
+    padding: 0 12mm !important;   /* ← adds left/right padding */
+    max-width: 100% !important;
+    }
     .page-header-band { border: none !important; background: none !important; padding: 0 0 12px !important; box-shadow: none !important; }
     h1 { font-size: 1.2em !important; margin: 0 0 2px !important; }
     .header-sub { font-size: 0.85em !important; }
