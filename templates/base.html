@@ -168,5 +168,22 @@ document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') closeConfirmModal();
 });
 </script>
+<style>
+@media print {
+    @page {
+        margin: 20mm 25mm;  /* outer page margins */
+    }
+
+    body {
+        margin: 0 !important;
+        padding: 15mm 12mm !important;  /* 👈 top/bottom + left/right */
+    }
+
+    .page-container {
+        padding: 0 !important; /* prevent double padding */
+    }
+}
+</style>
+
 </body>
 </html>
