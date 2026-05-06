@@ -7,8 +7,10 @@
             <span class="page-breadcrumb"><a href="{{ url_for('supervisor_dashboard') }}">Dashboard</a> › My Team</span>
             <h1>My Team</h1>
         </div>
-        <a href="{{ url_for('add_team_member') }}" class="btn btn-dark btn-lg">+ Add Member</a>
-        <a href="{{ url_for('admin_archived_workers') }}" class="btn btn-ghost">Former Employees</a>
+        <div style="display:flex;gap:8px;">
+            <a href="{{ url_for('admin_archived_workers') }}" class="btn btn-ghost">Former Employees</a>
+            <a href="{{ url_for('add_team_member') }}" class="btn btn-dark btn-lg">+ Add Member</a>
+        </div>
     </div>
 </div>
 
@@ -66,7 +68,7 @@
                         <button type="button" class="btn btn-ghost btn-sm" onclick="openEditMember({{ member.id }}, '{{ member.full_name }}', '{{ member.employee_number or '' }}', '{{ member.shirt_size or '' }}', '{{ member.pants_size or '' }}', '{{ member.shoe_size or '' }}', '{{ member.sweatshirt_size or '' }}', '{{ member.gloves_size or '' }}', '{{ member.hat_size or '' }}')">Edit</button>
                         <form method="POST" action="{{ url_for('delete_team_member', member_id=member.id) }}" style="margin:0;">
                             <button type="submit" class="btn btn-danger btn-sm"
-                                onclick="showConfirm(this.closest('form'),'End employment for {{ member.full_name }}?','They will be moved to Former Employees.','Confirm');return false;">End Employment</button>
+                                onclick="showConfirm(this.closest('form'),'Remove {{ member.full_name }}?','They will be removed from your team.','Remove');return false;">Remove</button>
                         </form>
                     </div>
                 </td>
