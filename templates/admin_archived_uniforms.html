@@ -1,13 +1,35 @@
 {% extends "base.html" %}
 {% block content %}
 
+<style>
+.worker-card { background:var(--white);border:1px solid var(--border);border-radius:10px;margin-bottom:16px;overflow:hidden; }
+.worker-card-header { display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:var(--white);border-bottom:1px solid var(--border);cursor:pointer;user-select:none; }
+.worker-card-header:hover { background:#fafafa; }
+.worker-name { font-weight:700;font-size:0.95em; }
+.worker-meta { font-size:0.82em;color:var(--text-3);margin-top:2px; }
+.worker-badges { display:flex;gap:8px;align-items:center;flex-shrink:0; }
+.chevron { font-size:0.75em;color:var(--text-3);transition:transform .2s; }
+.card-open .chevron { transform:rotate(180deg); }
+.uniforms-body { padding:0;display:none; }
+.card-open .uniforms-body { display:block; }
+.no-uniforms { padding:16px 20px;color:var(--text-3);font-size:0.88em; }
+</style>
+
 <div class="page-header-band">
     <div class="header-row">
         <div>
-            <span class="page-breadcrumb"><a href="{{ url_for('admin_dashboard') }}">Admin</a> › Former Employees — Uniforms</span>
-            <h1>Former Employee Uniforms</h1>
-            <div class="header-sub">All uniform items issued to archived workers</div>
+            <span class="page-breadcrumb">
+                {% if session.system_role == 'admin' %}
+                <a href="{{ url_for('admin_dashboard') }}">Admin</a>
+                {% else %}
+                <a href="{{ url_for('supervisor_dashboard') }}">Dashboard</a>
+                {% endif %}
+                › Archived Workers
+            </span>
+            <h1>Archived Workers</h1>
+            <div class="header-sub">Former employees — visible for 6 months after archiving</div>
         </div>
+        {% if session.system_role == 'admin' %}
         <div style="display:flex;gap:8px;">
             <a href="{{ url_for('export_archived_uniforms_excel') }}" class="btn btn-ghost" style="display:inline-flex;align-items:center;gap:6px;">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -17,18 +39,18 @@
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 Download PDF
             </a>
-            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-ghost">← Admin</a>
         </div>
+        {% endif %}
     </div>
 </div>
 
-{# Filters #}
 <div class="surface" style="margin-bottom:20px;">
     <form method="GET" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;">
         <div class="form-group" style="margin:0;flex:1;min-width:140px;">
             <label style="font-size:0.8em;">Search worker</label>
             <input type="text" name="search" value="{{ search or '' }}" placeholder="Name or employee #">
         </div>
+        {% if session.system_role == 'admin' %}
         <div class="form-group" style="margin:0;flex:1;min-width:140px;">
             <label style="font-size:0.8em;">Search product</label>
             <input type="text" name="product" value="{{ product_search or '' }}" placeholder="e.g. T-shirt, Jacket…">
@@ -72,6 +94,7 @@
             <label style="font-size:0.8em;">Archived to</label>
             <input type="date" name="date_to" value="{{ date_to or '' }}">
         </div>
+        {% endif %}
         <button type="submit" class="btn btn-primary">Filter</button>
         {% if search or product_search or reason_filter or supervisor_filter or facility_filter or date_from or date_to %}
         <a href="{{ url_for('admin_archived_workers') }}" class="btn btn-ghost">Clear</a>
@@ -79,76 +102,106 @@
     </form>
 </div>
 
-{# Main table #}
-{% if uniforms %}
-<div class="data-table-wrap">
-    <table>
-        <thead>
-            <tr>
-                <th>Worker</th>
-                <th>Employee #</th>
-                <th>Facility</th>
-                <th>Supervisor</th>
-                <th>Product</th>
-                <th>Size</th>
-                <th>Status</th>
-                <th>Reason / Note</th>
-                <th>Issued</th>
-                <th>Returned</th>
-                <th>Archived</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for u in uniforms %}
-            <tr>
-                <td style="font-weight:600;">{{ u.worker_name }}</td>
-                <td class="text-muted">{{ u.employee_number or '—' }}</td>
-                <td class="text-muted">{{ u.facility_name or '—' }}</td>
-                <td class="text-muted">{{ u.supervisor_name or '—' }}</td>
-                <td style="font-weight:600;">{{ u.product_name }}</td>
-                <td>{{ u.size }}</td>
-                <td>
-                    {% set s = u.status or '' %}
-                    {% if s == 'active' %}
-                    <span class="status-pill status-completed">Active</span>
-                    {% elif s == 'exchanged' %}
-                    <span class="status-pill" style="background:#e0f2fe;color:#0369a1;">Exchanged</span>
-                    {% elif s in ('lost','stolen','returned_lost','returned_stolen') %}
-                    <span class="status-pill" style="background:#fee2e2;color:#dc2626;">{{ s.replace('returned_','').replace('_',' ')|title }}</span>
-                    {% elif s.startswith('returned_') %}
-                    <span class="status-pill" style="background:#fff0e6;color:#ea580c;">Returned</span>
-                    {% else %}
-                    <span class="status-pill">{{ s.replace('_',' ')|title or '—' }}</span>
-                    {% endif %}
-                </td>
-                <td style="font-size:0.83em;color:var(--text-2);">
-                    {% if s == 'exchanged' %}
-                        {{ (u.exchange_custom_reason or u.exchange_reason or '')|replace('_',' ')|title or '—' }}
-                        {% if u.exchange_notes %}<div style="color:var(--text-3);font-size:0.9em;">{{ u.exchange_notes }}</div>{% endif %}
-                    {% elif s.startswith('returned_') %}
-                        {{ s.replace('returned_','').replace('_',' ')|title }}
-                        {% if u.return_note %}<div style="color:var(--text-3);font-size:0.9em;">{{ u.return_note }}</div>{% endif %}
-                    {% else %}—{% endif %}
-                </td>
-                <td class="text-muted">{{ u.issued_at.strftime('%d %b %Y') if u.issued_at else '—' }}</td>
-                <td class="text-muted">{{ u.returned_at.strftime('%d %b %Y') if u.returned_at else '—' }}</td>
-                <td class="text-muted">{{ u.archived_at.strftime('%d %b %Y') if u.archived_at else '—' }}</td>
-                <td>
-                    {% if s == 'active' %}
-                    <a href="{{ url_for('worker_history', member_id=u.member_id) }}" class="btn btn-ghost btn-sm">Return / Exchange</a>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+{% if workers %}
+{% for w in workers %}
+<div class="worker-card" id="card-{{ w.id }}">
+    <div class="worker-card-header" onclick="toggleCard('{{ w.id }}')">
+        <div>
+            <div class="worker-name">{{ w.full_name }}</div>
+            <div class="worker-meta">
+                {{ w.employee_number or 'No employee #' }}
+                {% if w.role_name %} · {{ w.role_name }}{% endif %}
+                {% if w.supervisor_name %} · {{ w.supervisor_name }}{% endif %}
+                {% if w.facility_name %} · {{ w.facility_name }}{% endif %}
+                · Archived {{ w.archived_at.strftime('%d %b %Y') if w.archived_at else '—' }}
+            </div>
+        </div>
+        <div class="worker-badges">
+            {% if w.uniforms %}
+            <span class="tag">{{ w.uniforms|length }} uniform{{ 's' if w.uniforms|length != 1 }}</span>
+            {% else %}
+            <span class="text-muted" style="font-size:0.82em;">No uniforms</span>
+            {% endif %}
+            <span class="chevron">▼</span>
+        </div>
+    </div>
+
+    <div class="uniforms-body">
+        {% if w.uniforms %}
+        <div class="data-table-wrap" style="margin:0;border:none;border-radius:0;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Size</th>
+                        <th>Status</th>
+                        <th>Reason / Note</th>
+                        <th>Issued</th>
+                        <th>Returned</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in w.uniforms %}
+                    <tr>
+                        <td class="text-bold">{{ u.product_name }}</td>
+                        <td>{{ u.size }}</td>
+                        <td>
+                            {% set s = u.status or '' %}
+                            {% if s == 'active' %}
+                            <span class="status-pill status-completed">Active</span>
+                            {% elif s == 'exchanged' %}
+                            <span class="status-pill" style="background:#e0f2fe;color:#0369a1;">Exchanged</span>
+                            {% elif s in ('lost','stolen','returned_lost','returned_stolen') %}
+                            <span class="status-pill" style="background:#fee2e2;color:#dc2626;">{{ s.replace('returned_','').replace('_',' ')|title }}</span>
+                            {% elif s.startswith('returned_') %}
+                            <span class="status-pill" style="background:#fff0e6;color:#ea580c;">Returned</span>
+                            {% else %}
+                            <span class="status-pill">{{ s.replace('_',' ')|title or '—' }}</span>
+                            {% endif %}
+                        </td>
+                        <td style="font-size:0.85em;color:var(--text-2);">
+                            {% if s == 'exchanged' %}
+                                {{ (u.exchange_custom_reason or u.exchange_reason or '')|replace('_',' ')|title or '—' }}
+                                {% if u.exchange_notes %}<div style="color:var(--text-3);font-size:0.9em;">{{ u.exchange_notes }}</div>{% endif %}
+                            {% elif s.startswith('returned_') %}
+                                {{ s.replace('returned_','').replace('_',' ')|title }}
+                                {% if u.return_note %}<div style="color:var(--text-3);font-size:0.9em;">{{ u.return_note }}</div>{% endif %}
+                            {% else %}—{% endif %}
+                        </td>
+                        <td class="text-muted">{{ u.issued_at.strftime('%d %b %Y') if u.issued_at else '—' }}</td>
+                        <td class="text-muted">{{ u.returned_at.strftime('%d %b %Y') if u.returned_at else '—' }}</td>
+                        <td>
+                            {% if s == 'active' %}
+                            <a href="{{ url_for('worker_history', member_id=w.id) }}" class="btn btn-ghost btn-sm">Return / Exchange</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="no-uniforms">No uniforms recorded for this worker.</div>
+        {% endif %}
+    </div>
 </div>
+{% endfor %}
+
 {% else %}
 <div class="surface" style="text-align:center;padding:60px 40px;color:var(--text-3);">
-    <p style="font-size:1.1em;font-weight:600;color:var(--text-2);margin:0 0 6px;">No results found.</p>
-    <p style="margin:0;">Try adjusting your filters or clearing the search.</p>
+    <p style="font-size:1.1em;font-weight:600;color:var(--text-2);margin:0 0 6px;">No archived workers found.</p>
+    <p style="margin:0;">Workers appear here for 6 months after being archived.</p>
 </div>
 {% endif %}
+
+<script>
+function toggleCard(id) {
+    document.getElementById('card-' + id).classList.toggle('card-open');
+}
+document.querySelectorAll('.worker-card').forEach(card => {
+    if (card.querySelector('table')) card.classList.add('card-open');
+});
+</script>
 
 {% endblock %}
