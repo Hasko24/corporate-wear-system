@@ -133,8 +133,16 @@
                             <span class="status-pill status-completed">Active</span>
                             {% elif s in ('lost', 'stolen') or s.startswith('returned_lost') or s.startswith('returned_stolen') %}
                             <span class="status-pill" style="background:#fee2e2;color:#dc2626;">{{ s.replace('returned_','').replace('_',' ')|title }}</span>
+                            {% elif s == 'exchanged' %}
+                            {% set exr = u.exchange_custom_reason or u.exchange_reason or '' %}
+                            <span class="status-pill" style="background:#e0f2fe;color:#0369a1;">Exchanged</span>
+                            {% if exr %}<div style="font-size:0.75em;color:#0369a1;margin-top:3px;">{{ exr.replace('_',' ')|title }}</div>{% endif %}
+                            {% if u.exchange_notes %}<div style="font-size:0.72em;color:var(--text-3);margin-top:2px;">{{ u.exchange_notes }}</div>{% endif %}
                             {% elif s.startswith('returned_') %}
+                            {% set rr = s.replace('returned_','').replace('_',' ')|title %}
                             <span class="status-pill" style="background:#fff0e6;color:#ea580c;">Returned</span>
+                            {% if rr %}<div style="font-size:0.75em;color:#ea580c;margin-top:3px;">{{ rr }}</div>{% endif %}
+                            {% if u.return_note %}<div style="font-size:0.72em;color:var(--text-3);margin-top:2px;">{{ u.return_note }}</div>{% endif %}
                             {% else %}
                             <span class="status-pill">{{ s.replace('_',' ')|title or '—' }}</span>
                             {% endif %}

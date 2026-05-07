@@ -1637,10 +1637,13 @@ def admin_archived_workers():
         uc = get_cursor()
         uc.execute("""
             SELECT p.name AS product_name, ps.size, uu.status,
-                   uu.issued_at, uu.returned_at
+                   uu.issued_at, uu.returned_at, uu.return_note, uu.id AS uniform_id,
+                   ue.reason AS exchange_reason, ue.custom_reason AS exchange_custom_reason,
+                   ue.notes AS exchange_notes
             FROM user_uniforms uu
             JOIN product_sizes ps ON uu.product_size_id = ps.id
             JOIN products p ON ps.product_id = p.id
+            LEFT JOIN uniform_exchanges ue ON ue.uniform_id = uu.id
             WHERE uu.team_member_id = %s
             ORDER BY uu.issued_at DESC
         """, (w["id"],))
@@ -3385,13 +3388,17 @@ def worker_history(member_id):
         SELECT oc.id AS order_id, oc.created_at AS order_date, oc.status,
                p.name AS product_name, ps.size, oi.quantity,
                p.return_required,
-               uu.id AS item_id, uu.status AS uniform_status
+               uu.id AS item_id, uu.status AS uniform_status,
+               uu.return_note,
+               ue.reason AS exchange_reason, ue.custom_reason AS exchange_custom_reason,
+               ue.notes AS exchange_notes
         FROM order_items oi
         JOIN order_carts oc ON oi.cart_id = oc.id
         JOIN product_sizes ps ON oi.product_size_id = ps.id
         JOIN products p ON ps.product_id = p.id
         LEFT JOIN user_uniforms uu ON uu.product_size_id = oi.product_size_id
             AND uu.team_member_id = oi.team_member_id
+        LEFT JOIN uniform_exchanges ue ON ue.uniform_id = uu.id
         WHERE oi.team_member_id = %s
         ORDER BY oc.created_at DESC
     """, (member_id,))

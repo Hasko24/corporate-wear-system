@@ -101,9 +101,15 @@
                         {% if u.return_reason in ('stolen', 'lost') %}
                         <span class="status-pill" style="background:#fee2e2;color:#dc2626;">{{ u.return_reason|title }}</span>
                         {% elif u.return_reason == 'exchanged' or u.uniform_status == 'exchanged' %}
+                        {% set exr = u.exchange_custom_reason or u.exchange_reason or '' %}
                         <span class="status-pill" style="background:#e0f2fe;color:#0369a1;">Exchanged</span>
+                        {% if exr %}<div style="font-size:0.75em;color:#0369a1;margin-top:3px;">{{ exr.replace('_',' ')|title }}</div>{% endif %}
+                        {% if u.exchange_notes %}<div style="font-size:0.72em;color:var(--text-3);margin-top:2px;">{{ u.exchange_notes }}</div>{% endif %}
                         {% else %}
+                        {% set rr = u.return_reason.replace('_',' ')|title if u.return_reason else '' %}
                         <span class="status-pill" style="background:#fff0e6;color:#ea580c;border:1px solid #fdba8c;">Returned</span>
+                        {% if rr %}<div style="font-size:0.75em;color:#ea580c;margin-top:3px;">{{ rr }}</div>{% endif %}
+                        {% if u.return_note %}<div style="font-size:0.72em;color:var(--text-3);margin-top:2px;">{{ u.return_note }}</div>{% endif %}
                         {% endif %}
                     {% else %}
                         <span class="status-pill status-{{ u.status }}">{{ u.status|title }}</span>
