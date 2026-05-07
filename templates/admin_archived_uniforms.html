@@ -8,31 +8,17 @@
             <h1>Former Employee Uniforms</h1>
             <div class="header-sub">All uniform items issued to archived workers</div>
         </div>
-        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-ghost">← Admin</a>
-    </div>
-</div>
-
-{# Summary stats #}
-<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:16px;margin-bottom:24px;">
-    <div class="surface" style="text-align:center;padding:20px 16px;">
-        <div style="font-size:1.8em;font-weight:800;">{{ total }}</div>
-        <div style="font-size:0.8em;color:var(--text-3);margin-top:4px;">Total Items</div>
-    </div>
-    <div class="surface" style="text-align:center;padding:20px 16px;border-top:3px solid #22c55e;">
-        <div style="font-size:1.8em;font-weight:800;color:#16a34a;">{{ active_count }}</div>
-        <div style="font-size:0.8em;color:var(--text-3);margin-top:4px;">Still Active</div>
-    </div>
-    <div class="surface" style="text-align:center;padding:20px 16px;border-top:3px solid #f97316;">
-        <div style="font-size:1.8em;font-weight:800;color:#ea580c;">{{ returned_count }}</div>
-        <div style="font-size:0.8em;color:var(--text-3);margin-top:4px;">Returned</div>
-    </div>
-    <div class="surface" style="text-align:center;padding:20px 16px;border-top:3px solid #0ea5e9;">
-        <div style="font-size:1.8em;font-weight:800;color:#0369a1;">{{ exchanged_count }}</div>
-        <div style="font-size:0.8em;color:var(--text-3);margin-top:4px;">Exchanged</div>
-    </div>
-    <div class="surface" style="text-align:center;padding:20px 16px;border-top:3px solid #ef4444;">
-        <div style="font-size:1.8em;font-weight:800;color:#dc2626;">{{ lost_stolen_count }}</div>
-        <div style="font-size:0.8em;color:var(--text-3);margin-top:4px;">Lost / Stolen</div>
+        <div style="display:flex;gap:8px;">
+            <a href="{{ url_for('export_archived_uniforms_excel') }}" class="btn btn-ghost" style="display:inline-flex;align-items:center;gap:6px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Export Excel
+            </a>
+            <a href="{{ url_for('export_archived_uniforms_pdf') }}" class="btn btn-ghost" style="display:inline-flex;align-items:center;gap:6px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Download PDF
+            </a>
+            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-ghost">← Admin</a>
+        </div>
     </div>
 </div>
 

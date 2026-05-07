@@ -1590,6 +1590,131 @@ def delete_team_member(member_id):
     return redirect(url_for("view_team"))
 
 
+@app.route("/admin/archived-workers/export/excel")
+def export_archived_uniforms_excel():
+    if session.get("system_role") != "admin":
+        return redirect(url_for("shop"))
+    cursor = get_cursor()
+    cursor.execute("""
+        SELECT tm.full_name AS Worker, tm.employee_number AS 'Employee #',
+               f.name AS Facility, u.full_name AS Supervisor,
+               p.name AS Product, ps.size AS Size, uu.status AS Status,
+               COALESCE(ue.custom_reason, ue.reason, '') AS Reason,
+               ue.notes AS 'Exchange Notes', uu.return_note AS 'Return Note',
+               uu.issued_at AS Issued, uu.returned_at AS Returned,
+               tm.archived_at AS 'Archived Date'
+        FROM user_uniforms uu
+        JOIN team_members tm ON uu.team_member_id = tm.id
+        JOIN product_sizes ps ON uu.product_size_id = ps.id
+        JOIN products p ON ps.product_id = p.id
+        LEFT JOIN facilities f ON tm.facility_id = f.id
+        LEFT JOIN users u ON tm.supervisor_id = u.id
+        LEFT JOIN uniform_exchanges ue ON ue.uniform_id = uu.id
+        WHERE tm.is_archived = 1 AND tm.archived_at > DATE_SUB(NOW(), INTERVAL 6 MONTH)
+        ORDER BY tm.archived_at DESC, tm.full_name
+    """)
+    rows = cursor.fetchall()
+    import pandas as pd
+    df = pd.DataFrame([dict(r) for r in rows])
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Archived Uniforms")
+    output.seek(0)
+    return send_file(output, as_attachment=True, download_name="archived_uniforms.xlsx",
+                     mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+
+@app.route("/admin/archived-workers/export/pdf")
+def export_archived_uniforms_pdf():
+    if session.get("system_role") != "admin":
+        return redirect(url_for("shop"))
+    cursor = get_cursor()
+    cursor.execute("""
+        SELECT tm.full_name AS worker_name, tm.employee_number,
+               f.name AS facility_name, p.name AS product_name,
+               ps.size, uu.status, uu.issued_at, uu.returned_at,
+               uu.return_note, tm.archived_at,
+               ue.reason AS exchange_reason, ue.custom_reason AS exchange_custom_reason
+        FROM user_uniforms uu
+        JOIN team_members tm ON uu.team_member_id = tm.id
+        JOIN product_sizes ps ON uu.product_size_id = ps.id
+        JOIN products p ON ps.product_id = p.id
+        LEFT JOIN facilities f ON tm.facility_id = f.id
+        LEFT JOIN users u ON tm.supervisor_id = u.id
+        LEFT JOIN uniform_exchanges ue ON ue.uniform_id = uu.id
+        WHERE tm.is_archived = 1 AND tm.archived_at > DATE_SUB(NOW(), INTERVAL 6 MONTH)
+        ORDER BY tm.archived_at DESC, tm.full_name
+    """)
+    rows = cursor.fetchall()
+
+    from reportlab.lib.units import mm
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.platypus import Paragraph as RLP
+    from reportlab.lib.pagesizes import A4, landscape
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4),
+                            leftMargin=14*mm, rightMargin=14*mm,
+                            topMargin=14*mm, bottomMargin=14*mm)
+    styles = getSampleStyleSheet()
+    elements = []
+    elements.append(Paragraph("Former Employee Uniforms", styles["Title"]))
+    elements.append(Paragraph(f"Exported — {__import__('datetime').date.today().strftime('%d %b %Y')}", styles["Normal"]))
+    elements.append(Spacer(1, 12))
+
+    cell = ParagraphStyle('c', fontName='Helvetica', fontSize=7, leading=9)
+    cellb = ParagraphStyle('cb', fontName='Helvetica-Bold', fontSize=7, leading=9)
+
+    def P(text, bold=False):
+        return RLP(str(text) if text else '—', cellb if bold else cell)
+
+    headers = ["Worker", "Employee #", "Facility", "Product", "Size", "Status", "Reason", "Issued", "Returned", "Archived"]
+    usable = 267*mm
+    col_w = [0.14*usable, 0.08*usable, 0.08*usable, 0.20*usable, 0.05*usable,
+             0.08*usable, 0.12*usable, 0.08*usable, 0.08*usable, 0.09*usable]
+
+    table_data = [[P(h, bold=True) for h in headers]]
+    for r in rows:
+        s = r["status"] or ""
+        if s == "exchanged":
+            reason = (r["exchange_custom_reason"] or r["exchange_reason"] or "").replace("_", " ").title()
+        elif s.startswith("returned_"):
+            reason = s.replace("returned_", "").replace("_", " ").title()
+            if r["return_note"]:
+                reason += f" — {r['return_note']}"
+        else:
+            reason = s.replace("_", " ").title()
+
+        table_data.append([
+            P(r["worker_name"]),
+            P(r["employee_number"]),
+            P(r["facility_name"]),
+            P(r["product_name"]),
+            P(r["size"]),
+            P(s.replace("_", " ").title()),
+            P(reason),
+            P(r["issued_at"].strftime("%d %b %Y") if r["issued_at"] else "—"),
+            P(r["returned_at"].strftime("%d %b %Y") if r["returned_at"] else "—"),
+            P(r["archived_at"].strftime("%d %b %Y") if r["archived_at"] else "—"),
+        ])
+
+    t = Table(table_data, colWidths=col_w, repeatRows=1)
+    t.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#FFCC00")),
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.grey),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F9F9F9")]),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    elements.append(t)
+    doc.build(elements)
+    buffer.seek(0)
+    return send_file(buffer, as_attachment=True, download_name="archived_uniforms.pdf", mimetype="application/pdf")
+
+
 @app.route("/admin/archived-workers")
 def admin_archived_workers():
     if session.get("system_role") not in ("admin", "supervisor"):
