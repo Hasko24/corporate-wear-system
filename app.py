@@ -1599,7 +1599,8 @@ def export_archived_uniforms_excel():
         SELECT tm.full_name AS worker, tm.employee_number AS employee_number,
                f.name AS facility, u.full_name AS supervisor,
                p.name AS product, ps.size AS size, uu.status AS status,
-               COALESCE(ue.custom_reason, ue.reason, '') AS exchange_reason,
+               ue.custom_reason AS exchange_custom_reason,
+               ue.reason AS exchange_reason,
                ue.notes AS exchange_notes, uu.return_note AS return_note,
                uu.issued_at AS issued, uu.returned_at AS returned,
                tm.archived_at AS archived_date
@@ -1609,19 +1610,59 @@ def export_archived_uniforms_excel():
         JOIN products p ON ps.product_id = p.id
         LEFT JOIN facilities f ON tm.facility_id = f.id
         LEFT JOIN users u ON tm.supervisor_id = u.id
-        LEFT JOIN uniform_exchanges ue ON ue.uniform_id = uu.id
+        LEFT JOIN (
+            SELECT uniform_id, reason, custom_reason, notes
+            FROM uniform_exchanges
+            WHERE id IN (SELECT MAX(id) FROM uniform_exchanges GROUP BY uniform_id)
+        ) ue ON ue.uniform_id = uu.id
         WHERE tm.is_archived = 1 AND tm.archived_at > DATE_SUB(NOW(), INTERVAL 6 MONTH)
         ORDER BY tm.archived_at DESC, tm.full_name
     """)
     rows = cursor.fetchall()
+
     import pandas as pd
-    df = pd.DataFrame([dict(r) for r in rows])
-    df.columns = ["Worker", "Employee #", "Facility", "Supervisor", "Product", "Size",
-                  "Status", "Exchange Reason", "Exchange Notes", "Return Note",
-                  "Issued", "Returned", "Archived Date"]
+
+    def clean_status(r):
+        s = r["status"] or ""
+        ecr = r["exchange_custom_reason"] or r["exchange_reason"] or ""
+        rn = r["return_note"] or ""
+        if s == "active":
+            return "Active", ""
+        elif s == "exchanged":
+            return "Exchanged", ecr.replace("_", " ").title()
+        elif s in ("lost", "stolen"):
+            return s.title(), ""
+        elif s.startswith("returned_"):
+            reason = s.replace("returned_", "").replace("_", " ").title()
+            return "Returned", f"{reason} — {rn}" if rn else reason
+        return s.replace("_", " ").title(), ""
+
+    data = []
+    for r in rows:
+        status_label, reason_label = clean_status(r)
+        data.append({
+            "Worker": r["worker"],
+            "Employee #": r["employee_number"],
+            "Facility": r["facility"] or "—",
+            "Supervisor": r["supervisor"] or "—",
+            "Product": r["product"],
+            "Size": r["size"],
+            "Status": status_label,
+            "Reason": reason_label or "—",
+            "Notes": r["exchange_notes"] or r["return_note"] or "—",
+            "Issued": r["issued"].strftime("%d %b %Y") if r["issued"] else "—",
+            "Returned": r["returned"].strftime("%d %b %Y") if r["returned"] else "—",
+            "Archived": r["archived_date"].strftime("%d %b %Y") if r["archived_date"] else "—",
+        })
+
+    df = pd.DataFrame(data)
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="Archived Uniforms")
+        ws = writer.sheets["Archived Uniforms"]
+        for col in ws.columns:
+            max_len = max(len(str(cell.value or "")) for cell in col) + 4
+            ws.column_dimensions[col[0].column_letter].width = min(max_len, 40)
     output.seek(0)
     return send_file(output, as_attachment=True, download_name="archived_uniforms.xlsx",
                      mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
