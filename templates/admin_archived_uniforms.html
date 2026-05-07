@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header-band">
+    <div class="header-row">
+        <div>
+            <span class="page-breadcrumb"><a href="{{ url_for('admin_dashboard') }}">Admin</a> › Former Employees — Uniforms</span>
+            <h1>Former Employee Uniforms</h1>
+            <div class="header-sub">All uniform items issued to archived workers</div>
+        </div>
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-ghost">← Admin</a>
+    </div>
+</div>
+
+{# Summary stats #}
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:16px;margin-bottom:24px;">
+    <div class="surface" style="text-align:center;padding:20px 16px;">
+        <div style="font-size:1.8em;font-weight:800;">{{ total }}</div>
+        <div style="font-size:0.8em;color:var(--text-3);margin-top:4px;">Total Items</div>
+    </div>
+    <div class="surface" style="text-align:center;padding:20px 16px;border-top:3px solid #22c55e;">
+        <div style="font-size:1.8em;font-weight:800;color:#16a34a;">{{ active_count }}</div>
+        <div style="font-size:0.8em;color:var(--text-3);margin-top:4px;">Still Active</div>
+    </div>
+    <div class="surface" style="text-align:center;padding:20px 16px;border-top:3px solid #f97316;">
+        <div style="font-size:1.8em;font-weight:800;color:#ea580c;">{{ returned_count }}</div>
+        <div style="font-size:0.8em;color:var(--text-3);margin-top:4px;">Returned</div>
+    </div>
+    <div class="surface" style="text-align:center;padding:20px 16px;border-top:3px solid #0ea5e9;">
+        <div style="font-size:1.8em;font-weight:800;color:#0369a1;">{{ exchanged_count }}</div>
+        <div style="font-size:0.8em;color:var(--text-3);margin-top:4px;">Exchanged</div>
+    </div>
+    <div class="surface" style="text-align:center;padding:20px 16px;border-top:3px solid #ef4444;">
+        <div style="font-size:1.8em;font-weight:800;color:#dc2626;">{{ lost_stolen_count }}</div>
+        <div style="font-size:0.8em;color:var(--text-3);margin-top:4px;">Lost / Stolen</div>
+    </div>
+</div>
+
+{# Filters #}
+<div class="surface" style="margin-bottom:20px;">
+    <form method="GET" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;">
+        <div class="form-group" style="margin:0;flex:1;min-width:140px;">
+            <label style="font-size:0.8em;">Search worker</label>
+            <input type="text" name="search" value="{{ search or '' }}" placeholder="Name or employee #">
+        </div>
+        <div class="form-group" style="margin:0;flex:1;min-width:140px;">
+            <label style="font-size:0.8em;">Search product</label>
+            <input type="text" name="product" value="{{ product_search or '' }}" placeholder="e.g. T-shirt, Jacket…">
+        </div>
+        <div class="form-group" style="margin:0;min-width:140px;">
+            <label style="font-size:0.8em;">Status / Reason</label>
+            <select name="reason">
+                <option value="">All statuses</option>
+                <option value="active" {% if reason_filter=='active' %}selected{% endif %}>Still Active</option>
+                <option value="worn_out" {% if reason_filter=='worn_out' %}selected{% endif %}>Returned — Worn Out</option>
+                <option value="damage" {% if reason_filter=='damage' %}selected{% endif %}>Returned — Damage</option>
+                <option value="wrong_size" {% if reason_filter=='wrong_size' %}selected{% endif %}>Returned — Wrong Size</option>
+                <option value="exchanged" {% if reason_filter=='exchanged' %}selected{% endif %}>Exchanged</option>
+                <option value="lost" {% if reason_filter=='lost' %}selected{% endif %}>Lost</option>
+                <option value="stolen" {% if reason_filter=='stolen' %}selected{% endif %}>Stolen</option>
+            </select>
+        </div>
+        <div class="form-group" style="margin:0;min-width:140px;">
+            <label style="font-size:0.8em;">Supervisor</label>
+            <select name="supervisor_id">
+                <option value="">All supervisors</option>
+                {% for s in supervisors %}
+                <option value="{{ s.id }}" {% if supervisor_filter and supervisor_filter|int == s.id %}selected{% endif %}>{{ s.full_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="margin:0;min-width:120px;">
+            <label style="font-size:0.8em;">Facility</label>
+            <select name="facility_id">
+                <option value="">All facilities</option>
+                {% for f in facilities %}
+                <option value="{{ f.id }}" {% if facility_filter and facility_filter|int == f.id %}selected{% endif %}>{{ f.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+            <label style="font-size:0.8em;">Archived from</label>
+            <input type="date" name="date_from" value="{{ date_from or '' }}">
+        </div>
+        <div class="form-group" style="margin:0;">
+            <label style="font-size:0.8em;">Archived to</label>
+            <input type="date" name="date_to" value="{{ date_to or '' }}">
+        </div>
+        <button type="submit" class="btn btn-primary">Filter</button>
+        {% if search or product_search or reason_filter or supervisor_filter or facility_filter or date_from or date_to %}
+        <a href="{{ url_for('admin_archived_workers') }}" class="btn btn-ghost">Clear</a>
+        {% endif %}
+    </form>
+</div>
+
+{# Main table #}
+{% if uniforms %}
+<div class="data-table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Worker</th>
+                <th>Employee #</th>
+                <th>Facility</th>
+                <th>Supervisor</th>
+                <th>Product</th>
+                <th>Size</th>
+                <th>Status</th>
+                <th>Reason / Note</th>
+                <th>Issued</th>
+                <th>Returned</th>
+                <th>Archived</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for u in uniforms %}
+            <tr>
+                <td style="font-weight:600;">{{ u.worker_name }}</td>
+                <td class="text-muted">{{ u.employee_number or '—' }}</td>
+                <td class="text-muted">{{ u.facility_name or '—' }}</td>
+                <td class="text-muted">{{ u.supervisor_name or '—' }}</td>
+                <td style="font-weight:600;">{{ u.product_name }}</td>
+                <td>{{ u.size }}</td>
+                <td>
+                    {% set s = u.status or '' %}
+                    {% if s == 'active' %}
+                    <span class="status-pill status-completed">Active</span>
+                    {% elif s == 'exchanged' %}
+                    <span class="status-pill" style="background:#e0f2fe;color:#0369a1;">Exchanged</span>
+                    {% elif s in ('lost','stolen','returned_lost','returned_stolen') %}
+                    <span class="status-pill" style="background:#fee2e2;color:#dc2626;">{{ s.replace('returned_','').replace('_',' ')|title }}</span>
+                    {% elif s.startswith('returned_') %}
+                    <span class="status-pill" style="background:#fff0e6;color:#ea580c;">Returned</span>
+                    {% else %}
+                    <span class="status-pill">{{ s.replace('_',' ')|title or '—' }}</span>
+                    {% endif %}
+                </td>
+                <td style="font-size:0.83em;color:var(--text-2);">
+                    {% if s == 'exchanged' %}
+                        {{ (u.exchange_custom_reason or u.exchange_reason or '')|replace('_',' ')|title or '—' }}
+                        {% if u.exchange_notes %}<div style="color:var(--text-3);font-size:0.9em;">{{ u.exchange_notes }}</div>{% endif %}
+                    {% elif s.startswith('returned_') %}
+                        {{ s.replace('returned_','').replace('_',' ')|title }}
+                        {% if u.return_note %}<div style="color:var(--text-3);font-size:0.9em;">{{ u.return_note }}</div>{% endif %}
+                    {% else %}—{% endif %}
+                </td>
+                <td class="text-muted">{{ u.issued_at.strftime('%d %b %Y') if u.issued_at else '—' }}</td>
+                <td class="text-muted">{{ u.returned_at.strftime('%d %b %Y') if u.returned_at else '—' }}</td>
+                <td class="text-muted">{{ u.archived_at.strftime('%d %b %Y') if u.archived_at else '—' }}</td>
+                <td>
+                    {% if s == 'active' %}
+                    <a href="{{ url_for('worker_history', member_id=u.member_id) }}" class="btn btn-ghost btn-sm">Return / Exchange</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="surface" style="text-align:center;padding:60px 40px;color:var(--text-3);">
+    <p style="font-size:1.1em;font-weight:600;color:var(--text-2);margin:0 0 6px;">No results found.</p>
+    <p style="margin:0;">Try adjusting your filters or clearing the search.</p>
+</div>
+{% endif %}
+
+{% endblock %}

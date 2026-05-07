@@ -1600,17 +1600,55 @@ def admin_archived_workers():
     date_from = request.args.get("date_from") or None
     date_to = request.args.get("date_to") or None
     search = request.args.get("search", "").strip()
+    product_search = request.args.get("product", "").strip()
+    reason_filter = request.args.get("reason", "").strip()
+    facility_filter = request.args.get("facility_id") or None
 
+    # Supervisor view — keep existing worker-card approach
+    if session.get("system_role") == "supervisor":
+        params = []
+        conditions = ["tm.is_archived = 1", "tm.archived_at > DATE_SUB(NOW(), INTERVAL 6 MONTH)",
+                      "tm.supervisor_id = %s"]
+        params.append(session["user_id"])
+        if search:
+            conditions.append("(tm.full_name LIKE %s OR tm.employee_number LIKE %s)")
+            params += [f"%{search}%", f"%{search}%"]
+        where = " AND ".join(conditions)
+        cursor.execute(f"""
+            SELECT tm.*, u.full_name AS supervisor_name, jr.name AS role_name
+            FROM team_members tm
+            LEFT JOIN users u ON tm.supervisor_id = u.id
+            LEFT JOIN job_roles jr ON tm.job_role_id = jr.id
+            WHERE {where} ORDER BY tm.archived_at DESC
+        """, params)
+        workers = cursor.fetchall()
+        for w in workers:
+            uc = get_cursor()
+            uc.execute("""
+                SELECT p.name AS product_name, ps.size, uu.status,
+                       uu.issued_at, uu.returned_at, uu.return_note, uu.id AS uniform_id,
+                       ue.reason AS exchange_reason, ue.custom_reason AS exchange_custom_reason,
+                       ue.notes AS exchange_notes
+                FROM user_uniforms uu
+                JOIN product_sizes ps ON uu.product_size_id = ps.id
+                JOIN products p ON ps.product_id = p.id
+                LEFT JOIN uniform_exchanges ue ON ue.uniform_id = uu.id
+                WHERE uu.team_member_id = %s ORDER BY uu.issued_at DESC
+            """, (w["id"],))
+            w["uniforms"] = uc.fetchall()
+        return render_template("admin_archived_workers.html", workers=workers, supervisors=[],
+                               supervisor_filter=None, date_from=date_from, date_to=date_to, search=search)
+
+    # Admin view — flat uniform-centric table
     params = []
     conditions = ["tm.is_archived = 1", "tm.archived_at > DATE_SUB(NOW(), INTERVAL 6 MONTH)"]
 
-    if session.get("system_role") == "supervisor":
-        conditions.append("tm.supervisor_id = %s")
-        params.append(session["user_id"])
-    elif supervisor_filter:
+    if supervisor_filter:
         conditions.append("tm.supervisor_id = %s")
         params.append(supervisor_filter)
-
+    if facility_filter:
+        conditions.append("tm.facility_id = %s")
+        params.append(facility_filter)
     if date_from:
         conditions.append("tm.archived_at >= %s")
         params.append(date_from)
@@ -1620,43 +1658,61 @@ def admin_archived_workers():
     if search:
         conditions.append("(tm.full_name LIKE %s OR tm.employee_number LIKE %s)")
         params += [f"%{search}%", f"%{search}%"]
+    if product_search:
+        conditions.append("p.name LIKE %s")
+        params.append(f"%{product_search}%")
+    if reason_filter:
+        if reason_filter == "active":
+            conditions.append("uu.status = 'active'")
+        elif reason_filter == "exchanged":
+            conditions.append("uu.status = 'exchanged'")
+        elif reason_filter == "lost":
+            conditions.append("(uu.status = 'lost' OR uu.status = 'returned_lost')")
+        elif reason_filter == "stolen":
+            conditions.append("(uu.status = 'stolen' OR uu.status = 'returned_stolen')")
+        else:
+            conditions.append("uu.status LIKE %s")
+            params.append(f"returned_{reason_filter}%")
 
     where = " AND ".join(conditions)
     cursor.execute(f"""
-        SELECT tm.*, u.full_name AS supervisor_name, jr.name AS role_name
-        FROM team_members tm
+        SELECT tm.full_name AS worker_name, tm.employee_number, tm.archived_at,
+               f.name AS facility_name, u.full_name AS supervisor_name,
+               p.name AS product_name, ps.size, uu.status, uu.issued_at, uu.returned_at,
+               uu.return_note, uu.id AS uniform_id, tm.id AS member_id,
+               ue.reason AS exchange_reason, ue.custom_reason AS exchange_custom_reason,
+               ue.notes AS exchange_notes
+        FROM user_uniforms uu
+        JOIN team_members tm ON uu.team_member_id = tm.id
+        JOIN product_sizes ps ON uu.product_size_id = ps.id
+        JOIN products p ON ps.product_id = p.id
+        LEFT JOIN facilities f ON tm.facility_id = f.id
         LEFT JOIN users u ON tm.supervisor_id = u.id
-        LEFT JOIN job_roles jr ON tm.job_role_id = jr.id
+        LEFT JOIN uniform_exchanges ue ON ue.uniform_id = uu.id
         WHERE {where}
-        ORDER BY tm.archived_at DESC
+        ORDER BY tm.archived_at DESC, tm.full_name, uu.issued_at DESC
     """, params)
-    workers = cursor.fetchall()
+    uniforms = cursor.fetchall()
 
-    # Load uniforms for each archived worker
-    for w in workers:
-        uc = get_cursor()
-        uc.execute("""
-            SELECT p.name AS product_name, ps.size, uu.status,
-                   uu.issued_at, uu.returned_at, uu.return_note, uu.id AS uniform_id,
-                   ue.reason AS exchange_reason, ue.custom_reason AS exchange_custom_reason,
-                   ue.notes AS exchange_notes
-            FROM user_uniforms uu
-            JOIN product_sizes ps ON uu.product_size_id = ps.id
-            JOIN products p ON ps.product_id = p.id
-            LEFT JOIN uniform_exchanges ue ON ue.uniform_id = uu.id
-            WHERE uu.team_member_id = %s
-            ORDER BY uu.issued_at DESC
-        """, (w["id"],))
-        w["uniforms"] = uc.fetchall()
+    # Summary stats
+    total = len(uniforms)
+    active_count = sum(1 for u in uniforms if (u["status"] or "") == "active")
+    returned_count = sum(1 for u in uniforms if (u["status"] or "").startswith("returned_"))
+    exchanged_count = sum(1 for u in uniforms if (u["status"] or "") == "exchanged")
+    lost_stolen_count = sum(1 for u in uniforms if (u["status"] or "") in ("lost", "stolen", "returned_lost", "returned_stolen"))
 
-    # For the supervisor filter dropdown (admin only)
-    supervisors = []
-    if session.get("system_role") == "admin":
-        cursor.execute("SELECT id, full_name FROM users WHERE system_role='supervisor' ORDER BY full_name")
-        supervisors = cursor.fetchall()
+    cursor.execute("SELECT id, full_name FROM users WHERE system_role='supervisor' ORDER BY full_name")
+    supervisors = cursor.fetchall()
+    cursor.execute("SELECT id, name FROM facilities ORDER BY name")
+    facilities = cursor.fetchall()
 
-    return render_template("admin_archived_workers.html", workers=workers, supervisors=supervisors,
-                           supervisor_filter=supervisor_filter, date_from=date_from, date_to=date_to, search=search)
+    return render_template("admin_archived_uniforms.html",
+                           uniforms=uniforms, supervisors=supervisors, facilities=facilities,
+                           supervisor_filter=supervisor_filter, facility_filter=facility_filter,
+                           date_from=date_from, date_to=date_to, search=search,
+                           product_search=product_search, reason_filter=reason_filter,
+                           total=total, active_count=active_count, returned_count=returned_count,
+                           exchanged_count=exchanged_count, lost_stolen_count=lost_stolen_count)
 
 
 @app.route("/team/<int:member_id>/sizes", methods=["GET", "POST"])
