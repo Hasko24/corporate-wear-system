@@ -123,6 +123,7 @@
             <span class="text-muted" style="font-size:0.82em;">No uniforms</span>
             {% endif %}
             <a href="{{ url_for('worker_history_pdf', member_id=w.id) }}" class="btn btn-ghost btn-sm" onclick="event.stopPropagation();">Download PDF</a>
+            <a href="{{ url_for('worker_history_excel', member_id=w.id) }}" class="btn btn-ghost btn-sm" onclick="event.stopPropagation();">Download Excel</a>
             <span class="chevron">▼</span>
         </div>
     </div>
