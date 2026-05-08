@@ -50,10 +50,7 @@
             <h1>{{ member.full_name }}</h1>
             <div class="header-sub">Employee #{{ member.employee_number }} — Uniform order history</div>
         </div>
-        <div style="display:flex;gap:8px;">
-            <a href="{{ url_for('worker_history_excel', member_id=member.id) }}" class="btn btn-ghost" style="display:inline-flex;align-items:center;gap:6px;">Download Excel</a>
-            <a href="{{ url_for('worker_history_pdf', member_id=member.id) }}" class="btn btn-ghost" style="display:inline-flex;align-items:center;gap:6px;">Download PDF</a>
-        </div>
+        <a href="{{ url_for('worker_history_pdf', member_id=member.id) }}" class="btn btn-ghost" style="display:inline-flex;align-items:center;gap:6px;">Download PDF</a>
     </div>
 </div>
 
